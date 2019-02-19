@@ -187,10 +187,11 @@ def print_results(label, sd):
     print(f"{label}: {sd['action']} {sd['realAmount']} {sd['tokenSymbol']} for {sd['ethAmount']} ETH on {sd['exchange']} price={sd['price']} fee={sd['fee']}")
 
 
-
-
     
 ##############################################################################################
+#
+# Main program
+#
 
 DEBUG = False
 
