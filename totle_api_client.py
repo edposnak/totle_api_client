@@ -21,8 +21,8 @@ ETH_ADDRESS = "0x0000000000000000000000000000000000000000"
 
 def addr(token):
     """Returns the string address that identifies the token"""
-    # convert 'ETH' and 'WETH' to addr 0x000... in anticipation of fix to swap
-    return ETH_ADDRESS if token in ['ETH', 'WETH'] else tokens[token]
+    # convert 'ETH' to addr 0x000... in anticipation of fix to swap
+    return ETH_ADDRESS if token == 'ETH' else tokens[token]
 
 def int_amount(float_amount, token):
     """Returns the integer amount of token units for the given float_amount and token"""
@@ -121,13 +121,14 @@ def call_swap(from_token, to_token, exchange=None, debug=None):
 
     from_token_addr = addr(from_token)
     to_token_addr = addr(to_token)
+    trade_size = 1.0 # the amount of ETH to spend or acquire, used to calculate amount
 
     if from_token_addr == ETH_ADDRESS and to_token_addr == ETH_ADDRESS:
         raise Exception('from_token and to_token cannot both be ETH')
 
     if from_token_addr != ETH_ADDRESS and to_token_addr != ETH_ADDRESS:
         swap_endpoint = 'https://services.totlesystem.com/swap'
-        real_amount_to_sell = 1.0 / best_bid_price(from_token)
+        real_amount_to_sell = trade_size / best_bid_price(from_token)
         amount_to_sell = int_amount(real_amount_to_sell, from_token)
         if debug: print(f"selling {real_amount_to_sell} {from_token} tokens ({amount_to_sell} units)")
         swap_inputs = {
@@ -142,7 +143,7 @@ def call_swap(from_token, to_token, exchange=None, debug=None):
         swap_endpoint = 'https://services.totlesystem.com/rebalance'
 
         if from_token_addr == ETH_ADDRESS and to_token_addr != ETH_ADDRESS:
-            real_amount_to_buy = 1.0 / best_ask_price(to_token)
+            real_amount_to_buy = trade_size / best_ask_price(to_token)
             amount_to_buy = int_amount(real_amount_to_buy, to_token)
             if debug: print(f"buying {real_amount_to_buy} {to_token} tokens ({amount_to_buy} units)")
             swap_inputs = {
@@ -153,7 +154,7 @@ def call_swap(from_token, to_token, exchange=None, debug=None):
             }
 
         else: # from_token_addr != ETH_ADDRESS and to_token_addr == ETH_ADDRESS
-            real_amount_to_sell = 1.0 / best_bid_price(from_token)
+            real_amount_to_sell = trade_size / best_bid_price(from_token)
             amount_to_sell = int_amount(real_amount_to_sell, from_token)
             if debug: print(f"selling {real_amount_to_sell} {from_token} tokens ({amount_to_sell} units)")
             swap_inputs = {
@@ -186,8 +187,16 @@ def print_results(label, sd):
     # can be run on 
     print(f"{label}: {sd['action']} {sd['realAmount']} {sd['tokenSymbol']} for {sd['ethAmount']} ETH on {sd['exchange']} price={sd['price']} fee={sd['fee']}")
 
+def print_price_comparisons(swap_prices, token):
+    if len(swap_prices) > 1: # there is data to compare
+        for k in swap_prices:
+            if k != 'Totle':
+                totle_discount = 100 - (100.0 * (swap_prices['Totle'] / swap_prices[k]))
+                print(f"Totle saved {totle_discount:.2f} percent vs {k} buying {token}")
+    else:
+        print(f"No {token} prices for comparison were found on other DEXs")
 
-    
+
 ##############################################################################################
 #
 # Main program
@@ -201,7 +210,7 @@ TOKENS_TO_BUY = [ 'BNB', 'DAI', 'MKR', 'OMG', 'BAT', 'REP', 'ZRX', 'AE', 'ZIL', 
 from_token = 'ETH'
 
 for to_token in TOKENS_TO_BUY:
-    print(f"\n\n----------------------------------------\n{to_token}")
+    print(f"\n----------------------------------------\n{to_token}")
     if to_token not in tokens:
         print(f"'{to_token}' is not a listed token or is not tradable")
         continue
@@ -212,7 +221,7 @@ for to_token in TOKENS_TO_BUY:
     if DEBUG: print(pp(totle_sd))
     if totle_sd:
         print_results('Totle', totle_sd)
-        price_comparisons = {'Totle': totle_sd['price']}
+        swap_prices = {'Totle': totle_sd['price']}
         
         # Compare to best prices from other DEXs 
         for dex in best_prices(totle_sd['tokenSymbol']):
@@ -220,9 +229,10 @@ for to_token in TOKENS_TO_BUY:
                 dex_sd = call_swap(from_token, to_token, dex, debug=DEBUG)
                 if dex_sd:
                     print_results(dex, dex_sd)
-                    price_comparisons[dex] = dex_sd['price']
+                    swap_prices[dex] = dex_sd['price']
                 else:
                     print(f"{dex}: Suggester returned no orders for {from_token}->{to_token}")
+        print_price_comparisons(swap_prices, to_token)
 
     else:
         print(f"Totle: Suggester returned no orders for {from_token}->{to_token}")
