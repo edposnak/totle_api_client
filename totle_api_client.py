@@ -115,20 +115,32 @@ def swap_data(response):
         "fee": bsd['fee']
     }
 
+WALLET_ADDRESS = "0xD18CEC4907b50f4eDa4a197a50b619741E921B4D"
+TRADE_SIZE = 0.01 # the amount of ETH to spend or acquire, used to calculate amount
+MIN_FILL_PERCENT = 50
+MIN_SLIPPAGE_PERCENT = 50
+
 def call_swap(from_token, to_token, exchange=None, debug=None):
     """Calls the swap API endpoint with the given token pair and whitelisting exchange if given. Returns the result as a swap_data dict """
     # the swap_data dict is defined by the return statement in swap_data method above
 
+    base_inputs = {
+        "address": WALLET_ADDRESS,
+        "minSlippagePercent": MIN_SLIPPAGE_PERCENT,
+        "minFillPercent": MIN_FILL_PERCENT
+    }
+    if exchange: # whitelist the given exchange:
+        base_inputs["exchanges"] = { "list": [ exchanges[exchange] ], "type": "white" } 
+
     from_token_addr = addr(from_token)
     to_token_addr = addr(to_token)
-    trade_size = 1.0 # the amount of ETH to spend or acquire, used to calculate amount
 
     if from_token_addr == ETH_ADDRESS and to_token_addr == ETH_ADDRESS:
         raise Exception('from_token and to_token cannot both be ETH')
 
     if from_token_addr != ETH_ADDRESS and to_token_addr != ETH_ADDRESS:
         swap_endpoint = 'https://services.totlesystem.com/swap'
-        real_amount_to_sell = trade_size / best_bid_price(from_token)
+        real_amount_to_sell = TRADE_SIZE / best_bid_price(from_token)
         amount_to_sell = int_amount(real_amount_to_sell, from_token)
         if debug: print(f"selling {real_amount_to_sell} {from_token} tokens ({amount_to_sell} units)")
         swap_inputs = {
@@ -143,7 +155,7 @@ def call_swap(from_token, to_token, exchange=None, debug=None):
         swap_endpoint = 'https://services.totlesystem.com/rebalance'
 
         if from_token_addr == ETH_ADDRESS and to_token_addr != ETH_ADDRESS:
-            real_amount_to_buy = trade_size / best_ask_price(to_token)
+            real_amount_to_buy = TRADE_SIZE / best_ask_price(to_token)
             amount_to_buy = int_amount(real_amount_to_buy, to_token)
             if debug: print(f"buying {real_amount_to_buy} {to_token} tokens ({amount_to_buy} units)")
             swap_inputs = {
@@ -154,7 +166,7 @@ def call_swap(from_token, to_token, exchange=None, debug=None):
             }
 
         else: # from_token_addr != ETH_ADDRESS and to_token_addr == ETH_ADDRESS
-            real_amount_to_sell = trade_size / best_bid_price(from_token)
+            real_amount_to_sell = TRADE_SIZE / best_bid_price(from_token)
             amount_to_sell = int_amount(real_amount_to_sell, from_token)
             if debug: print(f"selling {real_amount_to_sell} {from_token} tokens ({amount_to_sell} units)")
             swap_inputs = {
@@ -163,17 +175,10 @@ def call_swap(from_token, to_token, exchange=None, debug=None):
                     "amount": amount_to_sell
                 } ],
             }
-            
-    wallet_addr = { "address": "0xD18CEC4907b50f4eDa4a197a50b619741E921B4D" }
-    swap_inputs = {**swap_inputs, **wallet_addr}
-    
-    if exchange: # whitelist the given exchange
-        exchange_wl = { "exchanges": { "list": [ exchanges[exchange] ], "type": "white" } }
-        swap_inputs = {**swap_inputs, **exchange_wl}
-        
-    swap_inputs = pp(swap_inputs)
-    if debug: print(f"REQUEST to {swap_endpoint}:\n{swap_inputs}\n\n")
 
+
+    swap_inputs = pp({**swap_inputs, **base_inputs})
+    if debug: print(f"REQUEST to {swap_endpoint}:\n{swap_inputs}\n\n")
     r = requests.post(swap_endpoint, data=swap_inputs).json()
 
     if r['success']:
