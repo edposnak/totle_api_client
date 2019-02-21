@@ -129,8 +129,8 @@ def swap_data(response):
 # Default parameters for swap. These can be overridden by passing params
 DEFAULT_WALLET_ADDRESS = "0xD18CEC4907b50f4eDa4a197a50b619741E921B4D"
 DEFAULT_TRADE_SIZE = 1.0 # the amount of ETH to spend or acquire, used to calculate amount
-DEFAULT_MIN_FILL_PERCENT = 80
 DEFAULT_MIN_SLIPPAGE_PERCENT = 10
+DEFAULT_MIN_FILL_PERCENT = 80
 
 def call_swap(from_token, to_token, exchange=None, params=None, debug=None):
     """Calls the swap API endpoint with the given token pair and whitelisting exchange if given. Returns the result as a swap_data dict """
@@ -250,13 +250,13 @@ def compare_prices(from_token, to_token, params=None, debug=False):
                     except Exception as e:
                         print(f"{dex}: swap raised {e}")
 
+            print_price_comparisons(swap_prices, to_token)
         else:
             print(f"Totle: Suggester returned no orders for {from_token}->{to_token}")
 
     except Exception as e:
         print(f"{'Totle'}: swap raised {e}")
 
-    return swap_prices
 
 ##############################################################################################
 #
@@ -278,8 +278,10 @@ output_filename = f"outputs/{d.year}-{d.month:02d}-{d.day:02d}_{d.hour:02d}-{d.m
 print(f"sending output to {output_filename} ...")
 sys.stdout = open(output_filename, 'w')
 
+print(d, params)
+
 TOKENS_TO_BUY = all_liquid_tokens()
-# TOKENS_TO_BUY = [ 'BNB', 'DAI', 'MKR', 'OMG', 'BAT', 'REP', 'ZRX', 'AE', 'ZIL', 'SNT', 'LINK' ]
+# TOKENS_TO_BUY = [ 'BNB', 'DAI', 'MKR', 'OMG', 'BAT', 'REP', 'ZRX', 'AE', 'ZIL', 'SNT', 'LINK', 'DNT', 'SALT', 'CVC', 'MANA', 'RDN', 'REQ', 'GNO', 'RLC', 'ANT', 'FUN', 'KNC', 'RHOC', 'WAX', 'POWR', 'POE', 'DRT', 'STORJ' ]
 
 # For now, all price comparisons are done by buying the ERC20 token with ETH (i.e. from_token == 'ETH')
 from_token = 'ETH'
@@ -290,5 +292,4 @@ for to_token in TOKENS_TO_BUY:
         print(f"'{to_token}' is not a listed token or is not tradable")
         continue
     show_prices(from_token, to_token)
-    swap_prices = compare_prices(from_token, to_token, params=params, debug=False)
-    print_price_comparisons(swap_prices, to_token)
+    compare_prices(from_token, to_token, params=params, debug=False)
