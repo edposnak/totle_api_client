@@ -1,6 +1,9 @@
+import sys
 import http.client
 import json
 import requests
+import argparse
+import datetime
 
 ##############################################################################################
 #
@@ -40,7 +43,7 @@ all_prices = requests.get('https://services.totlesystem.com/tokens/prices').json
 # with lower prices than the ask price
 def price(token, exchange):
     """Returns lowest ask price in ETH for the given token on the given exchange"""
-    return all_prices[tokens[token]][str(exchanges[exchange])]['ask']
+    return float(all_prices[tokens[token]][str(exchanges[exchange])]['ask'])
 
 def best_ask_price(token):
     """Returns lowest ask price in ETH for the given token across all exchanges"""
@@ -55,7 +58,7 @@ def best_bid_price(token):
 def best_prices(token, bidask='ask'):
     """Returns lowest ask or highest bid prices in ETH for all exchanges"""
     token_prices = all_prices[tokens[token]]
-    return { exchange_by_id[int(i)]: token_prices[i][bidask] for i in token_prices }
+    return { exchange_by_id[int(i)]: float(token_prices[i][bidask]) for i in token_prices }
 
 def show_prices(from_token, to_token):
     if from_token == 'ETH':
@@ -74,6 +77,14 @@ def wei_to_eth(wei_amount):
 def pp(data):
     return json.dumps(data, indent=3)
 
+def all_liquid_tokens(min_exchanges=2):
+    """returns all the tokens for which price data exists on at least min_exchanges DEXs"""
+    if min_exchanges > len(exchanges):
+        raise Exception(f"min_exchanges set to {min_exchanges}, but there are only {len(exchanges)} possible")
+
+    taddrs = [ ta for ta in all_prices if ta in token_symbols ]
+
+    return [ token_symbols[taddr] for taddr in taddrs if len(all_prices[taddr]) > min_exchanges ] 
 
 ##############################################################################################
 #
@@ -115,20 +126,28 @@ def swap_data(response):
         "fee": bsd['fee']
     }
 
-WALLET_ADDRESS = "0xD18CEC4907b50f4eDa4a197a50b619741E921B4D"
-TRADE_SIZE = 0.01 # the amount of ETH to spend or acquire, used to calculate amount
-MIN_FILL_PERCENT = 50
-MIN_SLIPPAGE_PERCENT = 50
+# Default parameters for swap. These can be overridden by passing params
+DEFAULT_WALLET_ADDRESS = "0xD18CEC4907b50f4eDa4a197a50b619741E921B4D"
+DEFAULT_TRADE_SIZE = 1.0 # the amount of ETH to spend or acquire, used to calculate amount
+DEFAULT_MIN_FILL_PERCENT = 80
+DEFAULT_MIN_SLIPPAGE_PERCENT = 10
 
-def call_swap(from_token, to_token, exchange=None, debug=None):
+def call_swap(from_token, to_token, exchange=None, params=None, debug=None):
     """Calls the swap API endpoint with the given token pair and whitelisting exchange if given. Returns the result as a swap_data dict """
     # the swap_data dict is defined by the return statement in swap_data method above
 
+    # trade_size is not an endpoint input so we extract it from params (after making a local copy)
+    params = dict(params)
+    trade_size = params.pop('tradeSize') if params and 'tradeSize' in params else DEFAULT_TRADE_SIZE
+
     base_inputs = {
-        "address": WALLET_ADDRESS,
-        "minSlippagePercent": MIN_SLIPPAGE_PERCENT,
-        "minFillPercent": MIN_FILL_PERCENT
+        "address": DEFAULT_WALLET_ADDRESS,
+        "minSlippagePercent": DEFAULT_MIN_SLIPPAGE_PERCENT,
+        "minFillPercent": DEFAULT_MIN_FILL_PERCENT
     }
+    if params:
+        base_inputs = {**base_inputs, **params}
+
     if exchange: # whitelist the given exchange:
         base_inputs["exchanges"] = { "list": [ exchanges[exchange] ], "type": "white" } 
 
@@ -140,7 +159,7 @@ def call_swap(from_token, to_token, exchange=None, debug=None):
 
     if from_token_addr != ETH_ADDRESS and to_token_addr != ETH_ADDRESS:
         swap_endpoint = 'https://services.totlesystem.com/swap'
-        real_amount_to_sell = TRADE_SIZE / best_bid_price(from_token)
+        real_amount_to_sell = trade_size / best_bid_price(from_token)
         amount_to_sell = int_amount(real_amount_to_sell, from_token)
         if debug: print(f"selling {real_amount_to_sell} {from_token} tokens ({amount_to_sell} units)")
         swap_inputs = {
@@ -155,7 +174,7 @@ def call_swap(from_token, to_token, exchange=None, debug=None):
         swap_endpoint = 'https://services.totlesystem.com/rebalance'
 
         if from_token_addr == ETH_ADDRESS and to_token_addr != ETH_ADDRESS:
-            real_amount_to_buy = TRADE_SIZE / best_ask_price(to_token)
+            real_amount_to_buy = trade_size / best_ask_price(to_token)
             amount_to_buy = int_amount(real_amount_to_buy, to_token)
             if debug: print(f"buying {real_amount_to_buy} {to_token} tokens ({amount_to_buy} units)")
             swap_inputs = {
@@ -166,7 +185,7 @@ def call_swap(from_token, to_token, exchange=None, debug=None):
             }
 
         else: # from_token_addr != ETH_ADDRESS and to_token_addr == ETH_ADDRESS
-            real_amount_to_sell = TRADE_SIZE / best_bid_price(from_token)
+            real_amount_to_sell = trade_size / best_bid_price(from_token)
             amount_to_sell = int_amount(real_amount_to_sell, from_token)
             if debug: print(f"selling {real_amount_to_sell} {from_token} tokens ({amount_to_sell} units)")
             swap_inputs = {
@@ -180,10 +199,13 @@ def call_swap(from_token, to_token, exchange=None, debug=None):
     swap_inputs = pp({**swap_inputs, **base_inputs})
     if debug: print(f"REQUEST to {swap_endpoint}:\n{swap_inputs}\n\n")
     r = requests.post(swap_endpoint, data=swap_inputs).json()
+    if debug: print(f"RESPONSE from {swap_endpoint}:\n{pp(r)}\n\n")
 
     if r['success']:
         return swap_data(r['response'])
     else:
+        # print(f"FAILED REQUEST:\n{swap_inputs}\n")
+        # print(f"FAILED RESPONSE:\n{pp(r)}\n\n")
         raise Exception(r['response'])
 
 def print_results(label, sd):
@@ -201,15 +223,64 @@ def print_price_comparisons(swap_prices, token):
     else:
         print(f"No {token} prices for comparison were found on other DEXs")
 
+def compare_prices(from_token, to_token, params=None, debug=False):
+    """Returns a dict containing Totle and other DEX prices"""
+
+    swap_prices = {}
+
+    # Get the best price using Totle's aggregated order books
+    try:
+        totle_sd = call_swap(from_token, to_token, params=params, debug=debug)
+        if debug: print(pp(totle_sd))
+
+        if totle_sd:
+            print_results('Totle', totle_sd)
+            swap_prices['Totle'] = totle_sd['price']
+
+            # Compare to best prices from other DEXs
+            for dex in best_prices(to_token):
+                if dex != totle_sd['exchange']:
+                    try:
+                        dex_sd = call_swap(from_token, to_token, dex, params=params, debug=debug)
+                        if dex_sd:
+                            print_results(dex, dex_sd)
+                            swap_prices[dex] = dex_sd['price']
+                        else:
+                            print(f"{dex}: Suggester returned no orders for {from_token}->{to_token}")
+                    except Exception as e:
+                        print(f"{dex}: swap raised {e}")
+
+        else:
+            print(f"Totle: Suggester returned no orders for {from_token}->{to_token}")
+
+    except Exception as e:
+        print(f"{'Totle'}: swap raised {e}")
+
+    return swap_prices
 
 ##############################################################################################
 #
 # Main program
 #
 
-DEBUG = False
+# Accept tradeSize, minSlippagePercent, and minFillPercent as program arguments
+parser = argparse.ArgumentParser(description='Run price comparisons')
+parser.add_argument('tradeSize', type=float, nargs='?', default=DEFAULT_TRADE_SIZE, help='the size (in ETH) of the order')
+parser.add_argument('minSlippagePercent', nargs='?', default=DEFAULT_MIN_SLIPPAGE_PERCENT, type=float, help='acceptable percent of slippage')
+parser.add_argument('minFillPercent', nargs='?', default=DEFAULT_MIN_FILL_PERCENT, type=float, help='acceptable percent of amount to acquire')
 
-TOKENS_TO_BUY = [ 'BNB', 'DAI', 'MKR', 'OMG', 'BAT', 'REP', 'ZRX', 'AE', 'ZIL', 'SNT', 'LINK' ]
+params = vars(parser.parse_args())
+
+# Redirect output to a .txt file in outputs directory
+# Comment out the following 3 lines to see output on console
+d = datetime.datetime.today()
+output_filename = f"outputs/{d.year}-{d.month:02d}-{d.day:02d}_{d.hour:02d}-{d.minute:02d}-{d.second:02d}_{params['tradeSize']}-{params['minSlippagePercent']}-{params['minFillPercent']}.txt"
+print(f"sending output to {output_filename} ...")
+sys.stdout = open(output_filename, 'w')
+
+# TOKENS_TO_BUY = all_liquid_tokens()
+# TOKENS_TO_BUY = [ 'BNB', 'DAI', 'MKR', 'OMG', 'BAT', 'REP', 'ZRX', 'AE', 'ZIL', 'SNT', 'LINK' ]
+TOKENS_TO_BUY = [ 'BNB', 'DAI', 'MKR' ]
 
 # For now, all price comparisons are done by buying the ERC20 token with ETH (i.e. from_token == 'ETH')
 from_token = 'ETH'
@@ -220,25 +291,5 @@ for to_token in TOKENS_TO_BUY:
         print(f"'{to_token}' is not a listed token or is not tradable")
         continue
     show_prices(from_token, to_token)
-
-    # Get the best price using Totle's aggregated order books
-    totle_sd = call_swap(from_token, to_token, debug=DEBUG)
-    if DEBUG: print(pp(totle_sd))
-    if totle_sd:
-        print_results('Totle', totle_sd)
-        swap_prices = {'Totle': totle_sd['price']}
-        
-        # Compare to best prices from other DEXs 
-        for dex in best_prices(totle_sd['tokenSymbol']):
-            if dex != totle_sd['exchange']:
-                dex_sd = call_swap(from_token, to_token, dex, debug=DEBUG)
-                if dex_sd:
-                    print_results(dex, dex_sd)
-                    swap_prices[dex] = dex_sd['price']
-                else:
-                    print(f"{dex}: Suggester returned no orders for {from_token}->{to_token}")
-        print_price_comparisons(swap_prices, to_token)
-
-    else:
-        print(f"Totle: Suggester returned no orders for {from_token}->{to_token}")
-            
+    swap_prices = compare_prices(from_token, to_token, params=params, debug=False)
+    print_price_comparisons(swap_prices, to_token)
