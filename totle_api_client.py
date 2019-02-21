@@ -278,9 +278,8 @@ output_filename = f"outputs/{d.year}-{d.month:02d}-{d.day:02d}_{d.hour:02d}-{d.m
 print(f"sending output to {output_filename} ...")
 sys.stdout = open(output_filename, 'w')
 
-# TOKENS_TO_BUY = all_liquid_tokens()
+TOKENS_TO_BUY = all_liquid_tokens()
 # TOKENS_TO_BUY = [ 'BNB', 'DAI', 'MKR', 'OMG', 'BAT', 'REP', 'ZRX', 'AE', 'ZIL', 'SNT', 'LINK' ]
-TOKENS_TO_BUY = [ 'BNB', 'DAI', 'MKR' ]
 
 # For now, all price comparisons are done by buying the ERC20 token with ETH (i.e. from_token == 'ETH')
 from_token = 'ETH'
