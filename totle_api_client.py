@@ -1,4 +1,5 @@
 import sys
+import traceback
 import http.client
 import json
 import requests
@@ -198,21 +199,31 @@ def call_swap(from_token, to_token, exchange=None, params=None, debug=None):
 
     swap_inputs = pp({**swap_inputs, **base_inputs})
     if debug: print(f"REQUEST to {swap_endpoint}:\n{swap_inputs}\n\n")
-    r = requests.post(swap_endpoint, data=swap_inputs).json()
-    if debug: print(f"RESPONSE from {swap_endpoint}:\n{pp(r)}\n\n")
+    r = requests.post(swap_endpoint, data=swap_inputs)
 
-    if r['success']:
-        return swap_data(r['response'])
+    try:
+        j = r.json()
+    except Exception as e:
+        print(f"cannot extract JSON REQUEST:\n{swap_inputs}\ncannot extract JSON RESPONSE={r.text} ")
+        raise Exception(f"cannot extract JSON from response. Response={r.text}")
+
+    if debug: print(f"RESPONSE from {swap_endpoint}:\n{pp(j)}\n\n")
+
+    if j['success']:
+        return swap_data(j['response'])
     else:
-        # print(f"FAILED REQUEST:\n{swap_inputs}\n")
-        # print(f"FAILED RESPONSE:\n{pp(r)}\n\n")
-        raise Exception(r['response'])
+        print(f"FAILED REQUEST:\n{swap_inputs}\n")
+        print(f"FAILED RESPONSE:\n{pp(j)}\n\n")
+        raise Exception(j['response'])
 
 def print_results(label, sd):
     """Prints a formatted results string based on given label and swap_data sd"""
     # This should ultimately be used to send output to a CSV or some file that calculations
-    # can be run on 
-    print(f"{label}: {sd['action']} {sd['realAmount']} {sd['tokenSymbol']} for {sd['ethAmount']} ETH on {sd['exchange']} price={sd['price']} fee={sd['fee']}")
+    # can be run on
+    try:
+        print(f"{label}: {sd['action']} {sd['realAmount']} {sd['tokenSymbol']} for {sd['ethAmount']} ETH on {sd['exchange']} price={sd['price']} fee={sd['fee']}")
+    except Exception as e:
+        raise Exception(f"print_results raised {e}, received {label} {sd}")
 
 def print_price_comparisons(swap_prices, token):
     if len(swap_prices) > 1: # there is data to compare
@@ -256,6 +267,7 @@ def compare_prices(from_token, to_token, params=None, debug=False):
 
     except Exception as e:
         print(f"{'Totle'}: swap raised {e}")
+        # traceback.print_tb(sys.exc_info()[2])
 
 
 ##############################################################################################
