@@ -230,7 +230,12 @@ def print_price_comparisons(swap_prices, token):
         for k in swap_prices:
             if k != 'Totle':
                 totle_discount = 100 - (100.0 * (swap_prices['Totle'] / swap_prices[k]))
-                print(f"Totle saved {totle_discount:.2f} percent vs {k} buying {token}")
+                if swap_prices['Totle'] < 0.0:
+                    print(f"Totle savings could not be computed since Totle received an invalid price={swap_prices['Totle']} buying {token}")
+                elif swap_prices[k] < 0.0:
+                    print(f"Totle savings could not be computed since {k} received an invalid price={swap_prices[k]} buying {token}")
+                else:
+                    print(f"Totle saved {totle_discount:.2f} percent vs {k} buying {token}")
     else:
         print(f"No {token} prices for comparison were found on other DEXs")
 
@@ -288,12 +293,11 @@ params = vars(parser.parse_args())
 d = datetime.datetime.today()
 output_filename = f"outputs/{d.year}-{d.month:02d}-{d.day:02d}_{d.hour:02d}-{d.minute:02d}-{d.second:02d}_{params['tradeSize']}-{params['minSlippagePercent']}-{params['minFillPercent']}.txt"
 print(f"sending output to {output_filename} ...")
-sys.stdout = open(output_filename, 'w')
+# sys.stdout = open(output_filename, 'w')
 
 print(d, params)
 
 TOKENS_TO_BUY = all_liquid_tokens()
-# TOKENS_TO_BUY = [ 'BNB', 'DAI', 'MKR', 'OMG', 'BAT', 'REP', 'ZRX', 'AE', 'ZIL', 'SNT', 'LINK', 'DNT', 'SALT', 'CVC', 'MANA', 'RDN', 'REQ', 'GNO', 'RLC', 'ANT', 'FUN', 'KNC', 'RHOC', 'WAX', 'POWR', 'POE', 'DRT', 'STORJ' ]
 
 # For now, all price comparisons are done by buying the ERC20 token with ETH (i.e. from_token == 'ETH')
 from_token = 'ETH'
