@@ -293,7 +293,7 @@ params = vars(parser.parse_args())
 d = datetime.datetime.today()
 output_filename = f"outputs/{d.year}-{d.month:02d}-{d.day:02d}_{d.hour:02d}-{d.minute:02d}-{d.second:02d}_{params['tradeSize']}-{params['minSlippagePercent']}-{params['minFillPercent']}.txt"
 print(f"sending output to {output_filename} ...")
-# sys.stdout = open(output_filename, 'w')
+sys.stdout = open(output_filename, 'w')
 
 print(d, params)
 
