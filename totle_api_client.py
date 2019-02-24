@@ -216,6 +216,21 @@ def call_swap(from_token, to_token, exchange=None, params=None, debug=None):
         print(f"FAILED RESPONSE:\n{pp(j)}\n\n")
         raise Exception(j['response'])
 
+def post_with_retries(endpoint, inputs, num_retries=3):
+    r = None
+    for attempt in range(num_retries):
+        try:
+            r = requests.post(endpoint, data=inputs)
+            return r.json()
+        except:
+            # print(f"cannot extract JSON REQUEST:\n{inputs}\ncannot extract JSON RESPONSE={r.text} ")
+            pass
+        else:
+            break
+    else: # all attempts failed
+        raise Exception(f"Failed to get JSON response after {num_retries} retries. Response={r.text}")
+
+
 def print_results(label, sd):
     """Prints a formatted results string based on given label and swap_data sd"""
     # This should ultimately be used to send output to a CSV or some file that calculations
@@ -225,27 +240,33 @@ def print_results(label, sd):
     except Exception as e:
         raise Exception(f"print_results raised {e}, received {label} {sd}")
 
-def print_price_comparisons(swap_prices, token):
+def print_price_comparisons(swap_prices, token, chosen_dex):
+    savings = {}
     if len(swap_prices) > 1: # there is data to compare
         for k in swap_prices:
             if k != 'Totle':
                 totle_discount = 100 - (100.0 * (swap_prices['Totle'] / swap_prices[k]))
+                buying_str = f"buying {token} on {chosen_dex}"
                 if swap_prices['Totle'] < 0.0:
-                    print(f"Totle savings could not be computed since Totle received an invalid price={swap_prices['Totle']} buying {token}")
+                    print(f"Totle savings could not be computed since Totle received an invalid price={swap_prices['Totle']} {buying_str}")
                 elif swap_prices[k] < 0.0:
                     print(f"Totle savings could not be computed since {k} received an invalid price={swap_prices[k]} buying {token}")
                 else:
-                    print(f"Totle saved {totle_discount:.2f} percent vs {k} buying {token}")
+                    savings[k] = totle_discount
+                    print(f"Totle saved {totle_discount:.2f} percent vs {k} {buying_str}")
     else:
         print(f"No {token} prices for comparison were found on other DEXs")
+    return savings
 
 def compare_prices(from_token, to_token, params=None, debug=False):
     """Returns a dict containing Totle and other DEX prices"""
 
-    swap_prices = {}
+    savings = {}
 
     # Get the best price using Totle's aggregated order books
     try:
+        swap_prices = {}
+
         totle_sd = call_swap(from_token, to_token, params=params, debug=debug)
         if debug: print(pp(totle_sd))
 
@@ -266,7 +287,7 @@ def compare_prices(from_token, to_token, params=None, debug=False):
                     except Exception as e:
                         print(f"{dex}: swap raised {e}")
 
-            print_price_comparisons(swap_prices, to_token)
+            savings = print_price_comparisons(swap_prices, to_token, totle_sd['exchange'])
         else:
             print(f"Totle: Suggester returned no orders for {from_token}->{to_token}")
 
@@ -274,11 +295,33 @@ def compare_prices(from_token, to_token, params=None, debug=False):
         print(f"{'Totle'}: swap raised {e}")
         # traceback.print_tb(sys.exc_info()[2])
 
+    return savings
+
+def print_average_savings_by_dex(all_savings, trade_sizes):
+    dex_savings = { k: [] for k in exchanges }
+    for trade_size in trade_sizes:
+        ast = all_savings[trade_size]
+        savings = [ast[t] for t in ast if ast[t]]
+        for s in savings:
+            for e in s:
+                dex_savings[e].append(s[e])
+
+    for e in dex_savings:
+        l = dex_savings[e]
+        n_samples = len(l)
+        if n_samples:
+            print(f"Average savings on {e} is {sum(l)/n_samples:.2f}% ({n_samples} samples)")
+        else:
+            print(f"No savings comparison samples for {e}")
+
+    return dex_savings
+
 
 ##############################################################################################
 #
 # Main program
 #
+
 
 # Accept tradeSize, minSlippagePercent, and minFillPercent as program arguments
 parser = argparse.ArgumentParser(description='Run price comparisons')
@@ -295,17 +338,26 @@ output_filename = f"outputs/{d.year}-{d.month:02d}-{d.day:02d}_{d.hour:02d}-{d.m
 print(f"sending output to {output_filename} ...")
 sys.stdout = open(output_filename, 'w')
 
-print(d, params)
 
 TOKENS_TO_BUY = all_liquid_tokens()
 
 # For now, all price comparisons are done by buying the ERC20 token with ETH (i.e. from_token == 'ETH')
 from_token = 'ETH'
 
-for to_token in TOKENS_TO_BUY:
-    print(f"\n----------------------------------------\n{to_token}")
-    if to_token not in tokens:
-        print(f"'{to_token}' is not a listed token or is not tradable")
-        continue
-    show_prices(from_token, to_token)
-    compare_prices(from_token, to_token, params=params, debug=False)
+TRADE_SIZES = [0.1, 0.25, 0.5, 0.75, 1.0]
+all_savings = {}
+for trade_size in TRADE_SIZES:
+    params['tradeSize'] = trade_size
+    print(d, params)
+    all_savings[trade_size] = {}
+    for to_token in TOKENS_TO_BUY:
+        print(f"\n----------------------------------------\n{to_token}")
+        if to_token not in tokens:
+            print(f"'{to_token}' is not a listed token or is not tradable")
+            continue
+        show_prices(from_token, to_token)
+        savings = compare_prices(from_token, to_token, params=params, debug=False)
+        all_savings[trade_size][to_token] = savings
+
+# print(pp(all_savings))
+print_average_savings_by_dex(all_savings, TRADE_SIZES)
