@@ -199,14 +199,7 @@ def call_swap(from_token, to_token, exchange=None, params=None, debug=None):
 
     swap_inputs = pp({**swap_inputs, **base_inputs})
     if debug: print(f"REQUEST to {swap_endpoint}:\n{swap_inputs}\n\n")
-    r = requests.post(swap_endpoint, data=swap_inputs)
-
-    try:
-        j = r.json()
-    except Exception as e:
-        print(f"cannot extract JSON REQUEST:\n{swap_inputs}\ncannot extract JSON RESPONSE={r.text} ")
-        raise Exception(f"cannot extract JSON from response. Response={r.text}")
-
+    j = post_with_retries(swap_endpoint, swap_inputs)
     if debug: print(f"RESPONSE from {swap_endpoint}:\n{pp(j)}\n\n")
 
     if j['success']:
@@ -224,11 +217,12 @@ def post_with_retries(endpoint, inputs, num_retries=3):
             return r.json()
         except:
             # print(f"cannot extract JSON REQUEST:\n{inputs}\ncannot extract JSON RESPONSE={r.text} ")
+            print(f"failed to extract JSON, retrying ...")
             pass
         else:
             break
     else: # all attempts failed
-        raise Exception(f"Failed to get JSON response after {num_retries} retries. Response={r.text}")
+        raise Exception(f"Failed to extract JSON response after {num_retries} retries. Response={r.text}")
 
 
 def print_results(label, sd):
@@ -310,7 +304,7 @@ def print_average_savings_by_dex(all_savings, trade_sizes):
         l = dex_savings[e]
         n_samples = len(l)
         if n_samples:
-            print(f"Average savings on {e} is {sum(l)/n_samples:.2f}% ({n_samples} samples)")
+            print(f"Average savings vs {e} is {sum(l)/n_samples:.2f}% ({n_samples} samples)")
         else:
             print(f"No savings comparison samples for {e}")
 
