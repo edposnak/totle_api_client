@@ -291,14 +291,17 @@ def compare_prices(from_token, to_token, params=None, debug=False):
 
     return savings
 
-def print_average_savings_by_dex(all_savings, trade_sizes):
-    dex_savings = { k: [] for k in exchanges }
+def print_average_savings(all_savings, trade_sizes):
     for trade_size in trade_sizes:
-        ast = all_savings[trade_size]
-        savings = [ast[t] for t in ast if ast[t]]
-        for s in savings:
-            for e in s:
-                dex_savings[e].append(s[e])
+        print(f"Trade Size {trade_size} ETH:")
+        print_average_savings_by_dex(all_savings[trade_size], trade_size)
+
+def print_average_savings_by_dex(avg_savings, trade_size):
+    dex_savings = { k: [] for k in exchanges }
+    savings = [avg_savings[t] for t in avg_savings if avg_savings[t]]
+    for s in savings:
+        for e in s:
+            dex_savings[e].append(s[e])
 
     for e in dex_savings:
         l = dex_savings[e]
@@ -309,6 +312,7 @@ def print_average_savings_by_dex(all_savings, trade_sizes):
             print(f"No savings comparison samples for {e}")
 
     return dex_savings
+
 
 
 ##############################################################################################
@@ -338,7 +342,7 @@ TOKENS_TO_BUY = all_liquid_tokens()
 # For now, all price comparisons are done by buying the ERC20 token with ETH (i.e. from_token == 'ETH')
 from_token = 'ETH'
 
-TRADE_SIZES = [0.1, 0.25, 0.5, 0.75, 1.0]
+TRADE_SIZES = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 2.0]
 all_savings = {}
 for trade_size in TRADE_SIZES:
     params['tradeSize'] = trade_size
@@ -354,4 +358,4 @@ for trade_size in TRADE_SIZES:
         all_savings[trade_size][to_token] = savings
 
 # print(pp(all_savings))
-print_average_savings_by_dex(all_savings, TRADE_SIZES)
+print_average_savings(all_savings, TRADE_SIZES)
