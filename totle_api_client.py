@@ -349,7 +349,7 @@ for trade_size in TRADE_SIZES:
     print(d, params)
     all_savings[trade_size] = {}
     for to_token in TOKENS_TO_BUY:
-        print(f"\n----------------------------------------\n{to_token}")
+        print(f"\n----------------------------------------\nBUY {to_token} trade size = {trade_size} ETH")
         if to_token not in tokens:
             print(f"'{to_token}' is not a listed token or is not tradable")
             continue
