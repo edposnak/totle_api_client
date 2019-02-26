@@ -357,7 +357,7 @@ TOKENS_TO_BUY = all_liquid_tokens()
 # For now, all price comparisons are done by buying the ERC20 token with ETH (i.e. from_token == 'ETH')
 from_token = 'ETH'
 
-TRADE_SIZES = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 2.0]
+TRADE_SIZES = [0.1, 0.5, 1.0, 2.0, 4.0]
 all_savings = {}
 for trade_size in TRADE_SIZES:
     for e in unfillable:
