@@ -5,6 +5,7 @@ import json
 import requests
 import argparse
 import datetime
+import time
 
 ##############################################################################################
 #
@@ -223,12 +224,12 @@ def post_with_retries(endpoint, inputs, num_retries=3):
             r = requests.post(endpoint, data=inputs)
             return r.json()
         except:
-            # print(f"cannot extract JSON REQUEST:\n{inputs}\ncannot extract JSON RESPONSE={r.text} ")
             print(f"failed to extract JSON, retrying ...")
             pass
         else:
             break
     else: # all attempts failed
+        time.sleep(5)  # sleep to prevent rate limiting from failing all future requests
         raise Exception(f"Failed to extract JSON response after {num_retries} retries. Response={r.text}")
 
 
@@ -299,7 +300,6 @@ def compare_prices(from_token, to_token, params=None, debug=False):
 
 def print_average_savings(all_savings, trade_sizes):
     for trade_size in trade_sizes:
-        print(f"Trade Size {trade_size} ETH:")
         print_average_savings_by_dex(all_savings[trade_size], trade_size)
 
 def print_average_savings_by_dex(avg_savings, trade_size):
@@ -313,7 +313,7 @@ def print_average_savings_by_dex(avg_savings, trade_size):
         l = dex_savings[e]
         n_samples = len(l)
         if n_samples:
-            print(f"Average savings vs {e} is {sum(l)/n_samples:.2f}% ({n_samples} samples)")
+            print(f"Average savings vs {e} for trade size {trade_size} ETH is {sum(l)/n_samples:.2f}% ({n_samples} samples)")
         else:
             print(f"No savings comparison samples for {e}")
 
@@ -326,7 +326,7 @@ def print_unfillables():
         for ts in edata:
             if edata[ts]:
                 pairs = ', '.join([f"{i[1]}/{i[0]}" for i in edata[ts]])
-                print(f"{e} could not fill {len(edata[ts])} orders of size {ts} ({pairs})")
+                print(f"{e} could not fill {len(edata[ts])} orders of size {ts} ETH ({pairs})")
 
 
 
@@ -357,7 +357,7 @@ TOKENS_TO_BUY = all_liquid_tokens()
 # For now, all price comparisons are done by buying the ERC20 token with ETH (i.e. from_token == 'ETH')
 from_token = 'ETH'
 
-TRADE_SIZES = [0.1, 0.5, 1.0, 2.0, 4.0]
+TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0]
 all_savings = {}
 for trade_size in TRADE_SIZES:
     for e in unfillable:
