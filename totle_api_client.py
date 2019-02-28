@@ -12,16 +12,25 @@ import time
 # Library functions for exchanges, tokens, and prices
 #
 # get exchanges
-r = requests.get('https://services.totlesystem.com/exchanges').json()
+
+API_BASE = 'https://services.totlesystem.com'
+EXCHANGES_ENDPOINT = API_BASE + '/exchanges'
+TOKENS_ENDPOINT = API_BASE + '/tokens'
+PRICES_ENDPOINT = API_BASE + '/tokens/prices'
+REBALANCE_ENDPOINT = API_BASE + '/rebalance'
+SWAP_ENDPOINT = API_BASE + '/swap'
+
+r = requests.get(EXCHANGES_ENDPOINT).json()
 exchanges = { e['name']: e['id'] for e in r['exchanges'] }
 exchange_by_id = { e['id']: e['name'] for e in r['exchanges'] }
 TOTLE_EX = 'Totle' # 'Totle' is used for comparison with other exchanges
 
 # get tokens
-r = requests.get('https://services.totlesystem.com/tokens').json()
+r = requests.get(TOKENS_ENDPOINT).json()
 tokens = { t['symbol']: t['address'] for t in r['tokens'] if t['tradable']}
-token_symbols = { t['address']: t['symbol'] for t in r['tokens'] if t['tradable']}
+token_symbols = { tokens[sym]: sym for sym in tokens }
 token_decimals = { t['symbol']: t['decimals'] for t in r['tokens'] if t['tradable']}
+
 ETH_ADDRESS = "0x0000000000000000000000000000000000000000" 
 
 def addr(token):
@@ -38,7 +47,7 @@ def real_amount(int_amount, token):
     return int(int_amount) / (10**token_decimals[token])
 
 # get all token prices on all exchanges
-all_prices = requests.get('https://services.totlesystem.com/tokens/prices').json()['response']
+all_prices = requests.get(PRICES_ENDPOINT).json()['response']
 
 # We assume that the prices endpoints returns the lowest 'ask' and highest 'bid' price for
 # a given token. If it does not, then that would explain why rebalance returns orders
@@ -101,35 +110,38 @@ def swap_data(response):
     summary = response['summary']
     buys, sells = summary['buys'], summary['sells']
 
-    if len(buys) + len(sells) == 0: # Suggester has no orders
-        return {}
-
-
-    # This method assumes the summary includes either a single buy or sell, i.e. that rebalance 
-    # was called with a single buy or sell or (someday) that swap was called with an ETH pair
-    # This method would need to be modified to handle results from a call to swap with an
-    # ERC20/ERC20 pair, which would contain both buys and sells.
-    if len(buys) + len(sells) > 1:
-        err_msg = f"expected payload to have either 1 buy or 1 sell, but it has {len(buys)} buys and {len(sells)} sells.\nresponse={pp(response)}"
+    # This method assumes the summary includes either buys or sells. It would need to be modified to
+    # handle results from a call to swap with an ERC20/ERC20 pair, which would contain both buys and sells.
+    if buys and sells:
+        err_msg = f"expected payload to have either buys or sells, but it has both.\nresponse={pp(response)}"
         raise Exception(err_msg)
 
-    action, bsd = ("buy", buys[0]) if buys else ("sell", sells[0])
+    if not buys and not sells: return {} # Suggester has no orders
 
-    token_sym = token_symbols[bsd['token']]
+    action, orders = ('buy', buys) if buys else ('sell', sells)
+    exchange, token_addr = orders[0]['exchange'], orders[0]['token']
+    token_sym = token_symbols[token_addr]
 
-    x = real_amount(bsd['amount'], token_sym)
-    
+    i_amount = sum([int(o['amount']) for o in orders])
+    i_fee = sum([int(o['fee']) for o in orders])
+    weighted_price = sum([int(o['amount']) * float(o['price']) for o in orders])
+
+    r_amount = real_amount(i_amount, token_sym)
+    r_fee = wei_to_eth(i_fee) if action == 'buy' else real_amount(i_fee, token_sym)
+    price = weighted_price / i_amount
+
     return {
         "action": action,
         "weiAmount": int(response['ethValue']),
         "ethAmount": wei_to_eth(response['ethValue']),
-        "token": bsd['token'],
+        "token": token_addr,
         "tokenSymbol": token_sym,
-        "exchange": bsd['exchange'],
-        "price": float(bsd['price']),
-        "intAmount": int(bsd['amount']),
-        "realAmount": x,
-        "fee": bsd['fee']
+        "exchange": exchange,
+        "price": price,
+        "intAmount": i_amount,
+        "realAmount": r_amount,
+        "intFee": i_fee,
+        "realFee": r_fee
     }
 
 # Default parameters for swap. These can be overridden by passing params
@@ -165,7 +177,7 @@ def call_swap(from_token, to_token, exchange=None, params=None, debug=None):
         raise Exception('from_token and to_token cannot both be ETH')
 
     if from_token_addr != ETH_ADDRESS and to_token_addr != ETH_ADDRESS:
-        swap_endpoint = 'https://services.totlesystem.com/swap'
+        swap_endpoint = SWAP_ENDPOINT
         real_amount_to_sell = trade_size / best_bid_price(from_token)
         amount_to_sell = int_amount(real_amount_to_sell, from_token)
         if debug: print(f"selling {real_amount_to_sell} {from_token} tokens ({amount_to_sell} units)")
@@ -178,7 +190,7 @@ def call_swap(from_token, to_token, exchange=None, params=None, debug=None):
         }
     
     else: # for now we have to call the rebalance endpoint because swap doesn't support ETH
-        swap_endpoint = 'https://services.totlesystem.com/rebalance'
+        swap_endpoint = REBALANCE_ENDPOINT
 
         if from_token_addr == ETH_ADDRESS and to_token_addr != ETH_ADDRESS:
             real_amount_to_buy = trade_size / best_ask_price(to_token)
@@ -225,11 +237,10 @@ def post_with_retries(endpoint, inputs, num_retries=3):
             return r.json()
         except:
             print(f"failed to extract JSON, retrying ...")
-            pass
         else:
             break
     else: # all attempts failed
-        time.sleep(5)  # sleep to prevent rate limiting from failing all future requests
+        time.sleep(60)  # wait for servers to reboot, as we've probably killed them all
         raise Exception(f"Failed to extract JSON response after {num_retries} retries. Response={r.text}")
 
 
@@ -238,7 +249,7 @@ def print_results(label, sd):
     # This should ultimately be used to send output to a CSV or some file that calculations
     # can be run on
     try:
-        print(f"{label}: {sd['action']} {sd['realAmount']} {sd['tokenSymbol']} for {sd['ethAmount']} ETH on {sd['exchange']} price={sd['price']} fee={sd['fee']}")
+        print(f"{label}: {sd['action']} {sd['realAmount']} {sd['tokenSymbol']} for {sd['ethAmount']} ETH on {sd['exchange']} price={sd['price']} fee={sd['realFee']}")
     except Exception as e:
         raise Exception(f"print_results raised {e}, received {label} {sd}")
 
@@ -284,12 +295,14 @@ def compare_prices(from_token, to_token, params=None, debug=False):
                             print_results(dex, dex_sd)
                             swap_prices[dex] = dex_sd['price']
                         else:
+                            unfillable[dex][trade_size].append((from_token, to_token))
                             print(f"{dex}: Suggester returned no orders for {from_token}->{to_token}")
                     except Exception as e:
                         print(f"{dex}: swap raised {e}")
 
             savings = print_price_comparisons(swap_prices, to_token, totle_sd['exchange'])
         else:
+            unfillable[TOTLE_EX][trade_size].append((from_token, to_token))
             print(f"Totle: Suggester returned no orders for {from_token}->{to_token}")
 
     except Exception as e:
