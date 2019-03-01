@@ -325,7 +325,7 @@ def print_supported_pairs(all_supported_pairs):
         print(f"\nAt trade size of {trade_size} ETH:")
         for e in all_supported_pairs[trade_size]:
             pairs = [f"{t}/{f}" for f, t in all_supported_pairs[trade_size][e]]
-            print(f"   {e} supports {pairs}")
+            print(f"   {e} supports {len(pairs)} pairs: {pairs}")
 
 ##############################################################################################
 #
