@@ -300,6 +300,7 @@ def compare_prices(from_token, to_token, supported_pairs, params=None, debug=Fal
 
 def print_average_savings(all_savings):
     for trade_size in all_savings:
+        print('')
         print_average_savings_by_dex(all_savings[trade_size], trade_size)
 
 def print_average_savings_by_dex(avg_savings, trade_size):
@@ -315,7 +316,7 @@ def print_average_savings_by_dex(avg_savings, trade_size):
         if n_samples:
             print(f"Average savings vs {e} for trade size {trade_size} ETH is {sum(l)/n_samples:.2f}% ({n_samples} samples)")
         else:
-            print(f"No savings comparison samples for {e}")
+            print(f"No savings comparison samples vs {e} for trade size {trade_size} ETH")
 
     return dex_savings
 
