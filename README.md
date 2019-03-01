@@ -1,7 +1,4 @@
-# totle_api_client
-
-```
-usage: totle_api_client.py [-h]
+usage: totle_api_client.py [-h] [--sell]
                            [tradeSize] [minSlippagePercent] [minFillPercent]
 
 Run price comparisons
@@ -13,4 +10,4 @@ positional arguments:
 
 optional arguments:
   -h, --help          show this help message and exit
-```
+  --sell              execute sell orders (default is buy)
