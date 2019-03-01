@@ -1,6 +1,4 @@
 import sys
-import traceback
-import http.client
 import json
 import requests
 import argparse
@@ -102,10 +100,7 @@ def all_liquid_tokens(min_exchanges=2):
 # functions to call swap/rebalance and extract data
 #
 
-# global hash to keep track of failures to fill requested pairs on certain exchanges
-unfillable = {k: {} for k in [TOTLE_EX] + [e for e in exchanges]}
-
-def swap_data(response):
+def swap_data(response, trade_size):
     """Extracts relevant data from a swap/rebalance API endpoint response"""
     summary = response['summary']
     buys, sells = summary['buys'], summary['sells']
@@ -132,6 +127,7 @@ def swap_data(response):
 
     return {
         "action": action,
+        "tradeSize": trade_size,
         "weiAmount": int(response['ethValue']),
         "ethAmount": wei_to_eth(response['ethValue']),
         "token": token_addr,
@@ -153,7 +149,6 @@ DEFAULT_MIN_FILL_PERCENT = 80
 def call_swap(from_token, to_token, exchange=None, params=None, debug=None):
     """Calls the swap API endpoint with the given token pair and whitelisting exchange if given. Returns the result as a swap_data dict """
     # the swap_data dict is defined by the return statement in swap_data method above
-    # this method updates the unfillable global variable whenever a token pair is unfillable for the given trade_size
 
     # trade_size is not an endpoint input so we extract it from params (after making a local copy)
     params = dict(params)
@@ -221,9 +216,9 @@ def call_swap(from_token, to_token, exchange=None, params=None, debug=None):
     if debug: print(f"RESPONSE from {swap_endpoint}:\n{pp(j)}\n\n")
 
     if j['success']:
-        return swap_data(j['response'])
+        return swap_data(j['response'], trade_size)
     elif j['response'].startswith('Not enough orders'):
-        unfillable[exchange or TOTLE_EX][trade_size].append((from_token, to_token))
+        pass # this is a common failure to fill
     else:
         print(f"FAILED REQUEST:\n{swap_inputs}\n")
         print(f"FAILED RESPONSE:\n{pp(j)}\n\n")
@@ -246,73 +241,66 @@ def post_with_retries(endpoint, inputs, num_retries=3):
 
 def print_results(label, sd):
     """Prints a formatted results string based on given label and swap_data sd"""
-    # This should ultimately be used to send output to a CSV or some file that calculations
-    # can be run on
-    try:
-        print(f"{label}: {sd['action']} {sd['realAmount']} {sd['tokenSymbol']} for {sd['ethAmount']} ETH on {sd['exchange']} price={sd['price']} fee={sd['realFee']}")
-    except Exception as e:
-        raise Exception(f"print_results raised {e}, received {label} {sd}")
+    print(f"{label}: {sd['action']} {sd['realAmount']} {sd['tokenSymbol']} for {sd['ethAmount']} ETH on {sd['exchange']} price={sd['price']} fee={sd['realFee']}")
 
-def print_price_comparisons(swap_prices, token, chosen_dex):
-    savings = {}
-    if len(swap_prices) > 1: # there is data to compare
-        other_exchanges = [k for k in swap_prices if k != TOTLE_EX]
-        for e in other_exchanges:
-            totle_discount = 100 - (100.0 * (swap_prices[TOTLE_EX] / swap_prices[e]))
-            if swap_prices[TOTLE_EX] < 0.0:
-                print(f"Totle savings could not be computed since Totle received an invalid price={swap_prices[TOTLE_EX]} buying {token} on {chosen_dex}")
-            elif swap_prices[e] < 0.0:
-                print(f"Totle savings could not be computed since {e} received an invalid price={swap_prices[e]} buying {token}")
-            else:
-                savings[e] = totle_discount
-                print(f"Totle saved {totle_discount:.2f} percent vs {e} buying {token} on {chosen_dex}")
-    else:
-        print(f"No {token} prices for comparison were found on other DEXs")
-    return savings
 
-def compare_prices(from_token, to_token, params=None, debug=False):
+def compare_prices(from_token, to_token, supported_pairs, params=None, debug=False):
     """Returns a dict containing Totle and other DEX prices"""
-
     savings = {}
+    totle_sd = None
 
     # Get the best price using Totle's aggregated order books
     try:
-        swap_prices = {}
-
         totle_sd = call_swap(from_token, to_token, params=params, debug=debug)
-        if debug: print(pp(totle_sd))
-
-        if totle_sd:
-            print_results(TOTLE_EX, totle_sd)
-            swap_prices[TOTLE_EX] = totle_sd['price']
-
-            # Compare to best prices from other DEXs
-            for dex in best_prices(to_token):
-                if dex != totle_sd['exchange']:
-                    try:
-                        dex_sd = call_swap(from_token, to_token, dex, params=params, debug=debug)
-                        if dex_sd:
-                            print_results(dex, dex_sd)
-                            swap_prices[dex] = dex_sd['price']
-                        else:
-                            unfillable[dex][trade_size].append((from_token, to_token))
-                            print(f"{dex}: Suggester returned no orders for {from_token}->{to_token}")
-                    except Exception as e:
-                        print(f"{dex}: swap raised {e}")
-
-            savings = print_price_comparisons(swap_prices, to_token, totle_sd['exchange'])
-        else:
-            unfillable[TOTLE_EX][trade_size].append((from_token, to_token))
-            print(f"Totle: Suggester returned no orders for {from_token}->{to_token}")
-
     except Exception as e:
         print(f"{TOTLE_EX}: swap raised {e}")
-        # traceback.print_tb(sys.exc_info()[2])
+        return savings
+
+    if totle_sd:
+        print_results(TOTLE_EX, totle_sd)
+        swap_prices = {TOTLE_EX: totle_sd['price']}
+        supported_pairs[totle_sd['exchange']].append((from_token, to_token))
+
+        # Compare to best prices from other DEXs
+        for dex in best_prices(to_token):
+            if dex != totle_sd['exchange']:
+                dex_sd = None
+                try:
+                    dex_sd = call_swap(from_token, to_token, dex, params=params, debug=debug)
+                except Exception as e:
+                    print(f"{dex}: swap raised {e}")
+                else:
+                    if dex_sd:
+                        print_results(dex, dex_sd)
+                        swap_prices[dex] = dex_sd['price']
+                        supported_pairs[dex].append((from_token, to_token))
+                    else:
+                        print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} trade size={params['tradeSize']} ETH")
+
+
+        if len(swap_prices) > 1:  # there is data to compare
+            other_exchanges = [k for k in swap_prices if k != TOTLE_EX]
+            for e in other_exchanges:
+                if swap_prices[TOTLE_EX] < 0.0:
+                    print(
+                        f"Totle savings could not be computed since Totle received an invalid price={swap_prices[TOTLE_EX]} buying {token} on {chosen_dex}")
+                elif swap_prices[e] < 0.0:
+                    print(
+                        f"Totle savings could not be computed since {e} received an invalid price={swap_prices[e]} buying {token}")
+                else:
+                    savings[e] = 100 - (100.0 * (swap_prices[TOTLE_EX] / swap_prices[e]))
+                    print(f"Totle saved {savings[e]:.2f} percent vs {e} buying {to_token} on {totle_sd['exchange']} trade size={params['tradeSize']} ETH")
+        else:
+            print(f"No {to_token} prices for comparison were found on other DEXs")
+
+    else:
+        print(f"{TOTLE_EX}: Suggester returned no orders for {from_token}->{to_token} trade size={params['tradeSize']} ETH")
 
     return savings
 
-def print_average_savings(all_savings, trade_sizes):
-    for trade_size in trade_sizes:
+def print_average_savings(all_savings):
+    for trade_size in all_savings:
+        print('')
         print_average_savings_by_dex(all_savings[trade_size], trade_size)
 
 def print_average_savings_by_dex(avg_savings, trade_size):
@@ -328,20 +316,16 @@ def print_average_savings_by_dex(avg_savings, trade_size):
         if n_samples:
             print(f"Average savings vs {e} for trade size {trade_size} ETH is {sum(l)/n_samples:.2f}% ({n_samples} samples)")
         else:
-            print(f"No savings comparison samples for {e}")
+            print(f"No savings comparison samples vs {e} for trade size {trade_size} ETH")
 
     return dex_savings
 
-def print_unfillables():
-    """Prints the unfillable orders by trade size and ETH pair"""
-    for e in unfillable:
-        edata = unfillable[e]
-        for ts in edata:
-            if edata[ts]:
-                pairs = ', '.join([f"{i[1]}/{i[0]}" for i in edata[ts]])
-                print(f"{e} could not fill {len(edata[ts])} orders of size {ts} ETH ({pairs})")
-
-
+def print_supported_pairs(all_supported_pairs):
+    for trade_size in all_supported_pairs:
+        print(f"\nAt trade size of {trade_size} ETH:")
+        for e in all_supported_pairs[trade_size]:
+            pairs = [f"{t}/{f}" for f, t in all_supported_pairs[trade_size][e]]
+            print(f"   {e} supports {len(pairs)} pairs: {pairs}")
 
 ##############################################################################################
 #
@@ -371,22 +355,26 @@ TOKENS_TO_BUY = all_liquid_tokens()
 from_token = 'ETH'
 
 TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0]
-all_savings = {}
+
+all_savings, all_supported_pairs = {}, {}
+
 for trade_size in TRADE_SIZES:
-    for e in unfillable:
-        unfillable[e][trade_size] = []
     params['tradeSize'] = trade_size
     print(d, params)
     all_savings[trade_size] = {}
+    all_supported_pairs[trade_size] = {e: [] for e in exchanges}
     for to_token in TOKENS_TO_BUY:
         print(f"\n----------------------------------------\nBUY {to_token} trade size = {trade_size} ETH")
         if to_token not in tokens:
             print(f"'{to_token}' is not a listed token or is not tradable")
             continue
         show_prices(from_token, to_token)
-        savings = compare_prices(from_token, to_token, params=params, debug=False)
+        savings = compare_prices(from_token, to_token, all_supported_pairs[trade_size], params, debug=False)
         all_savings[trade_size][to_token] = savings
 
 # print(pp(all_savings))
-print_average_savings(all_savings, TRADE_SIZES)
-print_unfillables()
+print_average_savings(all_savings)
+print_supported_pairs(all_supported_pairs)
+
+
+
