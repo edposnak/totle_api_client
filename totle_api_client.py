@@ -376,7 +376,7 @@ for trade_size in TRADE_SIZES:
             continue
         print(f"\n----------------------------------------\n{order_type} {token} trade size = {trade_size} ETH")
         show_prices(token, order_type)
-        savings = compare_prices(token, all_supported_pairs[trade_size], params, debug=True)
+        savings = compare_prices(token, all_supported_pairs[trade_size], params, debug=False)
         all_savings[trade_size][token] = savings
 
 print_average_savings(all_savings)
