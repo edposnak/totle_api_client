@@ -141,7 +141,7 @@ def swap_data(response, trade_size):
     if action == 'buy':
         r_fee = wei_to_eth(i_fee)
         wei_amount = int(response['ethValue'])
-        eth_amount = wei_to_eth(response['ethValue']),
+        eth_amount = wei_to_eth(wei_amount)
     else:
         r_fee = real_amount(i_fee, token_sym)
         eth_amount = price * r_amount
@@ -342,7 +342,6 @@ def print_supported_pairs(all_supported_pairs):
 # Main program
 #
 
-
 # Accept tradeSize, minSlippagePercent, and minFillPercent as program arguments
 parser = argparse.ArgumentParser(description='Run price comparisons')
 parser.add_argument('--sell', dest='orderType', action='store_const', const='sell', default='buy', help='execute sell orders (default is buy)')
@@ -359,7 +358,7 @@ output_filename = f"outputs/{d.year}-{d.month:02d}-{d.day:02d}_{d.hour:02d}-{d.m
 print(f"sending output to {output_filename} ...")
 sys.stdout = open(output_filename, 'w')
 
-
+TOKENS = all_liquid_tokens()
 TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0]
 
 all_savings, all_supported_pairs = {}, {}
@@ -370,7 +369,7 @@ for trade_size in TRADE_SIZES:
     print(d, params)
     all_savings[trade_size] = {}
     all_supported_pairs[trade_size] = {e: [] for e in exchanges}
-    for token in all_liquid_tokens():
+    for token in TOKENS:
         if token not in tokens:
             print(f"'{token}' is not a listed token or is not tradable")
             continue
