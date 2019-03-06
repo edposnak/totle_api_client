@@ -15,8 +15,9 @@ API_BASE = 'https://services.totlesystem.com'
 EXCHANGES_ENDPOINT = API_BASE + '/exchanges'
 TOKENS_ENDPOINT = API_BASE + '/tokens'
 PRICES_ENDPOINT = API_BASE + '/tokens/prices'
-REBALANCE_ENDPOINT = API_BASE + '/rebalance'
 SWAP_ENDPOINT = API_BASE + '/swap'
+REBALANCE_ENDPOINT = API_BASE + '/rebalance'
+# SWAP_ENDPOINT = REBALANCE_ENDPOINT = "https://services.totlesystem.com/orders/suggestions/v0-5-5"
 
 r = requests.get(EXCHANGES_ENDPOINT).json()
 exchanges = { e['name']: e['id'] for e in r['exchanges'] }
@@ -173,22 +174,23 @@ def call_swap(from_token, to_token, exchange=None, params=None, debug=None):
     # the swap_data dict is defined by the return statement in swap_data method above
 
     # trade_size is not an endpoint input so we extract it from params (after making a local copy)
-    params = dict(params)
-    trade_size = params.pop('tradeSize') if params and 'tradeSize' in params else DEFAULT_TRADE_SIZE
+    params = dict(params) # copy params to localize any modifications
+    trade_size = params.get('tradeSize') or DEFAULT_TRADE_SIZE
 
     base_inputs = {
-        "address": DEFAULT_WALLET_ADDRESS,
-        "minSlippagePercent": DEFAULT_MIN_SLIPPAGE_PERCENT,
-        "minFillPercent": DEFAULT_MIN_FILL_PERCENT
+        "address": params.get('walletAddress') or DEFAULT_WALLET_ADDRESS,
     }
-    if params:
-        base_inputs = {**base_inputs, **params}
 
     if exchange: # whitelist the given exchange:
         base_inputs["exchanges"] = { "list": [ exchanges[exchange] ], "type": "white" }
 
+    if params.get('affiliateContract'): #
+        base_inputs['affiliateContract'] = params['affiliateContract']
+
     from_token_addr = addr(from_token)
     to_token_addr = addr(to_token)
+    min_slip = params.get('minSlippagePercent') or DEFAULT_MIN_SLIPPAGE_PERCENT
+    min_fill = params.get('minFillPercent') or DEFAULT_MIN_FILL_PERCENT
 
     if from_token_addr == ETH_ADDRESS and to_token_addr == ETH_ADDRESS:
         raise Exception('from_token and to_token cannot both be ETH')
@@ -197,12 +199,14 @@ def call_swap(from_token, to_token, exchange=None, params=None, debug=None):
         swap_endpoint = SWAP_ENDPOINT
         real_amount_to_sell = trade_size / best_bid_price(from_token)
         amount_to_sell = int_amount(real_amount_to_sell, from_token)
-        if debug: print(f"selling {real_amount_to_sell} {from_token} tokens ({amount_to_sell} units)")
+        if debug: print(f"selling {real_amount_to_sell} {from_token} tokens ({amount_to_sell} units) trade size = {trade_size} ETH")
         swap_inputs = {
             "swap": {
                 "from": from_token_addr,
                 "to": to_token_addr,
-                "amount": amount_to_sell
+                "amount": amount_to_sell,
+                "minSlippagePercent": min_slip,
+                "minFillPercent": min_fill
             },
         }
     
@@ -212,24 +216,29 @@ def call_swap(from_token, to_token, exchange=None, params=None, debug=None):
         if params['orderType'] == 'buy':
             real_amount_to_buy = trade_size / best_ask_price(to_token)
             amount_to_buy = int_amount(real_amount_to_buy, to_token)
-            if debug: print(f"buying {real_amount_to_buy} {to_token} tokens ({amount_to_buy} units)")
+            if debug: print(f"buying {real_amount_to_buy} {to_token} tokens ({amount_to_buy} units) trade size = {trade_size} ETH")
             swap_inputs = {
                 "buys": [ {
                     "token": addr(to_token),
-                    "amount": amount_to_buy
+                    "amount": amount_to_buy,
+                    "minSlippagePercent": min_slip,
+                    "minFillPercent": min_fill
                 } ],
             }
 
         else: # params['orderType'] == 'sell'
             real_amount_to_sell = trade_size / best_bid_price(from_token)
             amount_to_sell = int_amount(real_amount_to_sell, from_token)
-            if debug: print(f"selling {real_amount_to_sell} {from_token} tokens ({amount_to_sell} units)")
+            if debug: print(f"selling {real_amount_to_sell} {from_token} tokens ({amount_to_sell} units) trade size = {trade_size} ETH")
             swap_inputs = {
                 "sells": [ {
                     "token": addr(from_token),
-                    "amount": amount_to_sell
+                    "amount": amount_to_sell,
+                    "minSlippagePercent": min_slip,
+                    "minFillPercent": min_fill
                 } ],
             }
+
 
     swap_inputs = pp({**swap_inputs, **base_inputs})
     if debug: print(f"REQUEST to {swap_endpoint}:\n{swap_inputs}\n\n")
