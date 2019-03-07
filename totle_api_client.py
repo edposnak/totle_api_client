@@ -357,6 +357,7 @@ parser.add_argument('--sell', dest='orderType', action='store_const', const='sel
 parser.add_argument('tradeSize', type=float, nargs='?', default=DEFAULT_TRADE_SIZE, help='the size (in ETH) of the order')
 parser.add_argument('minSlippagePercent', nargs='?', default=DEFAULT_MIN_SLIPPAGE_PERCENT, type=float, help='acceptable percent of slippage')
 parser.add_argument('minFillPercent', nargs='?', default=DEFAULT_MIN_FILL_PERCENT, type=float, help='acceptable percent of amount to acquire')
+parser.add_argument('affiliateContract', nargs='?', help='address of affiliate fee contract')
 
 params = vars(parser.parse_args())
 
