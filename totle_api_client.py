@@ -319,10 +319,10 @@ def compare_prices(token, supported_pairs, params=None, debug=False):
 
 def print_average_savings(all_savings):
     for trade_size in all_savings:
-        print('')
-        print_average_savings_by_dex(all_savings[trade_size], trade_size)
+        print(f"\nAverage Savings trade size = {trade_size} ETH")
+        print_average_savings_by_dex(all_savings[trade_size])
 
-def print_average_savings_by_dex(avg_savings, trade_size):
+def print_average_savings_by_dex(avg_savings):
     dex_savings = { k: [] for k in exchanges }
     savings = [avg_savings[t] for t in avg_savings if avg_savings[t]]
     for s in savings:
@@ -330,21 +330,35 @@ def print_average_savings_by_dex(avg_savings, trade_size):
             dex_savings[e].append(s[e])
 
     for e in dex_savings:
-        l = dex_savings[e]
-        n_samples = len(l)
+        sum_e, n_samples = sum(dex_savings[e]), len(dex_savings[e])
         if n_samples:
-            print(f"Average savings vs {e} for trade size {trade_size} ETH is {sum(l)/n_samples:.2f}% ({n_samples} samples)")
+            print(f"   {e}: {sum_e/n_samples:.2f}% ({n_samples} samples)")
         else:
-            print(f"No savings comparison samples vs {e} for trade size {trade_size} ETH")
+            print(f"   {e}: - (no samples)")
 
     return dex_savings
 
 def print_supported_pairs(all_supported_pairs):
     for trade_size in all_supported_pairs:
-        print(f"\nAt trade size of {trade_size} ETH:")
+        print(f"\nLiquidity at trade size of {trade_size} ETH:")
         for e in all_supported_pairs[trade_size]:
             pairs = [f"{t}/{f}" for f, t in all_supported_pairs[trade_size][e]]
-            print(f"   {e} supports {len(pairs)} pairs: {pairs}")
+            print(f"   {e}: {len(pairs)} pairs {pairs}")
+
+def report_failures(all_savings):
+    succs, fails = 0, 0
+    for trade_size in all_savings:
+        asts = all_savings[trade_size]
+        for savings in [asts[token] for token in asts]:
+            for e in savings:
+                if savings[e] > 0:
+                    succs += 1
+                else:
+                    fails += 1
+
+    samples = succs + fails
+    print(f"Totle failed to get the best price {fails}/{samples} times ({100*fails/samples:.2f}%)")
+
 
 ##############################################################################################
 #
@@ -390,6 +404,5 @@ for trade_size in TRADE_SIZES:
 
 print_average_savings(all_savings)
 print_supported_pairs(all_supported_pairs)
-
-
+report_failures(all_savings)
 
