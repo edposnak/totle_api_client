@@ -58,12 +58,12 @@ def price(token, exchange):
 def best_ask_price(token):
     """Returns lowest ask price in ETH for the given token across all exchanges"""
     ap = all_prices[tokens[token]]
-    return min([ float(ap[v]['ask']) for v in ap ])
+    return min([ float(ap[v]['ask']) for v in ap if ap[v]['ask'] ])
 
 def best_bid_price(token):
     """Returns highest bid price in ETH for the given token across all exchanges"""
     ap = all_prices[tokens[token]]
-    return max([ float(ap[v]['bid']) for v in ap ])
+    return max([ float(ap[v]['bid']) for v in ap if ap[v]['bid'] ])
 
 def best_prices(token, bidask='ask'):
     """Returns lowest ask or highest bid prices in ETH for all exchanges"""
