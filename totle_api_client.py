@@ -4,6 +4,7 @@ import requests
 import argparse
 import datetime
 import time
+import csv
 
 ##############################################################################################
 #
@@ -313,8 +314,10 @@ def compare_prices(token, supported_pairs, params=None, debug=False):
                 # For example, if Totle sells 1 ERC20 for 10.0 and Kyber sells 1 for 2.0, then Totle's
                 # buy price is 0.1 and Kyber's is 0.5, and savings is 80%.
                 ratio = totle_price/swap_prices[e] if params['orderType'] == 'buy' else swap_prices[e]/totle_price
-                savings[e] = 100 - (100.0 * ratio)
-                print(f"Totle saved {savings[e]:.2f} percent vs {e} {params['orderType']}ing {token} on {totle_sd['exchange']} trade size={params['tradeSize']} ETH")
+                pct_savings = 100 - (100.0 * ratio)
+                savings[e] = {'time': datetime.datetime.now().isoformat(), 'action': params['orderType'], 'pct_savings': pct_savings,
+                              'totle_used':totle_sd['exchange'], 'totle_price': totle_price, 'exchange_price': swap_prices[e]}
+                print(f"Totle saved {pct_savings:.2f} percent vs {e} {params['orderType']}ing {token} on {totle_sd['exchange']} trade size={params['tradeSize']} ETH")
         else:
             print(f"Could not compare {token} prices. Only valid price was {swap_prices}")
 
@@ -330,7 +333,7 @@ def print_average_savings_by_dex(avg_savings):
     savings = [avg_savings[t] for t in avg_savings if avg_savings[t]]
     for s in savings:
         for e in s:
-            dex_savings[e].append(s[e])
+            dex_savings[e].append(s[e]['pct_savings'])
 
     for e in dex_savings:
         sum_e, n_samples = sum(dex_savings[e]), len(dex_savings[e])
@@ -340,6 +343,20 @@ def print_average_savings_by_dex(avg_savings):
             print(f"   {e}: - (no samples)")
 
     return dex_savings
+
+def print_csv(csv_file):
+    with open(csv_file, 'w', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=['time', 'action', 'trade_size', 'token', 'exchange', 'exchange_price', 'totle_used','totle_price', 'pct_savings'])
+        writer.writeheader()
+
+        for trade_size in all_savings:
+            trade_size_savings = all_savings[trade_size]
+            for token in trade_size_savings:
+                token_savings = trade_size_savings[token]
+                for exchange in token_savings:
+                    row = {**{'trade_size': trade_size, 'token' : token, 'exchange': exchange}, **token_savings[exchange]}
+                    writer.writerow(row)
+
 
 def print_supported_pairs(all_supported_pairs):
     for trade_size in all_supported_pairs:
@@ -354,7 +371,8 @@ def report_failures(all_savings):
         asts = all_savings[trade_size]
         for savings in [asts[token] for token in asts]:
             for e in savings:
-                if savings[e] > 0:
+                pct_savings = savings[e]['pct_savings']
+                if pct_savings > 0:
                     succs += 1
                 else:
                     fails += 1
@@ -381,7 +399,8 @@ params = vars(parser.parse_args())
 # Redirect output to a .txt file in outputs directory
 # Comment out the following 3 lines to see output on console
 d = datetime.datetime.today()
-output_filename = f"outputs/{d.year}-{d.month:02d}-{d.day:02d}_{d.hour:02d}-{d.minute:02d}-{d.second:02d}_{params['orderType']}_{params['tradeSize']}-{params['minSlippagePercent']}-{params['minFillPercent']}.txt"
+filename = f"outputs/{d.year}-{d.month:02d}-{d.day:02d}_{d.hour:02d}-{d.minute:02d}-{d.second:02d}_{params['orderType']}_{params['tradeSize']}-{params['minSlippagePercent']}-{params['minFillPercent']}"
+output_filename = f"{filename}.txt"
 print(f"sending output to {output_filename} ...")
 sys.stdout = open(output_filename, 'w')
 
@@ -405,6 +424,8 @@ for trade_size in TRADE_SIZES:
         savings = compare_prices(token, all_supported_pairs[trade_size], params, debug=False)
         all_savings[trade_size][token] = savings
 
+
+print_csv(f"{filename}.csv")
 print_average_savings(all_savings)
 print_supported_pairs(all_supported_pairs)
 report_failures(all_savings)
