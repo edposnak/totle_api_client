@@ -46,7 +46,10 @@ def real_amount(int_amount, token):
     return int(int_amount) / (10**token_decimals[token])
 
 # get all token prices on all exchanges
-all_prices = requests.get(PRICES_ENDPOINT).json()['response']
+all_prices_json = requests.get(PRICES_ENDPOINT).json()['response']
+
+# remove new bidOrders and askOrders
+all_prices = {t : {k : all_prices_json[t][k] for k in all_prices_json[t] if k.isdigit()} for t in all_prices_json}
 
 # We assume that the prices endpoints returns the lowest 'ask' and highest 'bid' price for
 # a given token. If it does not, then that would explain why rebalance returns orders
