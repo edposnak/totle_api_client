@@ -134,7 +134,7 @@ def swap_data(response, trade_size):
     else:
         summary = summary[0]
 
-    price = float(summary['rate'])
+    price = 1.0 / float(summary['rate'])
 
     trades = summary['trades']
     if not trades: return {} # Suggester has no trades
@@ -153,6 +153,8 @@ def swap_data(response, trade_size):
     destination_amount = real_amount(destination_amount_i, destination_token)
     
     # TODO verify assumption that exchange is the same for all orders; it may be different across orders
+    if len(orders) != 1:
+        raise Exception(f"len(orders) = {len(orders)}")
     exchange = orders[0]['exchange']['name']
 
     # TODO verify assumption that f['asset']['symbol'] is always the same; it may be different across orders
@@ -244,15 +246,10 @@ def call_swap(from_token, to_token, exchange=None, params=None, debug=None):
 
         # add sourceAmount or destinationAmount
         if params['orderType'] == 'buy':
-            real_amount_to_buy = trade_size / best_ask_price(to_token)
-            swap_inputs["swap"]["destinationAmount"] = int_amount(real_amount_to_buy, to_token)
-            if debug: print(f"buying {real_amount_to_buy} {to_token} tokens trade size = {trade_size} ETH (from_token={from_token})")
+            swap_inputs["swap"]["sourceAmount"] = eth_to_wei(trade_size)
         else:
-            real_amount_to_sell = trade_size / best_bid_price(from_token)
-            swap_inputs["swap"]["sourceAmount"] = int_amount(real_amount_to_sell, from_token)
-            if debug: print(f"selling {real_amount_to_sell} {from_token} tokens trade size = {trade_size} ETH (to_token={to_token})")
-                
-
+            swap_inputs["swap"]["destinationAmount"] = eth_to_wei(trade_size)
+        
     swap_inputs = pp({**swap_inputs, **base_inputs})
     if debug: print(f"REQUEST to {swap_endpoint}:\n{swap_inputs}\n\n")
     j = post_with_retries(swap_endpoint, swap_inputs)
@@ -260,12 +257,8 @@ def call_swap(from_token, to_token, exchange=None, params=None, debug=None):
 
     if j['success']:
         return swap_data(j['response'], trade_size)
-    elif j['response']['name'] == "NotEnoughVolumeError":
-        return {} # this is a common failure
     else: # some uncommon error we should look into
-        print(f"FAILED REQUEST:\n{swap_inputs}\n")
-        print(f"FAILED RESPONSE:\n{pp(j)}\n\n")
-        raise Exception(j['response'])
+        raise Exception(j['response'], swap_inputs, pp(j))
 
 def try_swap(dex, from_token, to_token, exchange=None, params=None, debug=None):
     """Wraps call_swap with an exception handler and returns None if an exception is caught"""
@@ -273,12 +266,16 @@ def try_swap(dex, from_token, to_token, exchange=None, params=None, debug=None):
     try:
         sd = call_swap(from_token, to_token, exchange=exchange, params=params, debug=debug)
     except Exception as e:
-        print(f"{dex}: swap raised {e}")
+        r = e.args[0]
+        if r['name'] in ["NotEnoughVolumeError", "MarketSlippageTooHighError"]:
+            print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} trade size={params['tradeSize']} ETH due to {r['name']}")
+        else: # print req/resp for uncommon failures
+            print(f"{dex}: swap raised {e}")
+            print(f"FAILED REQUEST:\n{e.args[1]}\n")
+            print(f"FAILED RESPONSE:\n{e.args[2]}\n\n")
 
     if sd:
         print(f"{dex}: swap {sd['sourceAmount']} {sd['sourceToken']} for {sd['destinationAmount']} {sd['destinationToken']} on {sd['exchange']} price={sd['price']} exchange_fee={sd['exchangeFee']} {sd['exchangeFeeAsset']} totle_fee={sd['totleFee']} {sd['totleFeeAsset']} partner_fee={sd['partnerFee']} {sd['partnerFeeAsset']}")
-    elif sd == {}:
-        print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} trade size={params['tradeSize']} ETH")
 
     return sd
 
@@ -306,26 +303,18 @@ def compare_prices(token, supported_pairs, params=None, debug=False):
                 dex_sd = try_swap(dex, from_token, to_token, exchange=dex, params=params, debug=debug)
                 if dex_sd:
                     swap_prices[dex] = dex_sd['price']
+                    if swap_prices[dex] < 0.0:
+                        raise Exception(f"{dex} had an invalid price={swap_prices[dex]}")
                     supported_pairs[dex].append((from_token, to_token))
-
-        bad_dexs = [e for e in swap_prices if swap_prices[e] < 0.0]
-        for dex in bad_dexs:
-            print(f"Removing {dex} from price comparisons because it returned an invalid price={swap_prices[dex]} for {token}")
-            swap_prices.pop(dex)
 
 
         if TOTLE_EX in swap_prices and len(swap_prices) > 1:  # there is data to compare
             totle_price = swap_prices[TOTLE_EX]
             other_exchanges = [k for k in swap_prices if k != TOTLE_EX]
             for e in other_exchanges:
-                # for buys savings (as a percent) is just 100 - (100.0 * Totle's price/DEX's price)
-                # for sells it works as reverse ratio i.e. 100 - (100.0 * DEX's price/Totle's price).
-                # For example, if Totle sells 1 ERC20 for 10.0 and Kyber sells 1 for 2.0, then Totle's
-                # buy price is 0.1 and Kyber's is 0.5, and savings is 80%.
-                ratio = totle_price/swap_prices[e] if params['orderType'] == 'buy' else swap_prices[e]/totle_price
+                ratio = totle_price/swap_prices[e] # totle_price assumed lower
                 pct_savings = 100 - (100.0 * ratio)
-                savings[e] = {'time': datetime.datetime.now().isoformat(), 'action': params['orderType'], 'pct_savings': pct_savings,
-                              'totle_used':totle_sd['exchange'], 'totle_price': totle_price, 'exchange_price': swap_prices[e]}
+                savings[e] = {'time': datetime.datetime.now().isoformat(), 'action': params['orderType'], 'pct_savings': pct_savings, 'totle_used':totle_sd['exchange'], 'totle_price': totle_price, 'exchange_price': swap_prices[e]}
                 print(f"Totle saved {pct_savings:.2f} percent vs {e} {params['orderType']}ing {token} on {totle_sd['exchange']} trade size={params['tradeSize']} ETH")
         else:
             print(f"Could not compare {token} prices. Only valid price was {swap_prices}")
@@ -413,12 +402,11 @@ params = vars(parser.parse_args())
 d = datetime.datetime.today()
 filename = f"outputs/{d.year}-{d.month:02d}-{d.day:02d}_{d.hour:02d}-{d.minute:02d}-{d.second:02d}_{params['orderType']}_{params['tradeSize']}-{params['maxMarketSlippagePercent']}-{params['maxExecutionSlippagePercent']}-{params['minFillPercent']}"
 output_filename = f"{filename}.txt"
-# print(f"sending output to {output_filename} ...")
-# sys.stdout = open(output_filename, 'w')
+print(f"sending output to {output_filename} ...")
+sys.stdout = open(output_filename, 'w')
 
 TOKENS = all_liquid_tokens()
 TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0]
-
 
 all_savings, all_supported_pairs = {}, {}
 order_type = params['orderType']
@@ -434,7 +422,7 @@ for trade_size in TRADE_SIZES:
             continue
         print(f"\n----------------------------------------\n{order_type} {token} trade size = {trade_size} ETH")
         show_prices(token, order_type)
-        savings = compare_prices(token, all_supported_pairs[trade_size], params, debug=True)
+        savings = compare_prices(token, all_supported_pairs[trade_size], params, debug=False)
         all_savings[trade_size][token] = savings
 
 
