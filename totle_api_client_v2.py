@@ -125,7 +125,7 @@ def post_with_retries(endpoint, inputs, num_retries=3):
 
 
     
-def swap_data(response, trade_size):
+def swap_data(response, trade_size, dex):
     """Extracts relevant data from a swap/rebalance API endpoint response"""
 
     summary = response['summary']
@@ -133,8 +133,6 @@ def swap_data(response, trade_size):
         raise Exception(f"len(trades) = {len(trades)}")
     else:
         summary = summary[0]
-
-    price = 1.0 / float(summary['rate'])
 
     trades = summary['trades']
     if not trades: return {} # Suggester has no trades
@@ -152,17 +150,20 @@ def swap_data(response, trade_size):
     destination_amount_i = summary['destinationAmount']
     destination_amount = real_amount(destination_amount_i, destination_token)
     
-    # TODO verify assumption that exchange is the same for all orders; it may be different across orders
+    # Assume there is only 1 order (seems to always be true)
     if len(orders) != 1:
         raise Exception(f"len(orders) = {len(orders)}")
-    exchange = orders[0]['exchange']['name']
+    o = orders[0]
+    exchange = o['exchange']['name']
 
-    # TODO verify assumption that f['asset']['symbol'] is always the same; it may be different across orders
-    exchange_fee = 0
-    for o in orders:
-        f = o['fee']
-        exchange_fee_asset = f['asset']['symbol']
-        exchange_fee += int(f['amount']) / 10**int(f['asset']['decimals'])
+    if dex == TOTLE_EX: # price with totle fee included
+        price = 1.0 / float(summary['rate'])
+    else: # price of the order (without totle fee)
+        price = real_amount(o['sourceAmount'], source_token) / real_amount(o['destinationAmount'], destination_token)
+
+    f = o['fee']
+    exchange_fee_asset = f['asset']['symbol']
+    exchange_fee = int(f['amount']) / 10**int(f['asset']['decimals'])
 
     f = summary['totleFee']
     totle_fee_asset = f['asset']['symbol']
@@ -181,11 +182,11 @@ def swap_data(response, trade_size):
         "exchange": exchange,
         "price": price,
         "exchangeFee": exchange_fee,
-        "exchangeFeeAsset": exchange_fee_asset,
+        "exchangeFeeToken": exchange_fee_asset,
         "totleFee": totle_fee,
-        "totleFeeAsset": totle_fee_asset,
+        "totleFeeToken": totle_fee_asset,
         "partnerFee": partner_fee,
-        "partnerFeeAsset": partner_fee_asset,
+        "partnerFeeToken": partner_fee_asset,
     }
 
 # Default parameters for swap. These can be overridden by passing params
@@ -195,9 +196,14 @@ DEFAULT_MAX_SLIPPAGE_PERCENT = 10
 DEFAULT_MIN_FILL_PERCENT = 80
 
 
-def call_swap(from_token, to_token, exchange=None, params=None, debug=None):
+def call_swap(dex, from_token, to_token, exchange=None, params={}, debug=None):
     """Calls the swap API endpoint with the given token pair and whitelisting exchange if given. Returns the result as a swap_data dict """
     # the swap_data dict is defined by the return statement in swap_data method above
+
+    if from_token == 'ETH' and to_token == 'ETH':
+        raise Exception('from_token and to_token cannot both be ETH')
+    if from_token != 'ETH' and to_token != 'ETH':
+        raise Exception('either from_token or to_token must be ETH')
 
     # trade_size is not an endpoint input so we extract it from params (after making a local copy)
     params = dict(params) # copy params to localize any modifications
@@ -227,44 +233,42 @@ def call_swap(from_token, to_token, exchange=None, params=None, debug=None):
     max_exe_slip = params.get('maxExecutionSlippagePercent') or DEFAULT_MAX_SLIPPAGE_PERCENT
     min_fill = params.get('minFillPercent') or DEFAULT_MIN_FILL_PERCENT
 
-    if from_token_addr == ETH_ADDRESS and to_token_addr == ETH_ADDRESS:
-        raise Exception('from_token and to_token cannot both be ETH')
-
-    if True:
-        swap_endpoint = SWAP_ENDPOINT
-
-        swap_inputs = {
-            "swap": {
-                "sourceAsset": from_token_addr,
-                "destinationAsset": to_token_addr,
-                "minFillPercent": min_fill,
-                "maxMarketSlippagePercent": max_mkt_slip,
-                "maxExecutionSlippagePercent": max_exe_slip,
-                "isOptional": False,
-            }
+    swap_inputs = {
+        "swap": {
+            "sourceAsset": from_token_addr,
+            "destinationAsset": to_token_addr,
+            "minFillPercent": min_fill,
+            "maxMarketSlippagePercent": max_mkt_slip,
+            "maxExecutionSlippagePercent": max_exe_slip,
+            "isOptional": False,
         }
+    }
 
-        # add sourceAmount or destinationAmount
-        if params['orderType'] == 'buy':
-            swap_inputs["swap"]["sourceAmount"] = eth_to_wei(trade_size)
-        else:
-            swap_inputs["swap"]["destinationAmount"] = eth_to_wei(trade_size)
+    # add sourceAmount or destinationAmount
+    if from_token == 'ETH':
+        swap_inputs["swap"]["sourceAmount"] = eth_to_wei(trade_size)
+    elif to_token == 'ETH':
+        swap_inputs["swap"]["destinationAmount"] = eth_to_wei(trade_size)
+    else:
+        raise Exception('either from_token or to_token must be ETH')
         
     swap_inputs = pp({**swap_inputs, **base_inputs})
+
+    swap_endpoint = SWAP_ENDPOINT
     if debug: print(f"REQUEST to {swap_endpoint}:\n{swap_inputs}\n\n")
     j = post_with_retries(swap_endpoint, swap_inputs)
     if debug: print(f"RESPONSE from {swap_endpoint}:\n{pp(j)}\n\n")
 
     if j['success']:
-        return swap_data(j['response'], trade_size)
+        return swap_data(j['response'], trade_size, dex)
     else: # some uncommon error we should look into
         raise Exception(j['response'], swap_inputs, pp(j))
 
-def try_swap(dex, from_token, to_token, exchange=None, params=None, debug=None):
+def try_swap(dex, from_token, to_token, exchange=None, params={}, debug=None):
     """Wraps call_swap with an exception handler and returns None if an exception is caught"""
     sd = None
     try:
-        sd = call_swap(from_token, to_token, exchange=exchange, params=params, debug=debug)
+        sd = call_swap(dex, from_token, to_token, exchange=exchange, params=params, debug=debug)
     except Exception as e:
         r = e.args[0]
         if r['name'] in ["NotEnoughVolumeError", "MarketSlippageTooHighError"]:
@@ -275,9 +279,10 @@ def try_swap(dex, from_token, to_token, exchange=None, params=None, debug=None):
             print(f"FAILED RESPONSE:\n{e.args[2]}\n\n")
 
     if sd:
-        print(f"{dex}: swap {sd['sourceAmount']} {sd['sourceToken']} for {sd['destinationAmount']} {sd['destinationToken']} on {sd['exchange']} price={sd['price']} exchange_fee={sd['exchangeFee']} {sd['exchangeFeeAsset']} totle_fee={sd['totleFee']} {sd['totleFeeAsset']} partner_fee={sd['partnerFee']} {sd['partnerFeeAsset']}")
+        print(f"{dex}: swap {sd['sourceAmount']} {sd['sourceToken']} for {sd['destinationAmount']} {sd['destinationToken']} on {sd['exchange']} price={sd['price']} exchange_fee={sd['exchangeFee']} {sd['exchangeFeeToken']} totle_fee={sd['totleFee']} {sd['totleFeeToken']} partner_fee={sd['partnerFee']} {sd['partnerFeeToken']}")
 
     return sd
+
 
 ##############################################################################################
 #
