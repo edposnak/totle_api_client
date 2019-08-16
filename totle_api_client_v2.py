@@ -143,12 +143,7 @@ def swap_data(response, trade_size, dex):
     if not orders: return {} # Suggester has no orders
 
     source_token = summary['sourceAsset']['symbol']
-    source_amount_i = summary['sourceAmount']
-    source_amount = real_amount(source_amount_i, source_token)
-    
     destination_token = summary['destinationAsset']['symbol']
-    destination_amount_i = summary['destinationAmount']
-    destination_amount = real_amount(destination_amount_i, destination_token)
     
     # Assume there is only 1 order (seems to always be true)
     if len(orders) != 1:
@@ -157,9 +152,14 @@ def swap_data(response, trade_size, dex):
     exchange = o['exchange']['name']
 
     if dex == TOTLE_EX: # price with totle fee included
-        price = 1.0 / float(summary['rate'])
+        source_amount = real_amount(summary['sourceAmount'], source_token)
+        destination_amount = real_amount(summary['destinationAmount'], destination_token)
+
     else: # price of the order (without totle fee)
-        price = real_amount(o['sourceAmount'], source_token) / real_amount(o['destinationAmount'], destination_token)
+        source_amount = real_amount(o['sourceAmount'], source_token)
+        destination_amount = real_amount(o['destinationAmount'], destination_token)
+        
+    price = source_amount / destination_amount
 
     f = o['fee']
     exchange_fee_asset = f['asset']['symbol']
@@ -279,7 +279,14 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, debug=None):
             print(f"FAILED RESPONSE:\n{e.args[2]}\n\n")
 
     if sd:
-        print(f"{dex}: swap {sd['sourceAmount']} {sd['sourceToken']} for {sd['destinationAmount']} {sd['destinationToken']} on {sd['exchange']} price={sd['price']} exchange_fee={sd['exchangeFee']} {sd['exchangeFeeToken']} totle_fee={sd['totleFee']} {sd['totleFeeToken']} partner_fee={sd['partnerFee']} {sd['partnerFeeToken']}")
+        if dex == TOTLE_EX:
+            test_type = 'A'
+            fee_data = f"(includes exchange_fee={sd['exchangeFee']} {sd['exchangeFeeToken']} totle_fee={sd['totleFee']} {sd['totleFeeToken']})" # leave out partner_fee since it is always 0
+        else:
+            test_type = 'B'
+            fee_data = f"(includes exchange_fee={sd['exchangeFee']} {sd['exchangeFeeToken']})"
+
+        print(f"{test_type}: swap {sd['sourceAmount']} {sd['sourceToken']} for {sd['destinationAmount']} {sd['destinationToken']} on {sd['exchange']} price={sd['price']} {fee_data}")
 
     return sd
 
