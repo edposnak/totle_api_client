@@ -12,14 +12,12 @@ import csv
 #
 # get exchanges
 
-API_BASE_R = 'https://services.totlesystem.com'
-API_BASE_W = 'https://api.totle.com'
-EXCHANGES_ENDPOINT = API_BASE_R + '/exchanges'
-TOKENS_ENDPOINT = API_BASE_R + '/tokens'
-PRICES_ENDPOINT = API_BASE_R + '/tokens/prices'
-SWAP_ENDPOINT = API_BASE_W + '/swap'
-# REBALANCE_ENDPOINT = API_BASE + '/rebalance'
-# SWAP_ENDPOINT = REBALANCE_ENDPOINT = "https://services.totlesystem.com/orders/suggestions/v0-5-5"
+API_BASE_OLD = 'https://services.totlesystem.com'
+API_BASE_NEW = 'https://api.totle.com'
+EXCHANGES_ENDPOINT = API_BASE_OLD + '/exchanges'
+TOKENS_ENDPOINT = API_BASE_NEW + '/tokens'
+PRICES_ENDPOINT = API_BASE_OLD + '/tokens/prices'
+SWAP_ENDPOINT = API_BASE_NEW + '/swap'
 
 r = requests.get(EXCHANGES_ENDPOINT).json()
 exchanges = { e['name']: e['id'] for e in r['exchanges'] }
@@ -31,14 +29,11 @@ r = requests.get(TOKENS_ENDPOINT).json()
 tokens = { t['symbol']: t['address'] for t in r['tokens'] if t['tradable']}
 token_symbols = { tokens[sym]: sym for sym in tokens }
 token_decimals = { t['symbol']: t['decimals'] for t in r['tokens'] if t['tradable']}
-token_decimals['ETH'] = 18
 
-ETH_ADDRESS = "0x0000000000000000000000000000000000000000" 
 
 def addr(token):
     """Returns the string address that identifies the token"""
-    # convert 'ETH' to addr 0x000... in anticipation of fix to swap
-    return ETH_ADDRESS if token == 'ETH' else tokens[token]
+    return tokens[token]
 
 def int_amount(float_amount, token):
     """Returns the integer amount of token units for the given float_amount and token"""
@@ -50,7 +45,6 @@ def real_amount(int_amount, token):
 
 # get all token prices on all exchanges
 all_prices_json = requests.get(PRICES_ENDPOINT).json()['response']
-
 
 # remove new bidOrders and askOrders
 all_prices = {t : {k : all_prices_json[t][k] for k in all_prices_json[t] if k.isdigit()} for t in all_prices_json}
@@ -82,13 +76,6 @@ def show_prices(token, order_type):
         print(f"Lowest ask prices for {token}: {pp(best_prices(token, 'ask'))}")
     else: # order_type == 'sell':
         print(f"Highest bid prices for {token}: {pp(best_prices(token, 'bid'))}")
-
-def wei_to_eth(wei_amount):
-    """Returns a decimal value of the amount of ETH for the given wei_amount"""
-    return int(wei_amount) / 10**18
-
-def eth_to_wei(eth_amount):
-    return int(float(eth_amount) * 10**18)
 
 def pp(data):
     return json.dumps(data, indent=3)
@@ -245,10 +232,11 @@ def call_swap(dex, from_token, to_token, exchange=None, params={}, debug=None):
     }
 
     # add sourceAmount or destinationAmount
+    eth_amount = int_amount(trade_size, 'ETH')
     if from_token == 'ETH':
-        swap_inputs["swap"]["sourceAmount"] = eth_to_wei(trade_size)
+        swap_inputs["swap"]["sourceAmount"] = eth_amount
     elif to_token == 'ETH':
-        swap_inputs["swap"]["destinationAmount"] = eth_to_wei(trade_size)
+        swap_inputs["swap"]["destinationAmount"] = eth_amount
     else:
         raise Exception('either from_token or to_token must be ETH')
         
