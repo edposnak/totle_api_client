@@ -8,7 +8,7 @@ import csv
 
 ##############################################################################################
 #
-# Library functions for exchanges, tokens, and prices
+# Library functions for exchanges and tokens
 #
 # get exchanges
 
@@ -16,7 +16,6 @@ API_BASE_OLD = 'https://services.totlesystem.com'
 API_BASE_NEW = 'https://api.totle.com'
 EXCHANGES_ENDPOINT = API_BASE_OLD + '/exchanges'
 TOKENS_ENDPOINT = API_BASE_NEW + '/tokens'
-PRICES_ENDPOINT = API_BASE_OLD + '/tokens/prices'
 SWAP_ENDPOINT = API_BASE_NEW + '/swap'
 
 r = requests.get(EXCHANGES_ENDPOINT).json()
@@ -24,12 +23,31 @@ exchanges = { e['name']: e['id'] for e in r['exchanges'] }
 exchange_by_id = { e['id']: e['name'] for e in r['exchanges'] }
 TOTLE_EX = 'Totle' # 'Totle' is used for comparison with other exchanges
 
+def get_integrated_dexs():
+    """determines the integrated DEXs by querying the suggester and checking for a valid response"""
+    integrated_dexs = []
+    for dex in exchanges:
+        try:
+            # call_swap will either succeed (meaning the dex is integrated) or raise an exception
+            call_swap(dex, 'ETH', 'DAI', exchange=dex, params={'tradeSize':0.1}, debug=False)
+            # print(f"{dex} is integrated")
+            integrated_dexs.append(dex)
+        except Exception as e:
+            r = e.args[0]
+            if r['name'] == 'NoUsableExchangeError':
+                pass
+                # print(f"{dex} is not integrated")
+            else:
+                # TODO: consider trying different tokens (e.g. ['DAI', 'USDC', 'BAT']) if this error occurs
+                print(f"FAILED REQUEST:\n{e.args[1]}\n")
+                print(f"FAILED RESPONSE:\n{e.args[2]}\n\n")
+                raise Exception(f"call_swap for {dex} raised {r['name']} while trying to determine integrated dexs")
+    return integrated_dexs
+
 # get tokens
 r = requests.get(TOKENS_ENDPOINT).json()
 tokens = { t['symbol']: t['address'] for t in r['tokens'] if t['tradable']}
-token_symbols = { tokens[sym]: sym for sym in tokens }
 token_decimals = { t['symbol']: t['decimals'] for t in r['tokens'] if t['tradable']}
-
 
 def addr(token):
     """Returns the string address that identifies the token"""
@@ -43,56 +61,13 @@ def real_amount(int_amount, token):
     """Returns the decimal number of tokens for the given integer amount and token"""
     return int(int_amount) / (10**token_decimals[token])
 
-# get all token prices on all exchanges
-all_prices_json = requests.get(PRICES_ENDPOINT).json()['response']
-
-# remove new bidOrders and askOrders
-all_prices = {t : {k : all_prices_json[t][k] for k in all_prices_json[t] if k.isdigit()} for t in all_prices_json}
-
-# We assume that the prices endpoints returns the lowest 'ask' and highest 'bid' price for
-# a given token. If it does not, then that would explain why rebalance returns orders
-# with lower prices than the ask price
-def price(token, exchange):
-    """Returns lowest ask price in ETH for the given token on the given exchange"""
-    return float(all_prices[tokens[token]][str(exchanges[exchange])]['ask'])
-
-def best_ask_price(token):
-    """Returns lowest ask price in ETH for the given token across all exchanges"""
-    ap = all_prices[tokens[token]]
-    return min([ float(ap[v]['ask']) for v in ap if ap[v]['ask'] ])
-
-def best_bid_price(token):
-    """Returns highest bid price in ETH for the given token across all exchanges"""
-    ap = all_prices[tokens[token]]
-    return max([ float(ap[v]['bid']) for v in ap if ap[v]['bid'] ])
-
-def best_prices(token, bidask='ask'):
-    """Returns lowest ask or highest bid prices in ETH for all exchanges"""
-    token_prices = all_prices[tokens[token]]
-    return { exchange_by_id[int(i)]: float(token_prices[i][bidask]) for i in token_prices if token_prices[i][bidask] }
-
-def show_prices(token, order_type):
-    if order_type == 'buy':
-        print(f"Lowest ask prices for {token}: {pp(best_prices(token, 'ask'))}")
-    else: # order_type == 'sell':
-        print(f"Highest bid prices for {token}: {pp(best_prices(token, 'bid'))}")
-
 def pp(data):
     return json.dumps(data, indent=3)
-
-def all_liquid_tokens(min_exchanges=2):
-    """returns all the tokens for which price data exists on at least min_exchanges DEXs"""
-    if min_exchanges > len(exchanges):
-        raise Exception(f"min_exchanges set to {min_exchanges}, but there are only {len(exchanges)} possible")
-
-    taddrs = [ ta for ta in all_prices if ta in token_symbols ]
-
-    return [ token_symbols[taddr] for taddr in taddrs if len(all_prices[taddr]) > min_exchanges ] 
 
 
 ##############################################################################################
 #
-# functions to call swap/rebalance and extract data
+# functions to call swap and extract data
 #
 
 def post_with_retries(endpoint, inputs, num_retries=3):
@@ -109,7 +84,6 @@ def post_with_retries(endpoint, inputs, num_retries=3):
     else: # all attempts failed
         time.sleep(60)  # wait for servers to reboot, as we've probably killed them all
         raise Exception(f"Failed to extract JSON response after {num_retries} retries. status code={r.status_code}")
-
 
     
 def swap_data(response, trade_size, dex):
@@ -182,9 +156,8 @@ DEFAULT_TRADE_SIZE = 1.0 # the amount of ETH to spend or acquire, used to calcul
 DEFAULT_MAX_SLIPPAGE_PERCENT = 10
 DEFAULT_MIN_FILL_PERCENT = 80
 
-
 def call_swap(dex, from_token, to_token, exchange=None, params={}, debug=None):
-    """Calls the swap API endpoint with the given token pair and whitelisting exchange if given. Returns the result as a swap_data dict """
+    """Calls the swap API endpoint with the given token pair and whitelisting exchange if given. Returns the result as a swap_data dict or raises an exception if the call failed"""
     # the swap_data dict is defined by the return statement in swap_data method above
 
     if from_token == 'ETH' and to_token == 'ETH':
@@ -258,8 +231,9 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, debug=None):
     try:
         sd = call_swap(dex, from_token, to_token, exchange=exchange, params=params, debug=debug)
     except Exception as e:
+        normal_exceptions = ["NotEnoughVolumeError", "MarketSlippageTooHighError"]
         r = e.args[0]
-        if r['name'] in ["NotEnoughVolumeError", "MarketSlippageTooHighError"]:
+        if type(r) == dict and r['name'] in normal_exceptions:
             print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} trade size={params['tradeSize']} ETH due to {r['name']}")
         else: # print req/resp for uncommon failures
             print(f"{dex}: swap raised {e}")
@@ -298,20 +272,18 @@ def compare_prices(token, supported_pairs, params=None, debug=False):
         supported_pairs[totle_sd['exchange']].append((from_token, to_token))
 
         # Compare to best prices from other DEXs
-        for dex in best_prices(token, bidask):
-            if dex != totle_sd['exchange']:
-                dex_sd = try_swap(dex, from_token, to_token, exchange=dex, params=params, debug=debug)
-                if dex_sd:
-                    swap_prices[dex] = dex_sd['price']
-                    if swap_prices[dex] < 0.0:
-                        raise Exception(f"{dex} had an invalid price={swap_prices[dex]}")
-                    supported_pairs[dex].append((from_token, to_token))
+        for dex in [dex for dex in supported_pairs if dex != totle_sd['exchange']]:
+            dex_sd = try_swap(dex, from_token, to_token, exchange=dex, params=params, debug=debug)
+            if dex_sd:
+                swap_prices[dex] = dex_sd['price']
+                if swap_prices[dex] < 0.0:
+                    raise Exception(f"{dex} had an invalid price={swap_prices[dex]}")
+                supported_pairs[dex].append((from_token, to_token))
 
 
         if TOTLE_EX in swap_prices and len(swap_prices) > 1:  # there is data to compare
             totle_price = swap_prices[TOTLE_EX]
-            other_exchanges = [k for k in swap_prices if k != TOTLE_EX]
-            for e in other_exchanges:
+            for e in [k for k in swap_prices if k != TOTLE_EX]:
                 ratio = totle_price/swap_prices[e] # totle_price assumed lower
                 pct_savings = 100 - (100.0 * ratio)
                 savings[e] = {'time': datetime.datetime.now().isoformat(), 'action': params['orderType'], 'pct_savings': pct_savings, 'totle_used':totle_sd['exchange'], 'totle_price': totle_price, 'exchange_price': swap_prices[e]}
@@ -323,22 +295,22 @@ def compare_prices(token, supported_pairs, params=None, debug=False):
 
 def print_average_savings(all_savings):
     for trade_size in all_savings:
-        print(f"\nAverage Savings trade size = {trade_size} ETH")
+        print(f"\nAverage Savings trade size = {trade_size} ETH vs")
         print_average_savings_by_dex(all_savings[trade_size])
 
 def print_average_savings_by_dex(avg_savings):
-    dex_savings = { k: [] for k in exchanges }
-    savings = [avg_savings[t] for t in avg_savings if avg_savings[t]]
-    for s in savings:
-        for e in s:
-            dex_savings[e].append(s[e]['pct_savings'])
+    dex_savings = { dex: [] for dex in integated_dexs() }
 
-    for e in dex_savings:
-        sum_e, n_samples = sum(dex_savings[e]), len(dex_savings[e])
+    for token_savings in [ avg_savings[token] for token in avg_savings if avg_savings[token] ]:
+        for dex in token_savings:
+            dex_savings[dex].append(token_savings[dex]['pct_savings'])
+
+    for dex in dex_savings:
+        sum_savings, n_samples = sum(dex_savings[dex]), len(dex_savings[dex])
         if n_samples:
-            print(f"   {e}: {sum_e/n_samples:.2f}% ({n_samples} samples)")
+            print(f"   {dex}: {sum_savings/n_samples:.2f}% ({n_samples} samples)")
         else:
-            print(f"   {e}: - (no samples)")
+            print(f"   {dex}: - (no samples)")
 
     return dex_savings
 
@@ -405,23 +377,22 @@ output_filename = f"{filename}.txt"
 print(f"sending output to {output_filename} ...")
 sys.stdout = open(output_filename, 'w')
 
-TOKENS = all_liquid_tokens()
+TOKENS = [t for t in tokens if t != 'ETH']
 TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0]
 
 all_savings, all_supported_pairs = {}, {}
 order_type = params['orderType']
 
+integrated_dexs = get_integrated_dexs()
+print(f"using the following DEXs, which appear to be integrated: {integrated_dexs}")
+
 for trade_size in TRADE_SIZES:
     params['tradeSize'] = trade_size
     print(d, params)
     all_savings[trade_size] = {}
-    all_supported_pairs[trade_size] = {e: [] for e in exchanges}
+    all_supported_pairs[trade_size] = {dex: [] for dex in integrated_dexs} # compare_prices() depends on these keys being present
     for token in TOKENS:
-        if token not in tokens:
-            print(f"'{token}' is not a listed token or is not tradable")
-            continue
         print(f"\n----------------------------------------\n{order_type} {token} trade size = {trade_size} ETH")
-        show_prices(token, order_type)
         savings = compare_prices(token, all_supported_pairs[trade_size], params, debug=False)
         all_savings[trade_size][token] = savings
 
