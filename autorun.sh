@@ -1,10 +1,12 @@
 while true; do
-    echo "running ..."
+    echo "$(date "+%Y-%m-%d-%H:%M:%S") running ..."
     python3 totle_api_client_v2.py
-    sleep 300
+    echo "$(date "+%Y-%m-%d-%H:%M:%S") sleeping ..."
+    sleep 60
+    echo "$(date "+%Y-%m-%d-%H:%M:%S") running ..."
     python3 totle_api_client_v2.py --sell
-    echo "sleeping ..."
-    sleep 300
+    echo "$(date "+%Y-%m-%d-%H:%M:%S") sleeping ..."
+    sleep 60
 done
 
     
