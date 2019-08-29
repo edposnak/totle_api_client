@@ -12,14 +12,13 @@ import csv
 #
 # get exchanges
 
-API_BASE_OLD = 'https://services.totlesystem.com'
-API_BASE_NEW = 'https://api.totle.com'
-EXCHANGES_ENDPOINT = API_BASE_OLD + '/exchanges'
-TOKENS_ENDPOINT = API_BASE_NEW + '/tokens'
-SWAP_ENDPOINT = API_BASE_NEW + '/swap'
+API_BASE = 'https://api.totle.com'
+EXCHANGES_ENDPOINT = API_BASE + '/exchanges'
+TOKENS_ENDPOINT = API_BASE + '/tokens'
+SWAP_ENDPOINT = API_BASE + '/swap'
 
 r = requests.get(EXCHANGES_ENDPOINT).json()
-exchanges = { e['name']: e['id'] for e in r['exchanges'] }
+exchanges = { e['name']: e['id'] for e in r['exchanges'] if e['enabled'] }
 exchange_by_id = { e['id']: e['name'] for e in r['exchanges'] }
 TOTLE_EX = 'Totle' # 'Totle' is used for comparison with other exchanges
 
@@ -30,18 +29,19 @@ def get_integrated_dexs():
         try:
             # call_swap will either succeed (meaning the dex is integrated) or raise an exception
             call_swap(dex, 'ETH', 'DAI', exchange=dex, params={'tradeSize':0.1}, debug=False)
-            # print(f"{dex} is integrated")
             integrated_dexs.append(dex)
+
         except Exception as e:
             r = e.args[0]
-            if r['name'] == 'NoUsableExchangeError':
-                pass
-                # print(f"{dex} is not integrated")
+            if type(r) == dict and r['name'] == 'NoUsableExchangeError':
+                pass # dex is not integrated
             else:
                 # TODO: consider trying different tokens (e.g. ['DAI', 'USDC', 'BAT']) if this error occurs
-                print(f"FAILED REQUEST:\n{e.args[1]}\n")
-                print(f"FAILED RESPONSE:\n{e.args[2]}\n\n")
-                raise Exception(f"call_swap for {dex} raised {r['name']} while trying to determine integrated dexs")
+                if len(e.args) > 1: print(f"FAILED REQUEST:\n{e.args[1]}\n")
+                if len(e.args) > 2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
+                e_info = r['name'] if type(r) == dict else f"{type(e).__name__} {e}"
+                raise Exception(f"call_swap for {dex} raised {e_info} while trying to determine integrated dexs")
+
     return integrated_dexs
 
 # get tokens
@@ -108,7 +108,7 @@ def swap_data(response, trade_size, dex):
     
     # Assume there is only 1 order (seems to always be true)
     if len(orders) != 1:
-        raise Exception(f"len(orders) = {len(orders)}")
+        raise Exception(f"len(orders) = {len(orders)}", {}, response)
     o = orders[0]
     exchange = o['exchange']['name']
 
@@ -223,7 +223,7 @@ def call_swap(dex, from_token, to_token, exchange=None, params={}, debug=None):
     if j['success']:
         return swap_data(j['response'], trade_size, dex)
     else: # some uncommon error we should look into
-        raise Exception(j['response'], swap_inputs, pp(j))
+        raise Exception(j['response'], swap_inputs, j)
 
 def try_swap(dex, from_token, to_token, exchange=None, params={}, debug=None):
     """Wraps call_swap with an exception handler and returns None if an exception is caught"""
@@ -236,9 +236,9 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, debug=None):
         if type(r) == dict and r['name'] in normal_exceptions:
             print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} trade size={params['tradeSize']} ETH due to {r['name']}")
         else: # print req/resp for uncommon failures
-            print(f"{dex}: swap raised {e}")
-            print(f"FAILED REQUEST:\n{e.args[1]}\n")
-            print(f"FAILED RESPONSE:\n{e.args[2]}\n\n")
+            print(f"{dex}: swap raised {type(e).__name__} {e}")
+            if len(e.args) > 1: print(f"FAILED REQUEST:\n{e.args[1]}\n")
+            if len(e.args) > 2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
 
     if sd:
         if dex == TOTLE_EX:
