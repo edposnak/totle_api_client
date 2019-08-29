@@ -83,7 +83,7 @@ def post_with_retries(endpoint, inputs, num_retries=3):
             break
     else: # all attempts failed
         time.sleep(60)  # wait for servers to reboot, as we've probably killed them all
-        raise Exception(f"Failed to extract JSON response after {num_retries} retries. status code={r.status_code}")
+        raise Exception(f"Failed to extract JSON response after {num_retries} retries. status code={r.status_code}", inputs, {})
 
     
 def swap_data(response, trade_size, dex):
@@ -299,7 +299,7 @@ def print_average_savings(all_savings):
         print_average_savings_by_dex(all_savings[trade_size])
 
 def print_average_savings_by_dex(avg_savings):
-    dex_savings = { dex: [] for dex in integated_dexs() }
+    dex_savings = { dex: [] for dex in integrated_dexs() }
 
     for token_savings in [ avg_savings[token] for token in avg_savings if avg_savings[token] ]:
         for dex in token_savings:
