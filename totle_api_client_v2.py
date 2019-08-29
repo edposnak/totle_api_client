@@ -91,14 +91,14 @@ def swap_data(response, trade_size, dex):
 
     summary = response['summary']
     if len(summary) != 1:
-        raise Exception(f"len(trades) = {len(trades)}")
+        raise Exception(f"len(trades) = {len(trades)}", {}, response)
     else:
         summary = summary[0]
 
     trades = summary['trades']
     if not trades: return {} # Suggester has no trades
     if len(trades) != 1:
-        raise Exception(f"len(trades) = {len(trades)}")
+        raise Exception(f"len(trades) = {len(trades)}", {}, response)
     
     orders = trades[0]['orders']
     if not orders: return {} # Suggester has no orders
@@ -258,7 +258,7 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, debug=None):
 # functions to compute and print price differences
 #
 
-def compare_prices(token, supported_pairs, params=None, debug=False):
+def compare_prices(token, supported_pairs, non_liquid_tokens, params=None, debug=False):
     """Returns a dict containing Totle and other DEX prices"""
 
     savings = {}
@@ -290,6 +290,9 @@ def compare_prices(token, supported_pairs, params=None, debug=False):
                 print(f"Totle saved {pct_savings:.2f} percent vs {e} {params['orderType']}ing {token} on {totle_sd['exchange']} trade size={params['tradeSize']} ETH")
         else:
             print(f"Could not compare {token} prices. Only valid price was {swap_prices}")
+    else:
+        non_liquid_tokens.append(token)
+
 
     return savings
 
@@ -301,7 +304,7 @@ def print_average_savings(all_savings):
 def print_average_savings_by_dex(avg_savings):
     dex_savings = {}
 
-    for token_savings in [ avg_savings[token] for token in avg_savings if avg_savings[token] ]:
+    for token_savings in [ avg_savings[token] for token in avg_savings ]:
         for dex in token_savings:
             if dex not in dex_savings:
                 dex_savings[dex] = []
@@ -379,9 +382,9 @@ output_filename = f"{filename}.txt"
 print(f"sending output to {output_filename} ...")
 sys.stdout = open(output_filename, 'w')
 
-TOKENS = [t for t in tokens if t != 'ETH']
 TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0]
 
+liquid_tokens = [t for t in tokens if t != 'ETH'] # start with all tradable tokens
 all_savings, all_supported_pairs = {}, {}
 order_type = params['orderType']
 
@@ -391,12 +394,20 @@ print(f"using the following DEXs, which appear to be integrated: {integrated_dex
 for trade_size in TRADE_SIZES:
     params['tradeSize'] = trade_size
     print(d, params)
+
+    non_liquid_tokens = []
     all_savings[trade_size] = {}
     all_supported_pairs[trade_size] = {dex: [] for dex in integrated_dexs} # compare_prices() depends on these keys being present
-    for token in TOKENS:
+    print(f"\n========================================\nNEW ROUND TRADE SIZE = {trade_size} ETH trying {len(liquid_tokens)} liquid tokens")
+    for token in liquid_tokens:
         print(f"\n----------------------------------------\n{order_type} {token} trade size = {trade_size} ETH")
-        savings = compare_prices(token, all_supported_pairs[trade_size], params, debug=False)
-        all_savings[trade_size][token] = savings
+        savings = compare_prices(token, all_supported_pairs[trade_size], non_liquid_tokens, params, debug=False)
+        if savings:
+            all_savings[trade_size][token] = savings
+
+    # don't try non_liquid_tokens at higher trade sizes
+    print(f"\n\nremoving {len(non_liquid_tokens)} non-liquid tokens for the next round")
+    liquid_tokens = [ t for t in liquid_tokens if t not in non_liquid_tokens ]
 
 
 print_csv(f"{filename}.csv")
