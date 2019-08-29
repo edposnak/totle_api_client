@@ -299,10 +299,12 @@ def print_average_savings(all_savings):
         print_average_savings_by_dex(all_savings[trade_size])
 
 def print_average_savings_by_dex(avg_savings):
-    dex_savings = { dex: [] for dex in integrated_dexs() }
+    dex_savings = {}
 
     for token_savings in [ avg_savings[token] for token in avg_savings if avg_savings[token] ]:
         for dex in token_savings:
+            if dex not in dex_savings:
+                dex_savings[dex] = []
             dex_savings[dex].append(token_savings[dex]['pct_savings'])
 
     for dex in dex_savings:
