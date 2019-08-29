@@ -18,31 +18,13 @@ TOKENS_ENDPOINT = API_BASE + '/tokens'
 SWAP_ENDPOINT = API_BASE + '/swap'
 
 r = requests.get(EXCHANGES_ENDPOINT).json()
-exchanges = { e['name']: e['id'] for e in r['exchanges'] if e['enabled'] }
+exchanges = { e['name']: e['id'] for e in r['exchanges'] }
 exchange_by_id = { e['id']: e['name'] for e in r['exchanges'] }
 TOTLE_EX = 'Totle' # 'Totle' is used for comparison with other exchanges
 
 def get_integrated_dexs():
     """determines the integrated DEXs by querying the suggester and checking for a valid response"""
-    integrated_dexs = []
-    for dex in exchanges:
-        try:
-            # call_swap will either succeed (meaning the dex is integrated) or raise an exception
-            call_swap(dex, 'ETH', 'DAI', exchange=dex, params={'tradeSize':0.1}, debug=False)
-            integrated_dexs.append(dex)
-
-        except Exception as e:
-            r = e.args[0]
-            if type(r) == dict and r['name'] == 'NoUsableExchangeError':
-                pass # dex is not integrated
-            else:
-                # TODO: consider trying different tokens (e.g. ['DAI', 'USDC', 'BAT']) if this error occurs
-                if len(e.args) > 1: print(f"FAILED REQUEST:\n{e.args[1]}\n")
-                if len(e.args) > 2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
-                e_info = r['name'] if type(r) == dict else f"{type(e).__name__} {e}"
-                raise Exception(f"call_swap for {dex} raised {e_info} while trying to determine integrated dexs")
-
-    return integrated_dexs
+    return [ e['name'] for e in r['exchanges'] if e['enabled'] ]
 
 # get tokens
 r = requests.get(TOKENS_ENDPOINT).json()
