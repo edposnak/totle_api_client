@@ -25,7 +25,9 @@ TOTLE_EX = 'Totle' # 'Totle' is used for comparison with other exchanges
 
 def get_integrated_dexs():
     """determines the integrated DEXs based on the enabled flag of the exchanges endpoint"""
-    return enabled_exchanges
+    return [ e for e in enabled_exchanges if e != 'Compound' ]
+    # return enabled_exchanges
+
 
 # get tokens
 r = requests.get(TOKENS_ENDPOINT).json()
@@ -302,7 +304,7 @@ def print_average_savings_by_dex(avg_savings):
 
     return dex_savings
 
-def print_csv(csv_file):
+def print_csv(csv_file, all_savings):
     with open(csv_file, 'w', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=['time', 'action', 'trade_size', 'token', 'exchange', 'exchange_price', 'totle_used','totle_price', 'pct_savings'])
         writer.writeheader()
@@ -393,7 +395,7 @@ for trade_size in TRADE_SIZES:
     liquid_tokens = [ t for t in liquid_tokens if t not in non_liquid_tokens ]
 
 
-print_csv(f"{filename}.csv")
+print_csv(f"{filename}.csv", all_savings)
 print_average_savings(all_savings)
 print_supported_pairs(all_supported_pairs)
 report_failures(all_savings)
