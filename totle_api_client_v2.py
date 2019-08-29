@@ -19,12 +19,13 @@ SWAP_ENDPOINT = API_BASE + '/swap'
 
 r = requests.get(EXCHANGES_ENDPOINT).json()
 exchanges = { e['name']: e['id'] for e in r['exchanges'] }
+enabled_exchanges = [ e['name'] for e in r['exchanges'] if e['enabled'] ]
 exchange_by_id = { e['id']: e['name'] for e in r['exchanges'] }
 TOTLE_EX = 'Totle' # 'Totle' is used for comparison with other exchanges
 
 def get_integrated_dexs():
-    """determines the integrated DEXs by querying the suggester and checking for a valid response"""
-    return [ e['name'] for e in r['exchanges'] if e['enabled'] ]
+    """determines the integrated DEXs based on the enabled flag of the exchanges endpoint"""
+    return enabled_exchanges
 
 # get tokens
 r = requests.get(TOKENS_ENDPOINT).json()
