@@ -12,37 +12,20 @@ import csv
 #
 # get exchanges
 
-API_BASE_OLD = 'https://services.totlesystem.com'
-API_BASE_NEW = 'https://api.totle.com'
-EXCHANGES_ENDPOINT = API_BASE_OLD + '/exchanges'
-TOKENS_ENDPOINT = API_BASE_NEW + '/tokens'
-SWAP_ENDPOINT = API_BASE_NEW + '/swap'
+API_BASE = 'https://api.totle.com'
+EXCHANGES_ENDPOINT = API_BASE + '/exchanges'
+TOKENS_ENDPOINT = API_BASE + '/tokens'
+SWAP_ENDPOINT = API_BASE + '/swap'
 
 r = requests.get(EXCHANGES_ENDPOINT).json()
 exchanges = { e['name']: e['id'] for e in r['exchanges'] }
+enabled_exchanges = [ e['name'] for e in r['exchanges'] if e['enabled'] ]
 exchange_by_id = { e['id']: e['name'] for e in r['exchanges'] }
 TOTLE_EX = 'Totle' # 'Totle' is used for comparison with other exchanges
 
 def get_integrated_dexs():
-    """determines the integrated DEXs by querying the suggester and checking for a valid response"""
-    integrated_dexs = []
-    for dex in exchanges:
-        try:
-            # call_swap will either succeed (meaning the dex is integrated) or raise an exception
-            call_swap(dex, 'ETH', 'DAI', exchange=dex, params={'tradeSize':0.1}, debug=False)
-            # print(f"{dex} is integrated")
-            integrated_dexs.append(dex)
-        except Exception as e:
-            r = e.args[0]
-            if r['name'] == 'NoUsableExchangeError':
-                pass
-                # print(f"{dex} is not integrated")
-            else:
-                # TODO: consider trying different tokens (e.g. ['DAI', 'USDC', 'BAT']) if this error occurs
-                print(f"FAILED REQUEST:\n{e.args[1]}\n")
-                print(f"FAILED RESPONSE:\n{e.args[2]}\n\n")
-                raise Exception(f"call_swap for {dex} raised {r['name']} while trying to determine integrated dexs")
-    return integrated_dexs
+    """determines the integrated DEXs based on the enabled flag of the exchanges endpoint"""
+    return enabled_exchanges
 
 # get tokens
 r = requests.get(TOKENS_ENDPOINT).json()
@@ -91,14 +74,14 @@ def swap_data(response, trade_size, dex):
 
     summary = response['summary']
     if len(summary) != 1:
-        raise Exception(f"len(trades) = {len(trades)}")
+        raise Exception(f"len(trades) = {len(trades)}", {}, response)
     else:
         summary = summary[0]
 
     trades = summary['trades']
     if not trades: return {} # Suggester has no trades
     if len(trades) != 1:
-        raise Exception(f"len(trades) = {len(trades)}")
+        raise Exception(f"len(trades) = {len(trades)}", {}, response)
     
     orders = trades[0]['orders']
     if not orders: return {} # Suggester has no orders
@@ -108,7 +91,7 @@ def swap_data(response, trade_size, dex):
     
     # Assume there is only 1 order (seems to always be true)
     if len(orders) != 1:
-        raise Exception(f"len(orders) = {len(orders)}")
+        raise Exception(f"len(orders) = {len(orders)}", {}, response)
     o = orders[0]
     exchange = o['exchange']['name']
 
@@ -223,7 +206,7 @@ def call_swap(dex, from_token, to_token, exchange=None, params={}, debug=None):
     if j['success']:
         return swap_data(j['response'], trade_size, dex)
     else: # some uncommon error we should look into
-        raise Exception(j['response'], swap_inputs, pp(j))
+        raise Exception(j['response'], swap_inputs, j)
 
 def try_swap(dex, from_token, to_token, exchange=None, params={}, debug=None):
     """Wraps call_swap with an exception handler and returns None if an exception is caught"""
@@ -236,9 +219,9 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, debug=None):
         if type(r) == dict and r['name'] in normal_exceptions:
             print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} trade size={params['tradeSize']} ETH due to {r['name']}")
         else: # print req/resp for uncommon failures
-            print(f"{dex}: swap raised {e}")
-            print(f"FAILED REQUEST:\n{e.args[1]}\n")
-            print(f"FAILED RESPONSE:\n{e.args[2]}\n\n")
+            print(f"{dex}: swap raised {type(e).__name__} {e}")
+            if len(e.args) > 1: print(f"FAILED REQUEST:\n{e.args[1]}\n")
+            if len(e.args) > 2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
 
     if sd:
         if dex == TOTLE_EX:
@@ -258,7 +241,7 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, debug=None):
 # functions to compute and print price differences
 #
 
-def compare_prices(token, supported_pairs, params=None, debug=False):
+def compare_prices(token, supported_pairs, non_liquid_tokens, params=None, debug=False):
     """Returns a dict containing Totle and other DEX prices"""
 
     savings = {}
@@ -290,6 +273,9 @@ def compare_prices(token, supported_pairs, params=None, debug=False):
                 print(f"Totle saved {pct_savings:.2f} percent vs {e} {params['orderType']}ing {token} on {totle_sd['exchange']} trade size={params['tradeSize']} ETH")
         else:
             print(f"Could not compare {token} prices. Only valid price was {swap_prices}")
+    else:
+        non_liquid_tokens.append(token)
+
 
     return savings
 
@@ -301,7 +287,7 @@ def print_average_savings(all_savings):
 def print_average_savings_by_dex(avg_savings):
     dex_savings = {}
 
-    for token_savings in [ avg_savings[token] for token in avg_savings if avg_savings[token] ]:
+    for token_savings in [ avg_savings[token] for token in avg_savings ]:
         for dex in token_savings:
             if dex not in dex_savings:
                 dex_savings[dex] = []
@@ -379,9 +365,9 @@ output_filename = f"{filename}.txt"
 print(f"sending output to {output_filename} ...")
 sys.stdout = open(output_filename, 'w')
 
-TOKENS = [t for t in tokens if t != 'ETH']
 TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0]
 
+liquid_tokens = [t for t in tokens if t != 'ETH'] # start with all tradable tokens
 all_savings, all_supported_pairs = {}, {}
 order_type = params['orderType']
 
@@ -391,12 +377,20 @@ print(f"using the following DEXs, which appear to be integrated: {integrated_dex
 for trade_size in TRADE_SIZES:
     params['tradeSize'] = trade_size
     print(d, params)
+
+    non_liquid_tokens = []
     all_savings[trade_size] = {}
     all_supported_pairs[trade_size] = {dex: [] for dex in integrated_dexs} # compare_prices() depends on these keys being present
-    for token in TOKENS:
+    print(f"\n========================================\nNEW ROUND TRADE SIZE = {trade_size} ETH trying {len(liquid_tokens)} liquid tokens")
+    for token in liquid_tokens:
         print(f"\n----------------------------------------\n{order_type} {token} trade size = {trade_size} ETH")
-        savings = compare_prices(token, all_supported_pairs[trade_size], params, debug=False)
-        all_savings[trade_size][token] = savings
+        savings = compare_prices(token, all_supported_pairs[trade_size], non_liquid_tokens, params, debug=False)
+        if savings:
+            all_savings[trade_size][token] = savings
+
+    # don't try non_liquid_tokens at higher trade sizes
+    print(f"\n\nremoving {len(non_liquid_tokens)} non-liquid tokens for the next round")
+    liquid_tokens = [ t for t in liquid_tokens if t not in non_liquid_tokens ]
 
 
 print_csv(f"{filename}.csv")
