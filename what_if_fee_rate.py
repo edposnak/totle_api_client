@@ -11,7 +11,7 @@ all_savings = {}
 pos_samples, neg_samples = 0, 0
 FEE_RATE_05 = 0.005025125628140704 # actual fee rate totle is charging
 
-fee_rate = float(sys.argv[1])
+fee_rate = float(sys.argv[1]) / 100.0 # fee rate entered in percent
 print(f"With a Totle Fee of {100.0 * fee_rate}%")
 for file in sys.argv[2:]:
     with open(file, newline='') as csvfile:
