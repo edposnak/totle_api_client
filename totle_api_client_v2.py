@@ -70,7 +70,6 @@ def post_with_retries(endpoint, inputs, num_retries=3):
         time.sleep(60)  # wait for servers to reboot, as we've probably killed them all
         raise Exception(f"Failed to extract JSON response after {num_retries} retries. status code={r.status_code}", inputs, {})
 
-    
 def swap_data(response, trade_size, dex):
     """Extracts relevant data from a swap/rebalance API endpoint response"""
 
@@ -87,37 +86,73 @@ def swap_data(response, trade_size, dex):
     
     orders = trades[0]['orders']
     if not orders: return {} # Suggester has no orders
+    totle_used = orders[0]['exchange']['name'] if dex == TOTLE_EX else None
+                
+    source_token = orders[0]['sourceAsset']['symbol']
+    source_div = 10**int(orders[0]['sourceAsset']['decimals'])
+    destination_token = orders[0]['destinationAsset']['symbol']
+    destination_div = 10**int(orders[0]['destinationAsset']['decimals'])
+    source_amount = 0
+    destination_amount = 0
+    exchange_fee_token = orders[0]['fee']['asset']['symbol']
+    exchange_fee_div =  10**int(orders[0]['fee']['asset']['decimals'])
+    exchange_fee = 0
 
-    source_token = summary['sourceAsset']['symbol']
-    destination_token = summary['destinationAsset']['symbol']
+    print(f"len(orders) = {len(orders)}")
     
-    # Assume there is only 1 order (seems to always be true)
-    if len(orders) != 1:
-        raise Exception(f"len(orders) = {len(orders)}", {}, response)
-    o = orders[0]
-    exchange = o['exchange']['name']
+    for o in orders:
+        if dex == TOTLE_EX: # Update totle_used if Totle used different exchanges
+            if o['exchange']['name'] != totle_used: 
+                totle_used += f"/{o['exchange']['name']}"
 
-    if dex == TOTLE_EX: # price with totle fee included
-        source_amount = real_amount(summary['sourceAmount'], source_token)
-        destination_amount = real_amount(summary['destinationAmount'], destination_token)
+        # get weighted sum of the order source/destination/fee amounts
+        if o['sourceAsset']['symbol'] != source_token or o['destinationAsset']['symbol'] != destination_token:
+            raise Exception(f"mismatch between orders' source/destination tokens", {}, response)
+        source_amount += int(o['sourceAmount']) 
+        destination_amount += int(o['destinationAmount'])
 
-    else: # price of the order (without totle fee)
-        source_amount = real_amount(o['sourceAmount'], source_token)
-        destination_amount = real_amount(o['destinationAmount'], destination_token)
+        f = o['fee']
+        if f['asset']['symbol'] != exchange_fee_token:
+            raise Exception(f"mismatch between orders' exchange fee tokens", {}, response)
+        exchange_fee += int(f['amount'])
+        
+    if dex == TOTLE_EX:
+        # set up to compute price with totle fee included (i.e. subtracted from destinationAmount)
+        tf = summary['totleFee']
+        totle_fee_token = tf['asset']['symbol']
+        totle_fee_div = 10**int(tf['asset']['decimals'])
+        totle_fee = int(tf['amount'])
+        pf = summary['partnerFee']
+        partner_fee_token = pf['asset']['symbol']
+        partner_fee_div = 10**int(pf['asset']['decimals'])
+        partner_fee = int(pf['amount'])
+        
+        if totle_fee_token != destination_token:
+            raise Exception(f"totle_fee_token = {totle_fee_token} does not match destination_token = {destination_token}", {}, response)
+        destination_amount -= totle_fee
+
+        summary_source_amount = int(summary['sourceAmount'])
+        if source_amount != summary_source_amount:
+            raise Exception(f"source_amount = {source_amount} does not match summary_source_amount = {summary_source_amount}", {}, response)
+
+        summary_destination_amount = int(summary['destinationAmount'])
+        if destination_amount != summary_destination_amount:
+            raise Exception(f"destination_amount = {destination_amount} does not match summary_destination_amount = {summary_destination_amount}", {}, response)
+
+        totle_fee = totle_fee / totle_fee_div
+        partner_fee = partner_fee / partner_fee_div
+
+    else:
+        totle_fee_token = None
+        totle_fee = None
+        partner_fee_token = None
+        partner_fee = None
+
+    source_amount = source_amount / source_div
+    destination_amount = destination_amount / destination_div
+    exchange_fee = exchange_fee / exchange_fee_div
         
     price = source_amount / destination_amount
-
-    f = o['fee']
-    exchange_fee_asset = f['asset']['symbol']
-    exchange_fee = int(f['amount']) / 10**int(f['asset']['decimals'])
-
-    f = summary['totleFee']
-    totle_fee_asset = f['asset']['symbol']
-    totle_fee = int(f['amount']) / 10**int(f['asset']['decimals'])
-    
-    f = summary['partnerFee']
-    partner_fee_asset = f['asset']['symbol']
-    partner_fee = int(f['amount']) / 10**int(f['asset']['decimals'])
 
     return {
         "tradeSize": trade_size,
@@ -125,16 +160,17 @@ def swap_data(response, trade_size, dex):
         "sourceAmount": source_amount,
         "destinationToken": destination_token,
         "destinationAmount": destination_amount,
-        "exchange": exchange,
+        "totleUsed": totle_used,
         "price": price,
         "exchangeFee": exchange_fee,
-        "exchangeFeeToken": exchange_fee_asset,
+        "exchangeFeeToken": exchange_fee_token,
         "totleFee": totle_fee,
-        "totleFeeToken": totle_fee_asset,
+        "totleFeeToken": totle_fee_token,
         "partnerFee": partner_fee,
-        "partnerFeeToken": partner_fee_asset,
+        "partnerFeeToken": partner_fee_token,
     }
 
+    
 # Default parameters for swap. These can be overridden by passing params
 DEFAULT_WALLET_ADDRESS = "0xD18CEC4907b50f4eDa4a197a50b619741E921B4D"
 DEFAULT_TRADE_SIZE = 1.0 # the amount of ETH to spend or acquire, used to calculate amount
@@ -233,7 +269,7 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, debug=None):
             test_type = 'B'
             fee_data = f"(includes exchange_fee={sd['exchangeFee']} {sd['exchangeFeeToken']})"
 
-        print(f"{test_type}: swap {sd['sourceAmount']} {sd['sourceToken']} for {sd['destinationAmount']} {sd['destinationToken']} on {sd['exchange']} price={sd['price']} {fee_data}")
+        print(f"{test_type}: swap {sd['sourceAmount']} {sd['sourceToken']} for {sd['destinationAmount']} {sd['destinationToken']} on {sd['totleUsed']} price={sd['price']} {fee_data}")
 
     return sd
 
@@ -253,11 +289,14 @@ def compare_prices(token, supported_pairs, non_liquid_tokens, params=None, debug
     totle_sd = try_swap(TOTLE_EX, from_token, to_token, params=params, debug=debug)
 
     if totle_sd:
+        totle_used = totle_sd['totleUsed']
         swap_prices = {TOTLE_EX: totle_sd['price']}
-        supported_pairs[totle_sd['exchange']].append((from_token, to_token))
+        if totle_used not in supported_pairs:
+            supported_pairs[totle_used] = []
+        supported_pairs[totle_used].append((from_token, to_token))
 
         # Compare to best prices from other DEXs
-        for dex in [dex for dex in supported_pairs if dex != totle_sd['exchange']]:
+        for dex in [dex for dex in supported_pairs if dex != totle_used]:
             dex_sd = try_swap(dex, from_token, to_token, exchange=dex, params=params, debug=debug)
             if dex_sd:
                 swap_prices[dex] = dex_sd['price']
@@ -271,8 +310,8 @@ def compare_prices(token, supported_pairs, non_liquid_tokens, params=None, debug
             for e in [k for k in swap_prices if k != TOTLE_EX]:
                 ratio = totle_price/swap_prices[e] # totle_price assumed lower
                 pct_savings = 100 - (100.0 * ratio)
-                savings[e] = {'time': datetime.datetime.now().isoformat(), 'action': params['orderType'], 'pct_savings': pct_savings, 'totle_used':totle_sd['exchange'], 'totle_price': totle_price, 'exchange_price': swap_prices[e]}
-                print(f"Totle saved {pct_savings:.2f} percent vs {e} {params['orderType']}ing {token} on {totle_sd['exchange']} trade size={params['tradeSize']} ETH")
+                savings[e] = {'time': datetime.datetime.now().isoformat(), 'action': params['orderType'], 'pct_savings': pct_savings, 'totle_used':totle_used, 'totle_price': totle_price, 'exchange_price': swap_prices[e]}
+                print(f"Totle saved {pct_savings:.2f} percent vs {e} {params['orderType']}ing {token} on {totle_used} trade size={params['tradeSize']} ETH")
         else:
             print(f"Could not compare {token} prices. Only valid price was {swap_prices}")
     else:
