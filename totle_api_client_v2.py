@@ -129,9 +129,17 @@ def swap_data(response, trade_size, dex):
         
         if totle_fee_token != destination_token:
             raise Exception(f"totle_fee_token = {totle_fee_token} does not match destination_token = {destination_token}", {}, response)
-        destination_amount -= totle_fee
-
         summary_source_amount = int(summary['sourceAmount'])
+        # For sells, Totle requires more source tokens from the user's wallet than are shown in
+        # the orders JSON. There appears to be an undocumented order that buys ETH to pay the fee.
+        # In this case, we must use the summary source amount to compute the price using Totle.
+        if totle_fee_token == 'ETH':
+            source_amount = summary_source_amount
+        # For buys source_amount must always equal summary_source_amount because Totle takes its
+        # fees from the destination_tokens, and these are always accounted for in the orders JSON
+        else: 
+            destination_amount -= totle_fee
+
         if source_amount != summary_source_amount:
             raise Exception(f"source_amount = {source_amount} does not match summary_source_amount = {summary_source_amount}", {}, response)
 
@@ -257,8 +265,8 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, debug=None):
         if type(r) == dict and r['name'] in normal_exceptions:
             print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} trade size={params['tradeSize']} ETH due to {r['name']}")
         else: # print req/resp for uncommon failures
-            print(f"{dex}: swap raised {type(e).__name__} {e}")
-            if len(e.args) > 1: print(f"FAILED REQUEST:\n{e.args[1]}\n")
+            print(f"{dex}: swap raised {type(e).__name__}: {e.args[0]}")
+            if len(e.args) > 1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
             if len(e.args) > 2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
 
     if sd:
