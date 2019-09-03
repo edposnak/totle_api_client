@@ -23,12 +23,6 @@ enabled_exchanges = [ e['name'] for e in r['exchanges'] if e['enabled'] ]
 exchange_by_id = { e['id']: e['name'] for e in r['exchanges'] }
 TOTLE_EX = 'Totle' # 'Totle' is used for comparison with other exchanges
 
-def get_integrated_dexs():
-    """determines the integrated DEXs based on the enabled flag of the exchanges endpoint"""
-    return [ e for e in enabled_exchanges if e != 'Compound' ]
-    # return enabled_exchanges
-
-
 # get tokens
 r = requests.get(TOKENS_ENDPOINT).json()
 tokens = { t['symbol']: t['address'] for t in r['tokens'] if t['tradable']}
@@ -313,15 +307,17 @@ def compare_prices(token, supported_pairs, non_liquid_tokens, params=None, debug
                 supported_pairs[dex].append((from_token, to_token))
 
 
-        if TOTLE_EX in swap_prices and len(swap_prices) > 1:  # there is data to compare
+        other_dexs = [k for k in swap_prices if k != TOTLE_EX]
+        if other_dexs:  # there is data to compare
             totle_price = swap_prices[TOTLE_EX]
-            for e in [k for k in swap_prices if k != TOTLE_EX]:
+            for e in other_dexs:
                 ratio = totle_price/swap_prices[e] # totle_price assumed lower
                 pct_savings = 100 - (100.0 * ratio)
                 savings[e] = {'time': datetime.datetime.now().isoformat(), 'action': params['orderType'], 'pct_savings': pct_savings, 'totle_used':totle_used, 'totle_price': totle_price, 'exchange_price': swap_prices[e]}
                 print(f"Totle saved {pct_savings:.2f} percent vs {e} {params['orderType']}ing {token} on {totle_used} trade size={params['tradeSize']} ETH")
         else:
             print(f"Could not compare {token} prices. Only valid price was {swap_prices}")
+            non_liquid_tokens.append(token) # expect the same result at higher trade sizes
     else:
         non_liquid_tokens.append(token)
 
@@ -351,18 +347,6 @@ def print_average_savings_by_dex(avg_savings):
 
     return dex_savings
 
-def print_csv(csv_file, all_savings):
-    with open(csv_file, 'w', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=['time', 'action', 'trade_size', 'token', 'exchange', 'exchange_price', 'totle_used','totle_price', 'pct_savings'])
-        writer.writeheader()
-
-        for trade_size in all_savings:
-            trade_size_savings = all_savings[trade_size]
-            for token in trade_size_savings:
-                token_savings = trade_size_savings[token]
-                for exchange in token_savings:
-                    row = {**{'trade_size': trade_size, 'token' : token, 'exchange': exchange}, **token_savings[exchange]}
-                    writer.writerow(row)
 
 
 def print_supported_pairs(all_supported_pairs):
@@ -416,33 +400,41 @@ sys.stdout = open(output_filename, 'w')
 
 TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0]
 
+# liquid_dexs = enabled_exchanges
+liquid_dexs = [e for e in enabled_exchanges if e != 'Compound'] # optimization, Compound has 0 tradable tokens 
 liquid_tokens = [t for t in tokens if t != 'ETH'] # start with all tradable tokens
 all_savings, all_supported_pairs = {}, {}
 order_type = params['orderType']
 
-integrated_dexs = get_integrated_dexs()
-print(f"using the following DEXs, which appear to be integrated: {integrated_dexs}")
+with open(f"{filename}.csv", 'w', newline='') as csvfile:
+    csv_writer = csv.DictWriter(csvfile, fieldnames=['time', 'action', 'trade_size', 'token', 'exchange', 'exchange_price', 'totle_used','totle_price', 'pct_savings'])
+    csv_writer.writeheader()
 
-for trade_size in TRADE_SIZES:
-    params['tradeSize'] = trade_size
-    print(d, params)
+    for trade_size in TRADE_SIZES:
+        params['tradeSize'] = trade_size
+        print(d, params)
 
-    non_liquid_tokens = []
-    all_savings[trade_size] = {}
-    all_supported_pairs[trade_size] = {dex: [] for dex in integrated_dexs} # compare_prices() depends on these keys being present
-    print(f"\n========================================\nNEW ROUND TRADE SIZE = {trade_size} ETH trying {len(liquid_tokens)} liquid tokens")
-    for token in liquid_tokens:
-        print(f"\n----------------------------------------\n{order_type} {token} trade size = {trade_size} ETH")
-        savings = compare_prices(token, all_supported_pairs[trade_size], non_liquid_tokens, params, debug=False)
-        if savings:
-            all_savings[trade_size][token] = savings
+        non_liquid_tokens = []
+        all_savings[trade_size] = {}
+        all_supported_pairs[trade_size] = {dex: [] for dex in liquid_dexs} # compare_prices() uses these keys to know what dexs to try
+        print(f"\n========================================\nNEW ROUND TRADE SIZE = {trade_size} ETH trying {len(liquid_tokens)} liquid tokens on the following DEXs: {liquid_dexs}")
+        for token in liquid_tokens:
+            print(f"\n----------------------------------------\n{order_type} {token} trade size = {trade_size} ETH")
+            savings = compare_prices(token, all_supported_pairs[trade_size], non_liquid_tokens, params, debug=False)
+            if savings:
+                all_savings[trade_size][token] = savings
+                for exchange in savings:
+                    row = {**{'trade_size': trade_size, 'token' : token, 'exchange': exchange}, **savings[exchange]}
+                    csv_writer.writerow(row)
+                    csvfile.flush()
+            
+        # don't try non_liquid_tokens at higher trade sizes
+        print(f"\n\nremoving {len(non_liquid_tokens)} non-liquid tokens for the next round")
+        liquid_tokens = [ t for t in liquid_tokens if t not in non_liquid_tokens ]
 
-    # don't try non_liquid_tokens at higher trade sizes
-    print(f"\n\nremoving {len(non_liquid_tokens)} non-liquid tokens for the next round")
-    liquid_tokens = [ t for t in liquid_tokens if t not in non_liquid_tokens ]
+        # don't try non_liquid_dexs at higher trade sizes
+        liquid_dexs = [ e for e in liquid_dexs if all_supported_pairs[trade_size][e] ]
 
-
-print_csv(f"{filename}.csv", all_savings)
 print_average_savings(all_savings)
 print_supported_pairs(all_supported_pairs)
 report_failures(all_savings)
