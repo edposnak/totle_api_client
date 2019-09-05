@@ -401,7 +401,10 @@ sys.stdout = open(output_filename, 'w')
 TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0]
 
 # liquid_dexs = enabled_exchanges
-liquid_dexs = [e for e in enabled_exchanges if e != 'Compound'] # optimization, Compound has 0 tradable tokens 
+# don't waste time on non-liquid dexes
+non_liquid_dexs = [ 'Compound', '0xMesh' ]
+liquid_dexs = [e for e in enabled_exchanges if e not in non_liquid_dexs ] 
+
 liquid_tokens = [t for t in tokens if t != 'ETH'] # start with all tradable tokens
 all_savings, all_supported_pairs = {}, {}
 order_type = params['orderType']

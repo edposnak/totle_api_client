@@ -1,12 +1,20 @@
 import csv
 import sys
 
+csv_files = sys.argv[1:]
+if len(csv_files) < 1:
+    print("no CSV files provided")
+    exit(1)
+else:
+    print(f"processing {len(csv_files)} CSV files ...")
+
 all_savings = {}
 pos_samples, neg_samples = 0, 0
 
-for file in sys.argv[1:]:
-    print(f"processing {file} ...")
+neg_savings = {}
+pos_savings = {}
 
+for file in csv_files:
     with open(file, newline='') as csvfile:
         reader = csv.DictReader(csvfile, fieldnames=None)
         for row in reader:
@@ -18,19 +26,45 @@ for file in sys.argv[1:]:
             dex = row['exchange']
             if dex not in trade_size_savings:
                 trade_size_savings[dex] = []
+            if dex not in neg_savings:
+                neg_savings[dex] = 0
+            if dex not in pos_savings:
+                pos_savings[dex] = 0
 
             pct_savings = float(row['pct_savings'])
             trade_size_savings[dex].append(pct_savings)
             if pct_savings > 0.0:
                 pos_samples += 1
+                pos_savings[dex] += 1
             else:
                 neg_samples += 1
+                neg_savings[dex] += 1
+
+############################################################################
+# print neg savings stuff
+dexs = ['AirSwap', 'Bancor', 'Kyber', 'Uniswap']
 
 total_samples = pos_samples + neg_samples
 neg_pct = 100.0 * neg_samples / total_samples
 
-print(f"\n\nOut of {total_samples} data points, Totle's fees exceeded the price savings {neg_samples} times, resulting in negative price savings {neg_pct:.1f}% of the time. Overall average price savings by trade size are shown below.")
+print(f"\n\nOut of {total_samples} data points, Totle's fees exceeded the price savings {neg_samples} times, resulting in negative price savings {neg_pct:.1f}% of the time.")
 
+header = "\t".join(['NPS %'] + dexs)
+print(f"\n{header}")
+row = [ "buys" ]
+for dex in dexs:
+    if dex in neg_savings:
+        pct_neg_savings = 100 * neg_savings[dex] / (neg_savings[dex] + pos_savings[dex])
+        row.append(f"{pct_neg_savings:.2f}%")
+    else:
+        row.append("")
+
+print("\t".join(row))
+      
+
+############################################################################
+# print human readable average savings
+print(f"\n\nOverall average price savings by trade size are shown below.")
 for trade_size in all_savings:
     trade_size_savings = all_savings[trade_size]
     
@@ -40,3 +74,19 @@ for trade_size in all_savings:
         print(f"   {dex}: {sum_savings/n_samples:.2f}% ({n_samples} samples)")
     
             
+############################################################################
+# print average savings summary table
+print("\n\n")
+print("\t".join(['Trade Size'] + dexs))
+
+for trade_size in all_savings:
+    row = [ f"{trade_size} ETH " ]
+    savings = all_savings[trade_size]
+    for dex in dexs:
+        if dex in savings:
+            sum_savings, n_samples = sum(savings[dex]), len(savings[dex])
+            pct_savings = sum_savings/n_samples
+            row.append(f"{pct_savings:.2f}%")
+        else:
+            row.append("")
+    print("\t".join(row))
