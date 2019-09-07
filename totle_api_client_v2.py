@@ -92,8 +92,6 @@ def swap_data(response, trade_size, dex):
     exchange_fee_div =  10**int(orders[0]['fee']['asset']['decimals'])
     exchange_fee = 0
 
-    print(f"len(orders) = {len(orders)}")
-    
     for o in orders:
         if dex == TOTLE_EX: # Update totle_used if Totle used different exchanges
             if o['exchange']['name'] != totle_used: 
