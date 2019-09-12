@@ -32,6 +32,12 @@ for file in csv_files:
                 pos_savings[dex] = 0
 
             pct_savings = float(row['pct_savings'])
+
+            # Remove bad data points e.g. inverted DAI/ETH price on AirSwap
+            # if pct_savings > 99.9:
+            #     if row['exchange'] == 'Uniswap': print(f"saved {row['pct_savings']} vs {row['exchange']} {row['action']}ing {row['token']} trade size={row['trade_size']}")
+            #     continue
+
             trade_size_savings[dex].append(pct_savings)
             if pct_savings > 0.0:
                 pos_samples += 1
