@@ -264,12 +264,14 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, debug=None):
     if sd:
         if dex == TOTLE_EX:
             test_type = 'A'
+            dex_used = sd['totleUsed']
             fee_data = f"(includes exchange_fee={sd['exchangeFee']} {sd['exchangeFeeToken']} totle_fee={sd['totleFee']} {sd['totleFeeToken']})" # leave out partner_fee since it is always 0
         else:
             test_type = 'B'
+            dex_used = exchange
             fee_data = f"(includes exchange_fee={sd['exchangeFee']} {sd['exchangeFeeToken']})"
 
-        print(f"{test_type}: swap {sd['sourceAmount']} {sd['sourceToken']} for {sd['destinationAmount']} {sd['destinationToken']} on {sd['totleUsed']} price={sd['price']} {fee_data}")
+        print(f"{test_type}: swap {sd['sourceAmount']} {sd['sourceToken']} for {sd['destinationAmount']} {sd['destinationToken']} on {dex_used} price={sd['price']} {fee_data}")
 
     return sd
 
