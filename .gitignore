@@ -2,6 +2,10 @@
 *.csv
 *.xlsx
 fee_bs
+__pycache__
+autorun.stop
+
+
 
 
 
