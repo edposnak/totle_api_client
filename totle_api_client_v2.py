@@ -34,7 +34,7 @@ def compare_prices(token, supported_pairs, non_liquid_tokens, params=None, verbo
             if dex_sd:
                 swap_prices[dex] = dex_sd['price']
                 if swap_prices[dex] < 0.0:
-                    raise Exception(f"{dex} had an invalid price={swap_prices[dex]}")
+                    raise ValueError(f"{dex} had an invalid price={swap_prices[dex]}")
                 supported_pairs[dex].append((from_token, to_token))
 
 
