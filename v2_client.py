@@ -184,11 +184,11 @@ def swap_data(response, trade_size, dex):
             destination_amount -= totle_fee
 
         if source_amount != summary_source_amount:
-            raise ValueError(f"source_amount = {source_amount} does not match summary_source_amount = {summary_source_amount}", {}, response)
+            raise ValueError(f"source_amount = {source_amount} does not match summary source_amount = {summary_source_amount}", {}, response)
 
         summary_destination_amount = int(summary['destinationAmount'])
         if destination_amount != summary_destination_amount:
-            raise ValueError(f"destination_amount = {destination_amount} does not match summary_destination_amount = {summary_destination_amount}", {}, response)
+            raise ValueError(f"destination_amount = {destination_amount} does not match summary destination_amount = {summary_destination_amount}", {}, response)
 
         totle_fee = totle_fee / totle_fee_div
         partner_fee = partner_fee / partner_fee_div
@@ -308,7 +308,7 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, 
         if type(r) == dict and r['name'] in normal_exceptions:
             if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} trade size={params['tradeSize']} ETH due to {r['name']}")
         else: # print req/resp for uncommon failures
-            print(f"{dex}: swap raised {type(e).__name__}: {e.args[0]}")
+            print(f"{dex}: swap raised {type(e).__name__}: {e}")
             if len(e.args) > 1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
             if len(e.args) > 2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
 
