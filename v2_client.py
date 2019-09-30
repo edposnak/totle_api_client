@@ -30,22 +30,9 @@ class TotleAPIException(Exception):
         self.request = request
         self.response = response
 
-    def __str__(self):
-        # When the first parameter to TotleAPIExceptions is blank, create a message
-        # from the standard fields of the response JSON
-        if self.message:
-            msg = self.message
-        else:
-            r = self.response['response']
-            msg = f"TotleAPIException: {r['name']} ({r['code']}): {r['message']}"
-
-        return f"{type(self).__name__}: {msg}"
-
-    def print(self, verbose=True):
-        print(self)
-        if verbose:
-            print(f"FAILED REQUEST:\n{pp(self.request)}\n")
-            print(f"FAILED RESPONSE:\n{pp(self.response)}\n\n")
+        if not message and response:
+            self.message = f"{r['name']} ({r['code']}): {r['message']}"
+            
 
 # get exchanges
 r = requests.get(EXCHANGES_ENDPOINT).json()
@@ -94,114 +81,169 @@ def real_amount(int_amount, token):
     """Returns the decimal number of tokens for the given integer amount and token"""
     return int(int_amount) / (10**token_decimals[token])
 
-
 ##############################################################################################
 #
-# functions to call swap and extract data
-#
+# functions to convert response JSON into price data
 
-def post_with_retries(endpoint, inputs, num_retries=3):
-    r = None
-    for attempt in range(num_retries):
-        try:
-            r = requests.post(endpoint, data=inputs)
-            return r.json()
-        except:
-            print(f"failed to extract JSON, retrying ...")
-            time.sleep(1)
-        else:
-            break
-    else: # all attempts failed
-        time.sleep(60)  # wait for servers to reboot, as we've probably killed them all
-        raise TotleAPIException(f"Failed to extract JSON response after {num_retries} retries.", inputs, {})
+def calc_exchange_fees(trade):
+    orders = trade['orders']
+    fee_tokens = [ o['fee']['asset']['symbol'] for o in orders ]
+    if len(set(fee_tokens)) != 1:
+        raise ValueError(f"different exchange fee tokens in same trade {fee_tokens}", {}, response)
+        
+    exchange_fee_token = fee_tokens[0]
+    exchange_fee_div = 10**int(orders[0]['fee']['asset']['decimals'])
+    exchange_fee = sum([ int(o['fee']['amount']) for o in orders ]) / exchange_fee_div
 
-def swap_data(response, trade_size, dex):
-    """Extracts relevant data from a swap/rebalance API endpoint response"""
+    return exchange_fee_token, exchange_fee
 
+def get_exchange_fees(trades):
+    # In the two trade case, we use the trade that has positive exchange fees 
+    t0_exchange_fee_token, t0_exchange_fee = calc_exchange_fees(trades[0])
+    t1_exchange_fee_token, t1_exchange_fee = calc_exchange_fees(trades[1])
+    
+    # If only one trade has positive exchange fees then use only that trade
+    if t0_exchange_fee > 0 and t1_exchange_fee == 0:
+        return t0_exchange_fee_token, t0_exchange_fee
+    elif t1_exchange_fee > 0 and t0_exchange_fee == 0:
+        return t1_exchange_fee_token, t1_exchange_fee
+    elif t0_exchange_fee == 0 and t1_exchange_fee == 0:
+        return t0_exchange_fee_token, t0_exchange_fee
+    else: # return strings assuming this is just used for printing
+        return f"{t0_exchange_fee_token} and {t1_exchange_fee_token}", f"{t0_exchange_fee} and {t1_exchange_fee}" 
+
+def get_totle_fees(dex, summary):
+    tf = summary['totleFee']
+    totle_fee_token = tf['asset']['symbol']
+    totle_fee_div = 10**int(tf['asset']['decimals'])
+    totle_fee = int(tf['amount']) / totle_fee_div
+    
+    pf = summary['partnerFee']
+    partner_fee_token = pf['asset']['symbol']
+    partner_fee_div = 10**int(pf['asset']['decimals'])
+    partner_fee = int(pf['amount']) / partner_fee_div
+        
+    return totle_fee_token, totle_fee, partner_fee_token, partner_fee
+
+def get_summary_data(response):
     summary = response['summary']
     if len(summary) != 1:
         raise ValueError(f"len(summary) = {len(summary)}", {}, response)
     else:
         summary = summary[0]
+    source_token = summary['sourceAsset']['symbol']
+    source_div = 10**int(summary['sourceAsset']['decimals'])
+    destination_token = summary['destinationAsset']['symbol']
+    destination_div = 10**int(summary['destinationAsset']['decimals'])
 
-    trades = summary['trades']
-    if not trades: return {} # Suggester has no trades
-    if len(trades) != 1:
-        raise ValueError(f"len(trades) = {len(trades)}", {}, response)
-    
-    orders = trades[0]['orders']
-    if not orders: return {} # Suggester has no orders
-    totle_used = orders[0]['exchange']['name'] if dex == TOTLE_EX else None
-                
-    source_token = orders[0]['sourceAsset']['symbol']
-    source_div = 10**int(orders[0]['sourceAsset']['decimals'])
-    destination_token = orders[0]['destinationAsset']['symbol']
-    destination_div = 10**int(orders[0]['destinationAsset']['decimals'])
-    source_amount = 0
-    destination_amount = 0
-    exchange_fee_token = orders[0]['fee']['asset']['symbol']
-    exchange_fee_div =  10**int(orders[0]['fee']['asset']['decimals'])
-    exchange_fee = 0
+    return summary, source_token, source_div, destination_token, destination_div
 
-    for o in orders:
-        if dex == TOTLE_EX: # Update totle_used if Totle used different exchanges
-            if o['exchange']['name'] != totle_used: 
-                totle_used += f"/{o['exchange']['name']}"
+def sum_amounts(trade, src_dest, summary_token):
+    asset_key, amount_key = src_dest + 'Asset', src_dest + 'Amount'
+    total_amount = 0
 
-        # get weighted sum of the order source/destination/fee amounts
-        if o['sourceAsset']['symbol'] != source_token or o['destinationAsset']['symbol'] != destination_token:
-            raise ValueError(f"mismatch between orders' source/destination tokens", {}, response)
-        source_amount += int(o['sourceAmount']) 
-        destination_amount += int(o['destinationAmount'])
-
-        f = o['fee']
-        if f['asset']['symbol'] != exchange_fee_token:
-            raise ValueError(f"mismatch between orders' exchange fee tokens", {}, response)
-        exchange_fee += int(f['amount'])
+    for o in trade['orders']:
+        order_token = o[asset_key]['symbol']
+        if order_token != summary_token:
+            raise ValueError(f"order {asset_key}={order_token} but summary {asset_key}={summary_token}", {}, response)
+        total_amount += int(o[amount_key])
         
-    if dex == TOTLE_EX:
-        # set up to compute price with totle fee included (i.e. subtracted from destinationAmount)
-        tf = summary['totleFee']
-        totle_fee_token = tf['asset']['symbol']
-        totle_fee_div = 10**int(tf['asset']['decimals'])
-        totle_fee = int(tf['amount'])
-        pf = summary['partnerFee']
-        partner_fee_token = pf['asset']['symbol']
-        partner_fee_div = 10**int(pf['asset']['decimals'])
-        partner_fee = int(pf['amount'])
-        
-        if totle_fee_token != destination_token:
-            raise ValueError(f"totle_fee_token = {totle_fee_token} does not match destination_token = {destination_token}", {}, response)
+    return total_amount
+
+def adjust_for_totle_fees(dex, source_amount, destination_amount, summary):
+    """adjust source and destination amounts so price reflects paying totle fee"""
+
+    summary_source_token = summary['sourceAsset']['symbol']
+    summary_destination_token = summary['destinationAsset']['symbol']
+
+    totle_fee_token = summary['totleFee']['asset']['symbol']
+    totle_fee_pct = float(summary['totleFee']['percentage'])
+
+    if dex != TOTLE_EX: # subtract fees
+        # Only subtract fees for buys where the sum of order destination amounts reflects Totle taking fees
+        # in the intermediate token. (For sells, the sum of order source_amounts < summary source_amount, so
+        # the fees will be added to the TOTLE_EX case below)
+        if summary_source_token == 'ETH': # buying tokens with ETH
+            if totle_fee_token != summary_destination_token: # Totle fee is in intermediate token
+                destination_amount /= (1 - (totle_fee_pct / 100))  
+
+    else: # add fees for most cases
         summary_source_amount = int(summary['sourceAmount'])
-        # For sells, Totle requires more source tokens from the user's wallet than are shown in
-        # the orders JSON. There appears to be an undocumented order that buys ETH to pay the fee.
-        # In this case, we must use the summary source amount to compute the price using Totle.
-        if totle_fee_token == 'ETH':
-            source_amount = summary_source_amount
-        # For buys source_amount must always equal summary_source_amount because Totle takes its
-        # fees from the destination_tokens, and these are always accounted for in the orders JSON
-        else: 
-            destination_amount -= totle_fee
-
-        if source_amount != summary_source_amount:
-            raise ValueError(f"source_amount = {source_amount} does not match summary source_amount = {summary_source_amount}", {}, response)
-
         summary_destination_amount = int(summary['destinationAmount'])
-        if destination_amount != summary_destination_amount:
-            raise ValueError(f"destination_amount = {destination_amount} does not match summary destination_amount = {summary_destination_amount}", {}, response)
+        totle_fee_amount = int(summary['totleFee']['amount'])
+        
+        if summary_source_token != 'ETH': # selling tokens for ETH
+            # For sells, Totle requires more source tokens from the user's wallet than are shown in the
+            # orders JSON. The summary_source_amount is larger than the sum of the orders source_amounts
+            # by the Totle fee (denominated in source tokens) so we just use it to account for Totle's fees
+            if source_amount < summary_source_amount:
+                source_amount = summary_source_amount
+            else:
+                raise ValueError(f"Totle's fee not accounted for in summary. Summary source_amount={summary_source_amount}, sum of orders source_amount={source_amount}", {}, response)
+                
+        else: # buying tokens with ETH
+            # For buys source_amount always equals summary_source_amount because Totle takes its fees
+            # from the destination or intermediate tokens. 
+            if totle_fee_token == summary_destination_token:
+                # When Totle takes fees in the destination token we can just subtract out the totle_fee
+                # and the destination_amount should end up equalling the summary_destination_amount
+                destination_amount -= totle_fee_amount
+            else: # totle fees are in the intermediate token
+                # assert 'baseAsset' in summary
+                if totle_fee_token != summary['baseAsset']['symbol']:
+                    raise ValueError(f"totle_fee_token={totle_fee_token} does not match intermediate token={summary['baseAsset']['symbol']}", {}, response)
 
-        totle_fee = totle_fee / totle_fee_div
-        partner_fee = partner_fee / partner_fee_div
+                # WHY WE DO NOTHING HERE:
+                # When Totle takes fees in the intermediate token the sum of the order amounts will equal
+                # the summary amounts, and we'll need to adjust (subtract out) Totle fees from the amounts
+                # computed for whitelisted DEXs (see dex != TOTLE_EX case above)
+                #
+                # There is currently a bug in buy (thru base) situations where Totle's fees aren't accounted for.
+                # All intermediate tokens acquired in the first trade are used to acquire destination assets in
+                # the second. We don't have this problem for sells, because the summary_source_amount is greater
+                # than the sum or order source_amounts, i.e. the fee is accounted for in the summary. If the bug
+                # is fixed as expected, by sending 99.75% of the first trade's proceeds to the second trade, then
+                # the summary likely won't account for Totle's fees like it does for sells and the fee will have
+                # to be subtracted (see dex != TOTLE_EX case above)
 
-    else:
-        totle_fee_token = None
-        totle_fee = None
-        partner_fee_token = None
-        partner_fee = None
+            # Suggester bugs (floating point to decimal?) mean things don't always add up exactly
+            # if source_amount != summary_source_amount:
+            if abs(source_amount - summary_source_amount) > 10:
+                raise ValueError(f"adjusted orders source_amount={source_amount} different from summary source_amount={summary_source_amount}", {}, response)
 
+            # if destination_amount != summary_destination_amount:
+            if abs(destination_amount - summary_destination_amount) > 10:
+                raise ValueError(f"adjusted orders destination_amount={destination_amount} different from summary destination_amount={summary_destination_amount}", {}, response)
+    return source_amount, destination_amount
+        
+
+def swap_data(response, trade_size, dex):
+    """Extracts relevant data from a swap/rebalance API endpoint response"""
+
+    summary, source_token, source_div, destination_token, destination_div = get_summary_data(response)
+
+    if 'trades' not in summary: return {} # Suggester has no trades
+    trades = summary['trades']
+    if len(trades) > 2: # currently can only handle going through 1 additional token
+        raise ValueError(f"len(trades) = {len(trades)}", {}, response)
+
+    totle_used, totle_fee_token, totle_fee, partner_fee_token, partner_fee = None, None, None, None, None
+
+    exchange_fee_token, exchange_fee = calc_exchange_fees(trades[0]) if len(trades) == 1 else get_exchange_fees(trades)
+
+    if dex == TOTLE_EX:
+        # set totle_used, which may be a concatenation of exchanges if multiple were used
+        totle_used = trades[0]['orders'][0]['exchange']['name']
+        for o in [order for t in trades for order in t['orders']]:
+            if o['exchange']['name'] != totle_used: totle_used += f"/{o['exchange']['name']}"
+
+        totle_fee_token, totle_fee, partner_fee_token, partner_fee = get_totle_fees(dex, summary)
+
+    source_amount = sum_amounts(trades[0], 'source', source_token)
+    destination_amount = sum_amounts(trades[-1], 'destination', destination_token)
+    source_amount, destination_amount = adjust_for_totle_fees(dex, source_amount, destination_amount, summary)
     source_amount = source_amount / source_div
     destination_amount = destination_amount / destination_div
-    exchange_fee = exchange_fee / exchange_fee_div
         
     price = source_amount / destination_amount
 
@@ -221,12 +263,40 @@ def swap_data(response, trade_size, dex):
         "partnerFeeToken": partner_fee_token,
     }
 
+
+##############################################################################################
+#
+# functions to call swap with retries
+#
+
+def post_with_retries(endpoint, inputs, num_retries=3):
+    r = None
+    for attempt in range(num_retries):
+        try:
+            r = requests.post(endpoint, data=inputs)
+            return r.json()
+        except:
+            print(f"failed to extract JSON, retrying ...")
+            time.sleep(1)
+        else:
+            break
+    else: # all attempts failed
+        time.sleep(60)  # wait for servers to reboot, as we've probably killed them all
+        raise TotleAPIException(f"Failed to extract JSON response after {num_retries} retries.", inputs, {})
+
+
     
 # Default parameters for swap. These can be overridden by passing params
 DEFAULT_WALLET_ADDRESS = "0xD18CEC4907b50f4eDa4a197a50b619741E921B4D"
 DEFAULT_TRADE_SIZE = 1.0 # the amount of ETH to spend or acquire, used to calculate amount
 DEFAULT_MAX_SLIPPAGE_PERCENT = 10
 DEFAULT_MIN_FILL_PERCENT = 80
+DEFAULT_CONFIG = {
+    "transactions": False, # just get the prices
+    #         "fillNonce": bool,
+    "skipBalanceChecks": True,
+}
+
 
 def call_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, debug=None):
     """Calls the swap API endpoint with the given token pair and whitelisting exchange if given. Returns the result as a swap_data dict or raises an exception if the call failed"""
@@ -243,11 +313,7 @@ def call_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True,
 
     base_inputs = {
         "address": params.get('walletAddress') or DEFAULT_WALLET_ADDRESS,
-        "config": {
-            "transactions": False, # just get the prices
-            #         "fillNonce": bool,
-            "skipBalanceChecks": True,
-        }
+        "config": { **DEFAULT_CONFIG, **(params.get('config') if 'config' in params else {} ) }
     }
 
     if exchange: # whitelist the given exchange
@@ -308,7 +374,7 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, 
         if type(r) == dict and r['name'] in normal_exceptions:
             if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} trade size={params['tradeSize']} ETH due to {r['name']}")
         else: # print req/resp for uncommon failures
-            print(f"{dex}: swap raised {type(e).__name__}: {e}")
+            print(f"{dex}: swap raised {type(e).__name__}: {e.args[0]}")
             if len(e.args) > 1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
             if len(e.args) > 2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
 
