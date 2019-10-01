@@ -25,13 +25,13 @@ def pp(data):
 # custom exception type
 class TotleAPIException(Exception):
     def __init__(self, message, request, response):
-        super().__init__(message)
-        self.message = message
-        self.request = request
-        self.response = response
-
         if not message and response:
-            self.message = f"{r['name']} ({r['code']}): {r['message']}"
+            # JSON may be either a response or a response container
+            if 'response' in response: response = response['response']
+            message = f"{response['name']} ({response['code']}): {response['message']}"
+
+        super().__init__(message, request, response)
+
             
 
 # get exchanges
@@ -207,12 +207,12 @@ def adjust_for_totle_fees(dex, source_amount, destination_amount, summary):
                 # to be subtracted (see dex != TOTLE_EX case above)
 
             # Suggester bugs (floating point to decimal?) mean things don't always add up exactly
-            # if source_amount != summary_source_amount:
-            if abs(source_amount - summary_source_amount) > 10:
+            if source_amount != summary_source_amount:
+            # if abs(source_amount - summary_source_amount) > 10:
                 raise ValueError(f"adjusted orders source_amount={source_amount} different from summary source_amount={summary_source_amount}", {}, response)
 
-            # if destination_amount != summary_destination_amount:
-            if abs(destination_amount - summary_destination_amount) > 10:
+            if destination_amount != summary_destination_amount:
+            # if abs(destination_amount - summary_destination_amount) > 10:
                 raise ValueError(f"adjusted orders destination_amount={destination_amount} different from summary destination_amount={summary_destination_amount}", {}, response)
     return source_amount, destination_amount
         
@@ -363,21 +363,24 @@ def call_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True,
     else: # some uncommon error we should look into
         raise TotleAPIException(None, swap_inputs, j)
 
+def handle_swap_exception(e, dex, from_token, to_token, params, verbose=True):
+    normal_exceptions = ["NotEnoughVolumeError", "MarketSlippageTooHighError"]
+    if len(e.args) > 2 and type(e.args[2]) == dict and e.args[2]['name'] in normal_exceptions:
+        if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} trade size={params['tradeSize']} ETH due to {e.args[2]['name']}")
+
+    else: # print req/resp for uncommon failures
+        print(f"len(e.args) = {len(e.args)}")
+        print(f"{dex}: swap raised {type(e).__name__}: {e.args[0]}")
+        if len(e.args) > 1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
+        if len(e.args) > 2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
+
 def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, debug=None):
     """Wraps call_swap with an exception handler and returns None if an exception is caught"""
     sd = None
     try:
-        sd = call_swap(dex, from_token, to_token, exchange=exchange, params=params, verbose=verbose, debug=debug)
+        sd = call_swap(**locals())
     except Exception as e:
-        normal_exceptions = ["NotEnoughVolumeError", "MarketSlippageTooHighError"]
-        r = e.args[0]
-        if type(r) == dict and r['name'] in normal_exceptions:
-            if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} trade size={params['tradeSize']} ETH due to {r['name']}")
-        else: # print req/resp for uncommon failures
-            print(f"{dex}: swap raised {type(e).__name__}: {e.args[0]}")
-            if len(e.args) > 1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
-            if len(e.args) > 2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
-
+        handle_swap_exception(e, dex, from_token, to_token, params, verbose=verbose)
     if sd:
         if dex == TOTLE_EX:
             test_type = 'A'
