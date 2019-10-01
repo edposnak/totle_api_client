@@ -369,31 +369,30 @@ def handle_swap_exception(e, dex, from_token, to_token, params, verbose=True):
         if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} trade size={params['tradeSize']} ETH due to {e.args[2]['name']}")
 
     else: # print req/resp for uncommon failures
-        print(f"len(e.args) = {len(e.args)}")
         print(f"{dex}: swap raised {type(e).__name__}: {e.args[0]}")
         if len(e.args) > 1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
         if len(e.args) > 2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
 
 def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, debug=None):
     """Wraps call_swap with an exception handler and returns None if an exception is caught"""
-    sd = None
     try:
         sd = call_swap(**locals())
+        if sd:
+            if dex == TOTLE_EX:
+                test_type = 'A'
+                dex_used = sd['totleUsed']
+                fee_data = f"(includes exchange_fee={sd['exchangeFee']} {sd['exchangeFeeToken']} totle_fee={sd['totleFee']} {sd['totleFeeToken']})" # leave out partner_fee since it is always 0
+            else:
+                test_type = 'B'
+                dex_used = exchange
+                fee_data = f"(includes exchange_fee={sd['exchangeFee']} {sd['exchangeFeeToken']})"
+
+            if verbose: print(f"{test_type}: swap {sd['sourceAmount']} {sd['sourceToken']} for {sd['destinationAmount']} {sd['destinationToken']} on {dex_used} price={sd['price']} {fee_data}")
+        return sd
+
     except Exception as e:
         handle_swap_exception(e, dex, from_token, to_token, params, verbose=verbose)
-    if sd:
-        if dex == TOTLE_EX:
-            test_type = 'A'
-            dex_used = sd['totleUsed']
-            fee_data = f"(includes exchange_fee={sd['exchangeFee']} {sd['exchangeFeeToken']} totle_fee={sd['totleFee']} {sd['totleFeeToken']})" # leave out partner_fee since it is always 0
-        else:
-            test_type = 'B'
-            dex_used = exchange
-            fee_data = f"(includes exchange_fee={sd['exchangeFee']} {sd['exchangeFeeToken']})"
-
-        if verbose: print(f"{test_type}: swap {sd['sourceAmount']} {sd['sourceToken']} for {sd['destinationAmount']} {sd['destinationToken']} on {dex_used} price={sd['price']} {fee_data}")
-
-    return sd
+        return {}
 
 
 ##############################################################################################
