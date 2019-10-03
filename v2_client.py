@@ -85,6 +85,21 @@ def real_amount(int_amount, token):
 #
 # functions to convert response JSON into price data
 
+def get_summary_data(response):
+    summary = response['summary']
+    if len(summary) != 1:
+        raise ValueError(f"len(summary) = {len(summary)}")
+    else:
+        summary = summary[0]
+    source_token = summary['sourceAsset']['symbol']
+    source_div = 10**int(summary['sourceAsset']['decimals'])
+    destination_token = summary['destinationAsset']['symbol']
+    destination_div = 10**int(summary['destinationAsset']['decimals'])
+
+    base_token = summary['baseAsset']['symbol'] if 'baseAsset' in summary else None
+
+    return summary, base_token, source_token, source_div, destination_token, destination_div
+
 def calc_exchange_fees(trade):
     orders = trade['orders']
     fee_tokens = [ o['fee']['asset']['symbol'] for o in orders ]
@@ -112,6 +127,13 @@ def get_exchange_fees(trades):
     else: # return strings assuming this is just used for printing
         return f"{t0_exchange_fee_token} and {t1_exchange_fee_token}", f"{t0_exchange_fee} and {t1_exchange_fee}" 
 
+def get_dex_pairs(trades):
+    dex_pairs = {}
+    for o in [order for t in trades for order in t['orders']]:
+        dex_pairs[o['exchange']['name']] = [o['sourceAsset']['symbol'], o['destinationAsset']['symbol']]
+
+    return dex_pairs
+    
 def get_totle_fees(summary):
     tf = summary['totleFee']
     totle_fee_token = tf['asset']['symbol']
@@ -125,19 +147,6 @@ def get_totle_fees(summary):
         
     return totle_fee_token, totle_fee, partner_fee_token, partner_fee
 
-def get_summary_data(response):
-    summary = response['summary']
-    if len(summary) != 1:
-        raise ValueError(f"len(summary) = {len(summary)}", {}, response)
-    else:
-        summary = summary[0]
-    source_token = summary['sourceAsset']['symbol']
-    source_div = 10**int(summary['sourceAsset']['decimals'])
-    destination_token = summary['destinationAsset']['symbol']
-    destination_div = 10**int(summary['destinationAsset']['decimals'])
-
-    return summary, source_token, source_div, destination_token, destination_div
-
 def sum_amounts(trade, src_dest, summary_token):
     asset_key, amount_key = src_dest + 'Asset', src_dest + 'Amount'
     total_amount = 0
@@ -145,12 +154,12 @@ def sum_amounts(trade, src_dest, summary_token):
     for o in trade['orders']:
         order_token = o[asset_key]['symbol']
         if order_token != summary_token:
-            raise ValueError(f"order {asset_key}={order_token} but summary {asset_key}={summary_token}", {}, response)
+            raise ValueError(f"order {asset_key}={order_token} but summary {asset_key}={summary_token}")
         total_amount += int(o[amount_key])
         
     return total_amount
 
-def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary, response):
+def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
     """adjust source and destination amounts so price reflects paying totle fee"""
 
     summary_source_token = summary['sourceAsset']['symbol']
@@ -179,7 +188,7 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary, 
             if source_amount < summary_source_amount:
                 source_amount = summary_source_amount
             else:
-                raise ValueError(f"Totle's fee not accounted for in summary. Summary source_amount={summary_source_amount}, sum of orders source_amount={source_amount}", {}, response)
+                raise ValueError(f"Totle's fee not accounted for in summary. Summary source_amount={summary_source_amount}, sum of orders source_amount={source_amount}")
                 
         else: # buying tokens with ETH
             # For buys source_amount always equals summary_source_amount because Totle takes its fees
@@ -191,7 +200,7 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary, 
             else: # totle fees are in the intermediate token
                 # assert 'baseAsset' in summary
                 if totle_fee_token != summary['baseAsset']['symbol']:
-                    raise ValueError(f"totle_fee_token={totle_fee_token} does not match intermediate token={summary['baseAsset']['symbol']}", {}, response)
+                    raise ValueError(f"totle_fee_token={totle_fee_token} does not match intermediate token={summary['baseAsset']['symbol']}")
 
                 # WHY WE DO NOTHING HERE:
                 # When Totle takes fees in the intermediate token the sum of the order amounts will equal
@@ -209,59 +218,62 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary, 
             # Suggester bugs (floating point to decimal?) mean things don't always add up exactly
             if source_amount != summary_source_amount:
             # if abs(source_amount - summary_source_amount) > 10:
-                raise ValueError(f"adjusted orders source_amount={source_amount} different from summary source_amount={summary_source_amount}", {}, response)
+                raise ValueError(f"adjusted orders source_amount={source_amount} different from summary source_amount={summary_source_amount}")
 
             if destination_amount != summary_destination_amount:
             # if abs(destination_amount - summary_destination_amount) > 10:
-                raise ValueError(f"adjusted orders destination_amount={destination_amount} different from summary destination_amount={summary_destination_amount}", {}, response)
+                raise ValueError(f"adjusted orders destination_amount={destination_amount} different from summary destination_amount={summary_destination_amount}")
     return source_amount, destination_amount
         
 
 def swap_data(response, is_totle):
     """Extracts relevant data from a swap/rebalance API endpoint response"""
 
-    summary, source_token, source_div, destination_token, destination_div = get_summary_data(response)
+    try:
+        summary, base_token, source_token, source_div, destination_token, destination_div = get_summary_data(response)
 
-    if 'trades' not in summary: return {} # Suggester has no trades
-    trades = summary['trades']
-    if len(trades) > 2: # currently can only handle going through 1 additional token
-        raise ValueError(f"len(trades) = {len(trades)}", {}, response)
+        if 'trades' not in summary: return {} # Suggester has no trades
+        trades = summary['trades']
+        if len(trades) > 2: # currently can only handle going through 1 additional token
+            raise ValueError(f"len(trades) = {len(trades)}", {}, response)
 
-
-    exchange_fee_token, exchange_fee = calc_exchange_fees(trades[0]) if len(trades) == 1 else get_exchange_fees(trades)
-    totle_used, totle_fee_token, totle_fee, partner_fee_token, partner_fee = None, None, None, None, None
-    if is_totle:
-        # set totle_used, which may be a concatenation of exchanges if multiple were used
-        totle_used = trades[0]['orders'][0]['exchange']['name']
-        for o in [order for t in trades for order in t['orders']]:
-            if o['exchange']['name'] != totle_used: totle_used += f"/{o['exchange']['name']}"
-
-        totle_fee_token, totle_fee, partner_fee_token, partner_fee = get_totle_fees(summary)
-
-    source_amount = sum_amounts(trades[0], 'source', source_token)
-    destination_amount = sum_amounts(trades[-1], 'destination', destination_token)
-    source_amount, destination_amount = adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary, response)
-    source_amount = source_amount / source_div
-    destination_amount = destination_amount / destination_div
+        exchange_fee_token, exchange_fee = calc_exchange_fees(trades[0]) if len(trades) == 1 else get_exchange_fees(trades)
         
-    trade_size = source_amount if source_token == 'ETH' else destination_amount
-    price = source_amount / destination_amount
+        totle_used, dex_pairs = None, None
+        totle_fee_token, totle_fee, partner_fee_token, partner_fee = None, None, None, None
+        if is_totle:
+            dex_pairs = get_dex_pairs(trades)
+            totle_used = list(dex_pairs.keys())
+            totle_fee_token, totle_fee, partner_fee_token, partner_fee = get_totle_fees(summary)
+            
+        source_amount = sum_amounts(trades[0], 'source', source_token)
+        destination_amount = sum_amounts(trades[-1], 'destination', destination_token)
+        source_amount, destination_amount = adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary)
+        source_amount = source_amount / source_div
+        destination_amount = destination_amount / destination_div
+        
+        trade_size = source_amount if source_token == 'ETH' else destination_amount
+        price = source_amount / destination_amount
 
-    return {
-        "tradeSize": trade_size,
-        "sourceToken": source_token,
-        "sourceAmount": source_amount,
-        "destinationToken": destination_token,
-        "destinationAmount": destination_amount,
-        "totleUsed": totle_used,
-        "price": price,
-        "exchangeFee": exchange_fee,
-        "exchangeFeeToken": exchange_fee_token,
-        "totleFee": totle_fee,
-        "totleFeeToken": totle_fee_token,
-        "partnerFee": partner_fee,
-        "partnerFeeToken": partner_fee_token,
-    }
+        return {
+            "tradeSize": trade_size,
+            "sourceToken": source_token,
+            "sourceAmount": source_amount,
+            "destinationToken": destination_token,
+            "destinationAmount": destination_amount,
+            "totleUsed": totle_used,
+            "dexPairs": dex_pairs, 
+            "baseToken": base_token,
+            "price": price,
+            "exchangeFee": exchange_fee,
+            "exchangeFeeToken": exchange_fee_token,
+            "totleFee": totle_fee,
+            "totleFeeToken": totle_fee_token,
+            "partnerFee": partner_fee,
+            "partnerFeeToken": partner_fee_token,
+        }
+    except ValueError as e:
+        raise ValueError(e.args[0], {}, response)
 
 
 ##############################################################################################
@@ -357,14 +369,17 @@ def swap_inputs(from_token, to_token, exchange=None, params={}):
     return {**swap_inputs, **base_inputs}
 
 def handle_swap_exception(e, dex, from_token, to_token, params, verbose=True):
+    has_args1, has_args2 = len(e.args) > 1 and bool(e.args[1]), len(e.args) > 2 and bool(e.args[2])
     normal_exceptions = ["NotEnoughVolumeError", "MarketSlippageTooHighError"]
-    if len(e.args) > 2 and type(e.args[2]) == dict and e.args[2]['name'] in normal_exceptions:
+
+    # Check for normal exceptions, maybe print them
+    if has_args2 and type(e.args[2]) == dict and 'name' in e.args[2] and e.args[2]['name'] in normal_exceptions:
         if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} trade size={params['tradeSize']} ETH due to {e.args[2]['name']}")
 
     else: # print req/resp for uncommon failures
         print(f"{dex}: swap raised {type(e).__name__}: {e.args[0]}")
-        if len(e.args) > 1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
-        if len(e.args) > 2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
+        if has_args1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
+        if has_args2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
 
 def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, debug=None):
     """calls swap endpoint Returns the result as a swap_data dict, {} if the call failed"""
@@ -380,17 +395,15 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, 
         else:
             sd = swap_data(j['response'], is_totle)
 
-        if sd:
+        if sd and verbose:
             if is_totle:
-                test_type = 'A'
-                dex_used = sd['totleUsed']
+                test_type, dex_used = 'A', '/'.join(sd['totleUsed'])
                 fee_data = f"(includes exchange_fee={sd['exchangeFee']} {sd['exchangeFeeToken']} totle_fee={sd['totleFee']} {sd['totleFeeToken']})" # leave out partner_fee since it is always 0
             else:
-                test_type = 'B'
-                dex_used = exchange
+                test_type, dex_used = 'B', exchange
                 fee_data = f"(includes exchange_fee={sd['exchangeFee']} {sd['exchangeFeeToken']})"
+            print(f"{test_type}: swap {sd['sourceAmount']} {sd['sourceToken']} for {sd['destinationAmount']} {sd['destinationToken']} on {dex_used} price={sd['price']} {fee_data}")
 
-            if verbose: print(f"{test_type}: swap {sd['sourceAmount']} {sd['sourceToken']} for {sd['destinationAmount']} {sd['destinationToken']} on {dex_used} price={sd['price']} {fee_data}")
         return sd
 
     except Exception as e:
