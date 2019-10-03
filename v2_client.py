@@ -150,7 +150,7 @@ def sum_amounts(trade, src_dest, summary_token):
         
     return total_amount
 
-def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
+def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary, response):
     """adjust source and destination amounts so price reflects paying totle fee"""
 
     summary_source_token = summary['sourceAsset']['symbol']
@@ -240,7 +240,7 @@ def swap_data(response, is_totle):
 
     source_amount = sum_amounts(trades[0], 'source', source_token)
     destination_amount = sum_amounts(trades[-1], 'destination', destination_token)
-    source_amount, destination_amount = adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary)
+    source_amount, destination_amount = adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary, response)
     source_amount = source_amount / source_div
     destination_amount = destination_amount / destination_div
         
