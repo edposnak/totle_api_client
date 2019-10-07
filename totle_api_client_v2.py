@@ -2,6 +2,7 @@ import sys
 import argparse
 import datetime
 import csv
+from collections import defaultdict
 
 import v2_client
 from v2_compare_prices import compare_prices, print_average_savings
@@ -62,10 +63,10 @@ sys.stdout = open(output_filename, 'w')
 
 TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0]
 
-# liquid_dexs = v2_client.enabled_exchanges
 # don't waste time on non-liquid dexes
 non_liquid_dexs = [ 'Compound' ]
-liquid_dexs = [e for e in v2_client.enabled_exchanges if e not in non_liquid_dexs ] 
+liquid_dexs = tuple(filter(lambda e: e not in non_liquid_dexs, v2_client.enabled_exchanges))
+
 
 liquid_tokens = [t for t in v2_client.tokens if t != 'ETH'] # start with all tradable tokens
 all_savings, all_supported_pairs = {}, {}
@@ -82,12 +83,12 @@ with open(f"{filename}.csv", 'w', newline='') as csvfile:
 
         non_liquid_tokens = []
         all_savings[trade_size] = {}
-        all_supported_pairs[trade_size] = {dex: [] for dex in liquid_dexs} # compare_prices() uses these keys to know what dexs to try
+        all_supported_pairs[trade_size] = defaultdict(list)
         print(f"\n\nNEW ROUND TRADE SIZE = {trade_size} ETH trying {len(liquid_tokens)} liquid tokens on the following DEXs: {liquid_dexs}")
         for token in liquid_tokens:
             print(f"\n----------------------------------------")
             print(f"\n{order_type} {token} trade size = {trade_size} ETH")
-            savings = compare_prices(token, all_supported_pairs[trade_size], non_liquid_tokens, params, debug=False)
+            savings = compare_prices(token, all_supported_pairs[trade_size], non_liquid_tokens, liquid_dexs, params, debug=False)
             if savings:
                 all_savings[trade_size][token] = savings
                 for exchange in savings:
@@ -100,7 +101,8 @@ with open(f"{filename}.csv", 'w', newline='') as csvfile:
         liquid_tokens = [ t for t in liquid_tokens if t not in non_liquid_tokens ]
 
         # don't try non_liquid_dexs at higher trade sizes
-        liquid_dexs = [ e for e in liquid_dexs if all_supported_pairs[trade_size][e] ]
+        # for now, try all dexs and see how illiquid they really are
+        # liquid_dexs = tuple(filter(lambda e: all_supported_pairs[trade_size][e], liquid_dexs))
 
 print_average_savings(all_savings)
 print_supported_pairs(all_supported_pairs)

@@ -161,27 +161,28 @@ def sum_amounts(trade, src_dest, summary_token):
 
 def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
     """adjust source and destination amounts so price reflects paying totle fee"""
+    # Assumes source_amount and destination amount are sums of order amounts
 
-    summary_source_token = summary['sourceAsset']['symbol']
+    buying_tokens_with_eth = summary['sourceAsset']['symbol'] == 'ETH'
     summary_destination_token = summary['destinationAsset']['symbol']
 
     totle_fee_token = summary['totleFee']['asset']['symbol']
     totle_fee_pct = float(summary['totleFee']['percentage'])
 
     if not is_totle: # subtract fees
-        # Only subtract fees for buys where the sum of order destination amounts reflects Totle taking fees
-        # in the intermediate token. (For sells, the sum of order source_amounts < summary source_amount, so
-        # the fees will be added to the TOTLE_EX case below)
-        if summary_source_token == 'ETH': # buying tokens with ETH
-            if totle_fee_token != summary_destination_token: # Totle fee is in intermediate token
-                destination_amount /= (1 - (totle_fee_pct / 100))  
+        # Only subtract fees for buys where Totle takes fees in the intermediate token. For buys without
+        # an intermediate token, destination_amount > summary_destination_amount and for all sells,
+        # source_amounts < summary source_amount, so the fees will be added by changing source_amount or
+        # destination_amount in the is_totle case below
+        if buying_tokens_with_eth and totle_fee_token != summary_destination_token: # Totle fee is in intermediate token
+            destination_amount /= (1 - (totle_fee_pct / 100))
 
-    else: # add fees for most cases
+    else: # add fees for most is_totle cases
         summary_source_amount = int(summary['sourceAmount'])
         summary_destination_amount = int(summary['destinationAmount'])
         totle_fee_amount = int(summary['totleFee']['amount'])
         
-        if summary_source_token != 'ETH': # selling tokens for ETH
+        if not buying_tokens_with_eth: # selling tokens for ETH
             # For sells, Totle requires more source tokens from the user's wallet than are shown in the
             # orders JSON. The summary_source_amount is larger than the sum of the orders source_amounts
             # by the Totle fee (denominated in source tokens) so we just use it to account for Totle's fees
@@ -215,14 +216,13 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
                 # the summary likely won't account for Totle's fees like it does for sells and the fee will have
                 # to be subtracted (see not is_totle case above)
 
-            # Suggester bugs (floating point to decimal?) mean things don't always add up exactly
-            if source_amount != summary_source_amount:
-            # if abs(source_amount - summary_source_amount) > 10:
-                raise ValueError(f"adjusted orders source_amount={source_amount} different from summary source_amount={summary_source_amount}")
+        # Summary amounts should now add up in the is_totle case 
+        # Suggester bugs (floating point to decimal?) mean things don't always add up exactly
+        if source_amount != summary_source_amount:
+            raise ValueError(f"adjusted orders source_amount={source_amount} different from summary source_amount={summary_source_amount}")
 
-            if destination_amount != summary_destination_amount:
-            # if abs(destination_amount - summary_destination_amount) > 10:
-                raise ValueError(f"adjusted orders destination_amount={destination_amount} different from summary destination_amount={summary_destination_amount}")
+        if destination_amount != summary_destination_amount:
+            raise ValueError(f"adjusted orders destination_amount={destination_amount} different from summary destination_amount={summary_destination_amount}")
     return source_amount, destination_amount
         
 
