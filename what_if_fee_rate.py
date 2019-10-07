@@ -1,5 +1,6 @@
-import csv
 import sys
+from collections import defaultdict
+import csv
 
 csv_files = sys.argv[2:]
 if len(csv_files) < 1:
@@ -15,11 +16,11 @@ else:
 # order_price = totle_price * (1 - fee_rate)
 # new_totle_price = order_price / (1 - new_fee_rate)
 
-all_savings = {}
+all_savings = defaultdict(lambda: defaultdict(list))
 pos_samples, neg_samples = 0, 0
 
-neg_savings = {}
-pos_savings = {}
+neg_savings = defaultdict(int)
+pos_savings = defaultdict(int)
 
 FEE_RATE_05 = 0.005025125628140704 # actual fee rate totle is charging
 
@@ -31,18 +32,9 @@ for file in csv_files:
         reader = csv.DictReader(csvfile, fieldnames=None)
         for row in reader:
             trade_size = row['trade_size']
-            if trade_size not in all_savings:
-                all_savings[trade_size] = {}
             trade_size_savings = all_savings[trade_size]
 
             dex = row['exchange']
-            if dex not in trade_size_savings:
-                trade_size_savings[dex] = []
-            if dex not in neg_savings:
-                neg_savings[dex] = 0
-            if dex not in pos_savings:
-                pos_savings[dex] = 0
-
             # pct_savings = float(row['pct_savings'])
             totle_price = float(row['totle_price'])
             order_price = totle_price * (1 - FEE_RATE_05)

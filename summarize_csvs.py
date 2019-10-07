@@ -1,5 +1,6 @@
-import csv
 import sys
+from collections import defaultdict
+import csv
 
 csv_files = sys.argv[1:]
 if len(csv_files) < 1:
@@ -8,29 +9,21 @@ if len(csv_files) < 1:
 else:
     print(f"processing {len(csv_files)} CSV files ...")
 
-all_savings = {}
+
+all_savings = defaultdict(lambda: defaultdict(list))
 pos_samples, neg_samples = 0, 0
 
-neg_savings = {}
-pos_savings = {}
+neg_savings = defaultdict(int)
+pos_savings = defaultdict(int)
 
 for file in csv_files:
     with open(file, newline='') as csvfile:
         reader = csv.DictReader(csvfile, fieldnames=None)
         for row in reader:
             trade_size = row['trade_size']
-            if trade_size not in all_savings:
-                all_savings[trade_size] = {}
             trade_size_savings = all_savings[trade_size]
 
             dex = row['exchange']
-            if dex not in trade_size_savings:
-                trade_size_savings[dex] = []
-            if dex not in neg_savings:
-                neg_savings[dex] = 0
-            if dex not in pos_savings:
-                pos_savings[dex] = 0
-
             pct_savings = float(row['pct_savings'])
 
             trade_size_savings[dex].append(pct_savings)
