@@ -7,7 +7,7 @@ from datetime import datetime
 # functions to compute and print price differences
 #
 
-def compare_prices(token, supported_pairs, non_liquid_tokens, params=None, verbose=True, debug=False):
+def compare_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, params=None, verbose=True, debug=False):
     """Returns a dict containing Totle and other DEX prices"""
 
     savings = {}
@@ -27,7 +27,7 @@ def compare_prices(token, supported_pairs, non_liquid_tokens, params=None, verbo
 
         # Compare to best prices from other DEXs
         # don't compare to the one that Totle used, unless Totle used multiple DEXs
-        dexs_to_compare = [ dex for dex in supported_pairs if len(totle_used) > 1 or dex != totle_used[0]]
+        dexs_to_compare = [ dex for dex in liquid_dexs if dex != totle_used[0] or len(totle_used) > 1 ]
         for dex in dexs_to_compare:
             dex_sd = v2_client.try_swap(dex, from_token, to_token, exchange=dex, **k_params)
             if dex_sd:
