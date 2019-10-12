@@ -6,7 +6,7 @@ def print_trades(trades, limit=None):
     print(f"Got {len(trades)} {trades[0]['side']}s:")
     print(f"DEX       \t   Price\t  Amount\tBase Amount\tTimestamp")
     for t in trades[0:min(limit or len(trades), len(trades))]:
-        dex = v2_client.all_exchanges_by_id[t['exchangeId']]
+        dex = v2_client.data_exchanges_by_id[t['exchangeId']]
 
         price, amount, = float(t['price']), float(t['amount'])
         amount_b = amount if t['side'] == 'buy' else price * amount

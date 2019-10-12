@@ -13,10 +13,11 @@ API_BASE = 'https://api.totle.com'
 EXCHANGES_ENDPOINT = API_BASE + '/exchanges'
 TOKENS_ENDPOINT = API_BASE + '/tokens'
 SWAP_ENDPOINT = API_BASE + '/swap'
-DATA_ENDPOINT = API_BASE + '/data'
 
+DATA_ENDPOINT = API_BASE + '/data'
 PAIRS_ENDPOINT = DATA_ENDPOINT + '/pairs'
 TRADES_ENDPOINT = DATA_ENDPOINT + '/trades' # trades/DAI/ETH?limit=100&page=1&begin=156992998&end=156900998
+DATA_EXCHANGES_ENDPOINT = DATA_ENDPOINT + '/exchanges'
 
 # pretty print function
 def pp(data):
@@ -39,28 +40,9 @@ r = requests.get(EXCHANGES_ENDPOINT).json()
 exchanges = { e['name']: e['id'] for e in r['exchanges'] }
 enabled_exchanges = [ e['name'] for e in r['exchanges'] if e['enabled'] ]
 
-# until the exchanges endpoint is updated to include all exchanges we need this map
-all_exchanges = {
-    'EtherDelta': 1,
-    'Kyber': 2,
-    'RadarRelay': 3,
-    'Bancor': 4,
-    'AirSwap': 5,
-    'ERC dEX': 6,
-    'SharkRelay': 7,
-    'Eth2Dai': 8,
-    'BambooRelay': 9,
-    'weiDex': 10,
-    'Uniswap': 11,
-    'Ethex': 12,
-    'Token Store': 13,
-    'Compound': 14,
-    '0xMesh': 15,
-    'DDEX': 16,
-    'DyDx': 17,
-    'IDEX': 18,
-}
-all_exchanges_by_id = { v:k for k,v in all_exchanges.items() } 
+r = requests.get(DATA_EXCHANGES_ENDPOINT).json()
+data_exchanges = { e['name']: e['id'] for e in r['exchanges'] }
+data_exchanges_by_id = { v:k for k,v in data_exchanges.items() } 
 
 TOTLE_EX = 'Totle' # 'Totle' is used for comparison with other exchanges
 
@@ -68,6 +50,8 @@ TOTLE_EX = 'Totle' # 'Totle' is used for comparison with other exchanges
 r = requests.get(TOKENS_ENDPOINT).json()
 tokens = { t['symbol']: t['address'] for t in r['tokens'] if t['tradable']}
 token_decimals = { t['symbol']: t['decimals'] for t in r['tokens'] if t['tradable']}
+
+data_tokens_by_addr = { t['address']: t['symbol'] for t in r['tokens'] } 
 
 def addr(token):
     """Returns the string address that identifies the token"""
