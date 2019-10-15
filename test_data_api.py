@@ -49,9 +49,7 @@ PAGE_SIZE = 200
 NUM_PAGES = 5
 
 try:
-    pairs = v2_client.supported_pairs
-
-    for base, quote in pairs:
+    for base, quote in v2_client.supported_pairs:
         buys, sells, page_num = [], [], 0
         while page_num < NUM_PAGES:
             trades = v2_client.get_trades(base, quote, limit=PAGE_SIZE, page=page_num)

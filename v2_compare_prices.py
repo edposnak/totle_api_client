@@ -10,13 +10,13 @@ from datetime import datetime
 def compare_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, params=None, verbose=True, debug=False):
     """Returns a dict containing Totle and other DEX prices"""
 
+    kw_params = { k:v for k,v in locals().items() if k in ['params', 'verbose', 'debug'] }
     savings = {}
     from_token, to_token, bidask = ('ETH', token, 'ask') if params['orderType'] == 'buy' else (token, 'ETH', 'bid')
-    k_params = {'params': params, 'verbose': verbose, 'debug': debug }
     totle_ex = v2_client.TOTLE_EX
     
     # Get the best price using Totle's aggregated order books
-    totle_sd = v2_client.try_swap(totle_ex, from_token, to_token, **k_params)
+    totle_sd = v2_client.try_swap(totle_ex, from_token, to_token, **kw_params)
 
     if totle_sd:
         totle_used = totle_sd['totleUsed']
@@ -29,7 +29,7 @@ def compare_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, param
         # don't compare to the one that Totle used, unless Totle used multiple DEXs
         dexs_to_compare = [ dex for dex in liquid_dexs if dex != totle_used[0] or len(totle_used) > 1 ]
         for dex in dexs_to_compare:
-            dex_sd = v2_client.try_swap(dex, from_token, to_token, exchange=dex, **k_params)
+            dex_sd = v2_client.try_swap(dex, from_token, to_token, exchange=dex, **kw_params)
             if dex_sd:
                 swap_prices[dex] = dex_sd['price']
                 if swap_prices[dex] < 0.0:

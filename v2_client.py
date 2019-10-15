@@ -9,6 +9,8 @@ import time
 #
 # get exchanges
 
+TOTLE_API_KEY = '7d2adad7-13a5-4388-ad4e-6ee05dd5925d'
+
 API_BASE = 'https://api.totle.com'
 EXCHANGES_ENDPOINT = API_BASE + '/exchanges'
 TOKENS_ENDPOINT = API_BASE + '/tokens'
@@ -143,6 +145,8 @@ def sum_amounts(trade, src_dest, summary_token):
         
     return total_amount
 
+HACK_UNTIL_SUMMARY_FIXED=True
+
 def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
     """adjust source and destination amounts so price reflects paying totle fee"""
     # Assumes source_amount and destination amount are sums of order amounts
@@ -152,6 +156,22 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
 
     totle_fee_token = summary['totleFee']['asset']['symbol']
     totle_fee_pct = float(summary['totleFee']['percentage'])
+
+    # Until the summary is fixed we can just assume summary amounts correctly include Totle fees in
+    # all cases (maybe not a good assumption) and subtract them out for non is_totle cases
+    if HACK_UNTIL_SUMMARY_FIXED:
+        summary_source_amount = int(summary['sourceAmount'])
+        summary_destination_amount = int(summary['destinationAmount'])
+        if is_totle:
+            return summary_source_amount, summary_destination_amount
+        else: # subtract out Totle fee
+            source_amount, destination_amount = summary_source_amount, summary_destination_amount
+            if buying_tokens_with_eth: # user could have gotten more destination tokens
+                destination_amount = summary_destination_amount / (1 - (totle_fee_pct / 100))
+            else: # for sells, user could have paid less than source_amount 
+                source_amount = summary_source_amount * (1 - (totle_fee_pct / 100))
+            return source_amount, destination_amount
+    
 
     if not is_totle: # subtract fees
         # Only subtract fees for buys where Totle takes fees in the intermediate token. For buys without
@@ -166,7 +186,7 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
         summary_destination_amount = int(summary['destinationAmount'])
         totle_fee_amount = int(summary['totleFee']['amount'])
         
-        if not buying_tokens_with_eth: # selling tokens for ETH
+        if not buying_tokens_with_eth: 
             # For sells, Totle requires more source tokens from the user's wallet than are shown in the
             # orders JSON. The summary_source_amount is larger than the sum of the orders source_amounts
             # by the Totle fee (denominated in source tokens) so we just use it to account for Totle's fees
@@ -183,7 +203,6 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
                 # and the destination_amount should end up equalling the summary_destination_amount
                 destination_amount -= totle_fee_amount
             else: # totle fees are in the intermediate token
-                # assert 'baseAsset' in summary
                 if totle_fee_token != summary['baseAsset']['symbol']:
                     raise ValueError(f"totle_fee_token={totle_fee_token} does not match intermediate token={summary['baseAsset']['symbol']}")
 
@@ -362,10 +381,11 @@ def handle_swap_exception(e, dex, from_token, to_token, params, verbose=True):
 
     else: # print req/resp for uncommon failures
         print(f"{dex}: swap raised {type(e).__name__}: {e.args[0]}")
-        if has_args1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
-        if has_args2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
+        if verbose:
+            if has_args1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
+            if has_args2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
 
-def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, debug=None):
+def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, debug=False):
     """calls swap endpoint Returns the result as a swap_data dict, {} if the call failed"""
     try:
         is_totle = dex == TOTLE_EX
@@ -410,12 +430,12 @@ else: # some uncommon error we should look into
 # get token pairs
 def get_trades(base_asset, quote_asset, limit=None, page=None, begin=None, end=None):
     """Returns the latest trades on all exchanges for the given base/quote assets"""
-    url = TRADES_ENDPOINT + f"/{base_asset}/{quote_asset}"
-
     if limit or page or begin or end:
         query = { k:v for k,v in locals().items() if v and k not in ['base_asset', 'quote_asset'] }
     else:
         query = {}
+
+    url = TRADES_ENDPOINT + f"/{base_asset}/{quote_asset}"
 
     j = requests.get(url, params=query).json()
 
