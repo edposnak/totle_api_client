@@ -336,8 +336,7 @@ def swap_inputs(from_token, to_token, exchange=None, params={}):
     if exchange: # whitelist the given exchange
         base_inputs["config"]["exchanges"] = { "list": [ exchanges[exchange] ], "type": "white" }
 
-    if params.get('apiKey'):
-        base_inputs['apiKey'] = params['apiKey']
+    base_inputs['apiKey'] = params['apiKey'] or TOTLE_API_KEY
 
     if params.get('partnerContract'):
         base_inputs['partnerContract'] = params['partnerContract']
