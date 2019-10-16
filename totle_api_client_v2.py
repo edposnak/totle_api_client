@@ -1,11 +1,9 @@
 import sys
 import argparse
-import datetime
-import csv
 from collections import defaultdict
 
 import v2_client
-from v2_compare_prices import compare_prices, print_average_savings
+from v2_compare_prices import compare_prices, print_average_savings, get_filename_base, SavingsCSV, redirect_stdout
 
 ##############################################################################################
 #
@@ -18,7 +16,7 @@ def print_supported_pairs(all_supported_pairs):
             pairs = [f"{t}/{f}" for f, t in all_supported_pairs[trade_size][e]]
             print(f"   {e}: {len(pairs)} pairs {pairs}")
 
-def report_failures(all_savings):
+def reportnegative_savings(all_savings):
     succs, fails = 0, 0
     for trade_size in all_savings:
         asts = all_savings[trade_size]
@@ -52,14 +50,8 @@ parser.add_argument('apiKey', nargs='?', help='API key')
 
 params = vars(parser.parse_args())
 
-d = datetime.datetime.today()
-filename = f"outputs/{d.year}-{d.month:02d}-{d.day:02d}_{d.hour:02d}:{d.minute:02d}:{d.second:02d}_{params['orderType']}"
-
-# Redirect output to a .txt file in outputs directory
-# Comment out the following 3 lines to see output on console
-output_filename = f"{filename}.txt"
-print(f"sending output to {output_filename} ...")
-sys.stdout = open(output_filename, 'w')
+filename = get_filename_base(params['orderType'])
+redirect_stdout(filename)
 
 TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0]
 
@@ -67,24 +59,18 @@ TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0]
 non_liquid_dexs = [ 'Compound' ]
 liquid_dexs = tuple(filter(lambda e: e not in non_liquid_dexs, v2_client.enabled_exchanges))
 
-
 liquid_tokens = [t for t in v2_client.tokens if t != 'ETH'] # start with all tradable tokens
+
 all_savings, all_supported_pairs = {}, {}
 order_type = params['orderType']
 
-CSV_FIELDS = "time action trade_size token exchange exchange_price totle_used totle_price pct_savings".split()
-with open(f"{filename}.csv", 'w', newline='') as csvfile:
-    csv_writer = csv.DictWriter(csvfile, fieldnames=CSV_FIELDS)
-    csv_writer.writeheader()
-
+with SavingsCSV(filename) as csv_writer:
     for trade_size in TRADE_SIZES:
         params['tradeSize'] = trade_size
-        print(d, params)
-
         non_liquid_tokens = []
         all_savings[trade_size] = {}
         all_supported_pairs[trade_size] = defaultdict(list)
-        print(f"\n\nNEW ROUND TRADE SIZE = {trade_size} ETH trying {len(liquid_tokens)} liquid tokens on the following DEXs: {liquid_dexs}")
+        print(f"\n\nNEW ROUND TRADE SIZE = {trade_size} ETH trying {len(liquid_tokens)} liquid tokens on {liquid_dexs}")
         for token in liquid_tokens:
             print(f"\n----------------------------------------")
             print(f"\n{order_type} {token} trade size = {trade_size} ETH")
@@ -92,9 +78,7 @@ with open(f"{filename}.csv", 'w', newline='') as csvfile:
             if savings:
                 all_savings[trade_size][token] = savings
                 for exchange in savings:
-                    row = {**{'trade_size': trade_size, 'token' : token, 'exchange': exchange}, **savings[exchange]}
-                    csv_writer.writerow(row)
-                    csvfile.flush()
+                    csv_writer.append(savings[exchange])
             
         # don't try non_liquid_tokens at higher trade sizes
         print(f"\n\nremoving {len(non_liquid_tokens)} non-liquid tokens for the next round")
@@ -106,5 +90,5 @@ with open(f"{filename}.csv", 'w', newline='') as csvfile:
 
 print_average_savings(all_savings)
 print_supported_pairs(all_supported_pairs)
-report_failures(all_savings)
+reportnegative_savings(all_savings)
 

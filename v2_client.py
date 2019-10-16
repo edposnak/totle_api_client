@@ -336,7 +336,7 @@ def swap_inputs(from_token, to_token, exchange=None, params={}):
     if exchange: # whitelist the given exchange
         base_inputs["config"]["exchanges"] = { "list": [ exchanges[exchange] ], "type": "white" }
 
-    base_inputs['apiKey'] = params['apiKey'] or TOTLE_API_KEY
+    base_inputs['apiKey'] = params.get('apiKey') or TOTLE_API_KEY
 
     if params.get('partnerContract'):
         base_inputs['partnerContract'] = params['partnerContract']
@@ -430,7 +430,7 @@ else: # some uncommon error we should look into
 def get_trades(base_asset, quote_asset, limit=None, page=None, begin=None, end=None):
     """Returns the latest trades on all exchanges for the given base/quote assets"""
     if limit or page or begin or end:
-        query = { k:v for k,v in locals().items() if v and k not in ['base_asset', 'quote_asset'] }
+        query = { k:v for k,v in vars().items() if v and k not in ['base_asset', 'quote_asset'] }
     else:
         query = {}
 

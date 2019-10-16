@@ -1,6 +1,9 @@
-import v2_client
+import sys
+import csv
 from collections import defaultdict
 from datetime import datetime
+
+import v2_client
 
 ##############################################################################################
 #
@@ -10,9 +13,10 @@ from datetime import datetime
 def compare_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, params=None, verbose=True, debug=False):
     """Returns a dict containing Totle and other DEX prices"""
 
-    kw_params = { k:v for k,v in locals().items() if k in ['params', 'verbose', 'debug'] }
+    kw_params = { k:v for k,v in vars().items() if k in ['params', 'verbose', 'debug'] }
+    order_type, trade_size = params['orderType'], params['tradeSize']
     savings = {}
-    from_token, to_token, bidask = ('ETH', token, 'ask') if params['orderType'] == 'buy' else (token, 'ETH', 'bid')
+    from_token, to_token, bidask = ('ETH', token, 'ask') if order_type == 'buy' else (token, 'ETH', 'bid')
     totle_ex = v2_client.TOTLE_EX
     
     # Get the best price using Totle's aggregated order books
@@ -42,8 +46,8 @@ def compare_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, param
             for e in other_dexs:
                 ratio = totle_price/swap_prices[e] # totle_price assumed lower
                 pct_savings = 100 - (100.0 * ratio)
-                savings[e] = {'time': datetime.now().isoformat(), 'action': params['orderType'], 'pct_savings': pct_savings, 'totle_used': '/'.join(totle_used), 'totle_price': totle_price, 'exchange_price': swap_prices[e]}
-                print(f"Totle saved {pct_savings:.2f} percent vs {e} {params['orderType']}ing {token} on {totle_used} trade size={params['tradeSize']} ETH")
+                savings[e] = savings_data(order_type, trade_size, token, e, pct_savings, totle_used, totle_price, swap_prices[e])
+                print(f"Totle saved {pct_savings:.2f} percent vs {e} {order_type}ing {token} on {totle_used} trade size={trade_size} ETH")
         else:
             print(f"Could not compare {token} prices. Only valid price was {swap_prices}")
             # although we'll likely get the same result at higher trade sizes, don't over-
@@ -54,6 +58,20 @@ def compare_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, param
         non_liquid_tokens.append(token)
 
     return savings
+
+def savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price):
+    """Returns a savings entry suitable for logging or appending to CSV"""
+    return { 
+        'time': datetime.now().isoformat(),
+        'action': order_type,
+        'trade_size': trade_size,
+        'token': token,
+        'exchange': exchange,
+        'pct_savings': pct_savings,
+        'totle_used': '/'.join(totle_used),
+        'totle_price': totle_price,
+        'exchange_price': exchange_price
+    }
 
 def print_average_savings(all_savings):
     for trade_size in all_savings:
@@ -76,5 +94,50 @@ def print_average_savings_by_dex(avg_savings):
 
     return dex_savings
 
+##############################################################################################
+#
+# CSV methods
+#
+
+CSV_FIELDS = "time action trade_size token exchange exchange_price totle_used totle_price pct_savings".split()
+
+def get_filename_base(order_type):
+    d = datetime.today()
+    return f"outputs/{d.year}-{d.month:02d}-{d.day:02d}_{d.hour:02d}:{d.minute:02d}:{d.second:02d}_{order_type}"
+
+class SavingsCSV():
+    def __init__(self, filename):
+        self.filename = filename if filename.endswith('.csv') else filename + '.csv'
+        self.fieldnames = CSV_FIELDS
+
+    def __enter__(self):
+        self.csvfile = open(self.filename, 'w', newline='') 
+        self.csv_writer = csv.DictWriter(self.csvfile, fieldnames=self.fieldnames)
+        self.csv_writer.writeheader()
+        return self
+
+    def append(self, savings):
+        self.writerow(savings)
+
+    def writerow(self, rowdict):
+        self.csv_writer.writerow(rowdict)
+        self.csvfile.flush()
+        
+    def writerows(self, rowdicts):
+        for r in rowdicts: self.writerow(r)
+
+    def __exit__(self, type, value, traceback):
+        self.csvfile.close()
+
+##############################################################################################
+#
+# txt file methods
+#
+
+def redirect_stdout(filename):
+    """Redirects console output to a .txt file in outputs directory"""
+    output_filename = filename if filename.endswith('.txt') else filename + '.txt'
+    print(f"sending output to {output_filename} ...")
+    sys.stdout = open(output_filename, 'w')
 
 
