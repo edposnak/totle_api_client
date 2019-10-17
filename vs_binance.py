@@ -13,5 +13,5 @@ quote='ETH'
 overlap_pairs = [ (b,q) for b,q in binance_client.get_pairs() if q == quote and b in v2_client.tokens ]
 
 for order_type in ['buy', 'sell']:
-    savings = get_savings(binance_client, order_type, overlap_pairs, TRADE_SIZES, TAKER_FEE_PCT, redirect=False)
+    savings = get_savings(binance_client, order_type, overlap_pairs, TRADE_SIZES, TAKER_FEE_PCT)
     print_savings(order_type, savings, TRADE_SIZES)
