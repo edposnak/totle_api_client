@@ -28,9 +28,9 @@ DEPTH_LEVELS = [5, 10, 20, 50, 100, 500, 1000, 5000]
 
 def get_depth(base, quote, level=4):
     query = { 'symbol': base + quote, 'limit': DEPTH_LEVELS[level] }
-
     j = requests.get(DEPTH_ENDPOINT, params=query).json()
-    return j['bids'], j['asks']
 
+    s_to_f = lambda p: tuple(map(float, p))
+    return list(map(s_to_f, j['bids'])), list(map(s_to_f, j['asks']))
 
 

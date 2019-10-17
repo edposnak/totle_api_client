@@ -32,6 +32,7 @@ def get_depth(base, quote, level=0):
     # e.g. symbol=btcusdt&type=step1
     query = { 'symbol': base.lower() + quote.lower(), 'type': f"step{level}" }
     j = requests.get(DEPTH_ENDPOINT, params=query).json()
+
     if j['status'] == 'ok':
         return j['tick']['bids'], j['tick']['asks']
     else:
