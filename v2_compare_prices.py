@@ -5,13 +5,29 @@ from datetime import datetime
 
 import v2_client
 
+# Common struct returned by compare_dex_prices and compare_cex_prices
+def savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price):
+    """Returns a savings entry suitable for logging or appending to CSV"""
+    return {
+        'time': datetime.now().isoformat(),
+        'action': order_type,
+        'trade_size': trade_size,
+        'token': token,
+        'exchange': exchange,
+        'pct_savings': pct_savings,
+        'totle_used': '/'.join(totle_used),
+        'totle_price': totle_price,
+        'exchange_price': exchange_price
+    }
+
+
 ##############################################################################################
 #
-# functions to compute and print price differences
+# DEX functions to compute and print price differences
 #
 
-def compare_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, params=None, verbose=True, debug=False):
-    """Returns a dict containing Totle and other DEX prices"""
+def compare_dex_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, params=None, verbose=True, debug=False):
+    """Returns a dict of dex: savings_data for Totle and other DEXs"""
 
     kw_params = { k:v for k,v in vars().items() if k in ['params', 'verbose', 'debug'] }
     order_type, trade_size = params['orderType'], params['tradeSize']
@@ -59,20 +75,6 @@ def compare_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, param
 
     return savings
 
-def savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price):
-    """Returns a savings entry suitable for logging or appending to CSV"""
-    return { 
-        'time': datetime.now().isoformat(),
-        'action': order_type,
-        'trade_size': trade_size,
-        'token': token,
-        'exchange': exchange,
-        'pct_savings': pct_savings,
-        'totle_used': '/'.join(totle_used),
-        'totle_price': totle_price,
-        'exchange_price': exchange_price
-    }
-
 def print_average_savings(all_savings):
     for trade_size in all_savings:
         print(f"\nAverage Savings trade size = {trade_size} ETH vs")
@@ -93,6 +95,103 @@ def print_average_savings_by_dex(avg_savings):
             print(f"   {dex}: - (no samples)")
 
     return dex_savings
+
+
+##############################################################################################
+#
+# CEX functions to extract orders from books and compare prices
+#
+
+def get_orders(trade_size, book):
+    """returns the set of orders from book that will spend the given trade_size of quote tokens."""
+    book_total = sum([p * q for p, q in book])
+    if trade_size > book_total:
+        raise ValueError(f"not enough orders trade_size={trade_size} book total={book_total}")
+
+    orders, total = [], 0.0
+    for p, q in book:
+        if total + p * q < trade_size:
+            orders.append((p, q))
+            total += p * q
+        else:
+            # The last order may be partially filled to get the exact trade_size
+            orders.append((p, (trade_size - total) / p))
+            return orders
+
+def best_price(trade_size, book):
+    """returns the price (in quote token) for taking the top orders in the book to satisfy trade_size"""
+    orders = get_orders(trade_size, book)
+    n_base = sum([q for p, q in orders])
+    n_quote = sum([q * p for p, q in orders])
+    # return len(orders), n_base, n_quote
+    return n_quote / n_base  # e.g 0.5 ETH / 100 DAI = 0.005 ETH / DAI
+
+def best_price_with_fees(trade_size, book, buysell, fee_pct, invert_sells=True):
+    """returns the best price (in spent token unless invert_sells=False) using book and accounting for exchange fees"""
+
+    p = best_price(trade_size, book)
+    markup = 1 + (fee_pct / 100)
+    if buysell == 'buy':  # user pays fee_pct more quote tokens
+        # e.g. buy DAI with 10% fee: 0.005 * 1.1 = 0.0055 # user has to pay 10% more ETH
+        price = p * markup
+    else:  # user pays fee_pct more base tokens
+        # e.g. sell DAI with 10% fee: 1 / (1.1 / .005) # user has to pay 10% more DAI
+        price = (markup / p) if invert_sells else 1 / (markup / p)
+        # invert_sells defaults to True because we typically want prices in quote token for 'buys'
+        # but in base_token (1/best_price) for 'sells'. Huobi prices are always in quote token.
+
+    return price
+
+def compare_cex_prices(base, quote, book, exchange, params, fee_pct):
+    """Returns a savings_data dict """
+    order_type, trade_size = params['orderType'], params['tradeSize']
+    cex_price = best_price_with_fees(trade_size, book, order_type, fee_pct)
+    from_token, to_token = (quote, base) if order_type == 'buy' else (base, quote)
+
+    totle_sd = v2_client.try_swap(v2_client.TOTLE_EX, from_token, to_token, params=params, verbose=False)
+    if totle_sd:
+        totle_price = totle_sd['price']
+        totle_used = totle_sd['totleUsed']
+        pct_savings = 100 - (100.0 * totle_price / cex_price)
+
+        print(f"Totle saved {pct_savings:.2f} percent vs {exchange} {order_type}ing {base} on {totle_sd['totleUsed']} trade size={trade_size} ETH (totle_price={totle_price:.5g} cex_price={cex_price:.5g})")
+
+        return savings_data(order_type, trade_size, base, exchange, pct_savings, totle_used, totle_price, cex_price)
+
+    else:
+        print(f"Compare {order_type} {base}/{quote} tradeSize={trade_size} got no result from Totle")
+
+def get_savings(cex_client, order_type, pairs, trade_sizes, fee_pct, redirect=True):
+    """Returns a dict of token: { trade_size: savings } for various tokens and trade_sizes"""
+    filename = get_filename_base(order_type)
+    if redirect: redirect_stdout(filename)
+
+    all_savings = defaultdict(lambda: defaultdict(float))
+    params = {'orderType': order_type}
+    with SavingsCSV(filename) as csv_writer:
+        for base, quote in sorted(pairs):
+            try:
+                bids, asks = cex_client.get_depth(base, quote)
+                book = asks if order_type == 'buy' else bids
+                for trade_size in trade_sizes:
+                    params['tradeSize'] = trade_size
+                    savings = compare_cex_prices(base, quote, book, cex_client.name(), params, fee_pct)
+                    if savings:
+                        all_savings[base][trade_size] = savings
+                        csv_writer.append(savings)
+            except ValueError as e:
+                print(f"Compare {base}/{quote} raised {e}")
+
+    return all_savings
+
+def print_savings(order_type, savings, trade_sizes):
+    pf = lambda x: f"{x:>8.2g}"
+    print(f"\n{order_type.upper():<8}", ''.join(map(pf, trade_sizes)))
+    for base in savings:
+        vals = [savings[base][ts]['pct_savings'] for ts in trade_sizes]
+        str_vals = [pf(v) if v else '-' for v in vals]
+        print(f"{base:<8}", ''.join(str_vals))
+
 
 ##############################################################################################
 #

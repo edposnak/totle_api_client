@@ -3,7 +3,7 @@ import argparse
 from collections import defaultdict
 
 import v2_client
-from v2_compare_prices import compare_prices, print_average_savings, get_filename_base, SavingsCSV, redirect_stdout
+from v2_compare_prices import compare_dex_prices, print_average_savings, get_filename_base, SavingsCSV, redirect_stdout
 
 ##############################################################################################
 #
@@ -74,7 +74,7 @@ with SavingsCSV(filename) as csv_writer:
         for token in liquid_tokens:
             print(f"\n----------------------------------------")
             print(f"\n{order_type} {token} trade size = {trade_size} ETH")
-            savings = compare_prices(token, all_supported_pairs[trade_size], non_liquid_tokens, liquid_dexs, params, debug=False)
+            savings = compare_dex_prices(token, all_supported_pairs[trade_size], non_liquid_tokens, liquid_dexs, params, debug=False)
             if savings:
                 all_savings[trade_size][token] = savings
                 for exchange in savings:

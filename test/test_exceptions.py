@@ -1,6 +1,6 @@
 import v2_client
 import datetime
-from v2_compare_prices import compare_prices
+from v2_compare_prices import compare_dex_prices
 
 ###############################################################3
 non_liquid_dexs = [ 'Compound' ]
@@ -17,10 +17,10 @@ all_supported_pairs = {}
 all_supported_pairs[trade_size] = {dex: [] for dex in liquid_dexs} # compare_prices() uses these keys to know what dexs to try
 
 # buy ETHOS trade size = 0.1 ETH
-savings = compare_prices('ETHOS', all_supported_pairs[trade_size], non_liquid_tokens, {'orderType': 'buy', 'tradeSize': trade_size}, debug=True)
+savings = compare_dex_prices('ETHOS', all_supported_pairs[trade_size], non_liquid_tokens, {'orderType': 'buy', 'tradeSize': trade_size}, debug=True)
 
 # buy DATA trade size = 0.1 ETH
-savings = compare_prices('DATA', all_supported_pairs[trade_size], non_liquid_tokens, {'orderType': 'buy', 'tradeSize': trade_size}, debug=False)
+savings = compare_dex_prices('DATA', all_supported_pairs[trade_size], non_liquid_tokens, {'orderType': 'buy', 'tradeSize': trade_size}, debug=False)
 
 # sell REN trade size = 0.1 ETH (1 trade 1 order)
 # savings = compare_prices('REN', all_supported_pairs[trade_size], non_liquid_tokens, {'orderType': 'sell', 'tradeSize': trade_size}, debug=True)
