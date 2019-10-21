@@ -44,16 +44,15 @@ enabled_exchanges = [ e['name'] for e in r['exchanges'] if e['enabled'] ]
 
 r = requests.get(DATA_EXCHANGES_ENDPOINT).json()
 data_exchanges = { e['name']: e['id'] for e in r['exchanges'] }
-data_exchanges_by_id = { v:k for k,v in data_exchanges.items() } 
+data_exchanges_by_id = { v:k for k,v in data_exchanges.items() }
 
-TOTLE_EX = 'Totle' # 'Totle' is used for comparison with other exchanges
 
 # get tokens
 r = requests.get(TOKENS_ENDPOINT).json()
 tokens = { t['symbol']: t['address'] for t in r['tokens'] if t['tradable']}
 token_decimals = { t['symbol']: t['decimals'] for t in r['tokens'] if t['tradable']}
 
-data_tokens_by_addr = { t['address']: t['symbol'] for t in r['tokens'] } 
+data_tokens_by_addr = { t['address']: t['symbol'] for t in r['tokens'] }
 
 def addr(token):
     """Returns the string address that identifies the token"""
@@ -66,6 +65,8 @@ def int_amount(float_amount, token):
 def real_amount(int_amount, token):
     """Returns the decimal number of tokens for the given integer amount and token"""
     return int(int_amount) / (10**token_decimals[token])
+
+TOTLE_EX = 'Totle' # 'Totle' is used for comparison with other exchanges
 
 ##############################################################################################
 #
