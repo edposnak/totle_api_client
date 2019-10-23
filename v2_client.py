@@ -31,7 +31,10 @@ class TotleAPIException(Exception):
         if not message and response:
             # JSON may be either a response or a response container
             if 'response' in response: response = response['response']
-            message = f"{response['name']} ({response['code']}): {response['message']}"
+            if response.get('name') and response.get('code') and response.get('message'):
+                message = f"{response['name']} ({response['code']}): {response['message']}"
+            else:
+                message = str(response)
 
         super().__init__(message, request, response)
 
@@ -285,14 +288,18 @@ def swap_data(response, is_totle):
 # functions to call swap with retries
 #
 
-def post_with_retries(endpoint, inputs, num_retries=3, debug=False):
+def post_with_retries(endpoint, inputs, num_retries=3, debug=False, timer=True):
     if debug: print(f"REQUEST to {SWAP_ENDPOINT}:\n{pp(inputs)}\n\n")
 
+    timer_start = time.time()
     for attempt in range(num_retries):
         try:
             # weirdly, inputs has to be converted to a string input to work with Totle
             r = requests.post(endpoint, data=json.dumps(inputs))
             j = r.json()
+
+            timer_end = time.time()
+            if timer: print(f"call to {SWAP_ENDPOINT} {pp(inputs)} took {timer_end - timer_start:.1f} seconds")
             if debug: print(f"RESPONSE from {SWAP_ENDPOINT}:\n{pp(j)}\n\n")
             return j
         except:
@@ -420,14 +427,15 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, 
 # functions to call data APIs
 #
 
-# get token pairs
-r = requests.get(PAIRS_ENDPOINT).json()
-if r['success']:
-    supported_pairs = r['response']
-else: # some uncommon error we should look into
-    raise TotleAPIException(None, None, r)
+def get_trades_pairs():
+    """Returns the set of trade pairs which can be passed to get_trades"""
+    r = requests.get(PAIRS_ENDPOINT).json()
+    if r['success']:
+        return r['response']
+    else:  # some uncommon error we should look into
+        raise TotleAPIException(None, None, r)
 
-# get token pairs
+
 def get_trades(base_asset, quote_asset, limit=None, page=None, begin=None, end=None):
     """Returns the latest trades on all exchanges for the given base/quote assets"""
     if limit or page or begin or end:
@@ -436,11 +444,13 @@ def get_trades(base_asset, quote_asset, limit=None, page=None, begin=None, end=N
         query = {}
 
     url = TRADES_ENDPOINT + f"/{base_asset}/{quote_asset}"
-
+    timer_start = time.time()
     j = requests.get(url, params=query).json()
+    timer_end = time.time()
+    print(f"get_trades {base_asset}/{quote_asset} {query} took {timer_end - timer_start:.1f} seconds")
 
-    if j['success']:
+    if j.get('success'):
         return j['response']
     else: # some uncommon error we should look into
-        raise TotleAPIException(None, locals(), j)
+        raise TotleAPIException(None, vars(), j)
 
