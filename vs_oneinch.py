@@ -13,8 +13,8 @@ print(f"{len(overlap_pairs)} overlapping pairs")
 
 all_buy_savings, all_sell_savings = defaultdict(lambda: defaultdict(dict)), defaultdict(lambda: defaultdict(dict))
 
-for trade_size in TRADE_SIZES[0:1]:
-    for base, quote in overlap_pairs[0:3]:
+for trade_size in TRADE_SIZES:
+    for base, quote in overlap_pairs:
         order_type = 'buy'
         print(quote, base, trade_size)
         pq = oneinch_client.get_quote(quote, base, trade_size)

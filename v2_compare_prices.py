@@ -193,7 +193,7 @@ def print_savings(order_type, savings, trade_sizes):
     print(f"\n{order_type.upper():<8}", ''.join(map(pf, trade_sizes)))
     for base in savings:
         vals = [ savings[base][ts] for ts in trade_sizes ]
-        str_vals = [pf(v['pct_savings']) if v else '   -    ' for v in vals]
+        str_vals = [pf(v['pct_savings']) if v else f"{'-':>8}" for v in vals]
         print(f"{base:<8}", ''.join(str_vals))
 
 
