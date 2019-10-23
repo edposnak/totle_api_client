@@ -7,12 +7,9 @@ from mysql.connector.conversion import Decimal
 import json
 import v2_client
  
-def connect():
+def connect(conn_info):
     """ Connect to MySQL database """
-    return mysql.connector.connect(host='totle-data.c0umqlycacce.us-east-1.rds.amazonaws.com',
-                                   database='totle',
-                                   user='user_ed',
-                                   password='rHI[ySF}A1c0})8o0f[Q39m>o8i3<2p[(Ie2a5Co2WyL0OZU')
+    return mysql.connector.connect(**conn_info)
 
 def close(conn):
     if conn and conn.is_connected():
@@ -50,7 +47,7 @@ def print_row_and_json(r, api_json):
         j['price'] = maker_amount/taker_amount
     j['side'] = side
 
-    print(f"{r['id']}: {side} - {dex} maker got {taker_amount} {taker_token} taker got {maker_amount} {maker_token} (price={j['price']})")
+    print(f"{r['id']}: {side} - {dex} at {datetime.fromtimestamp(j['timestamp'])} --- maker got {taker_amount} {taker_token} taker got {maker_amount} {maker_token} (price={j['price']})")
     print(f"from db:  {json.dumps(j)}")
     print(f"from api: {api_json}")
 
@@ -67,8 +64,14 @@ def do_pair(api_json):
 
 #########################################################################
 
+CONN_INFO = OrderedDict(host='totle-data.c0umqlycacce.us-east-1.rds.amazonaws.com', database='totle', user='user_ed', password='rHI[ySF}A1c0})8o0f[Q39m>o8i3<2p[(Ie2a5Co2WyL0OZU')
+
 if __name__ == '__main__':
-    conn = connect()
+    print(f"Connecting to {CONN_INFO['host']}")
+    conn = connect(CONN_INFO)
+
+    do_pair(v2_client.get_trades('CVC', 'ETH', limit=20))
+    exit(0)
 
     # 1. Print last buy and sell by exchange
     # This assumes X/ETH pairs, i.e. it ignores DAI/USD
@@ -92,18 +95,11 @@ if __name__ == '__main__':
         count, dex_id = r
         print(f"{v2_client.data_exchanges_by_id[dex_id]:8}:\t{count}")
 
-    # 3. Check a few tokens JSON
-    print(f"\n\nCurrent price of BNT is ~0.00185 ETH")    
-    do_pair(v2_client.get_trades('BNT', 'ETH', limit=20))     
+    # 3. Check a few pairs JSON
+    # CW missing data: TUSD/ETH, TKN/ETH, REQ/ETH, DGX/ETH, SNT/ETH, CVC/ETH, DATA/ETH
+    do_pair(v2_client.get_trades('TUSD', 'ETH', limit=20))
+    do_pair(v2_client.get_trades('CVC', 'ETH', limit=20))
+    do_pair(v2_client.get_trades('SNT', 'ETH', limit=20))
 
-    print(f"\n\nCurrent price of LINK is ~0.01505 ETH")
-    do_pair(v2_client.get_trades('LINK', 'ETH', limit=20))     
-
-    print(f"\n\nCurrent price of MKR is ~2.8 ETH")
-    do_pair(v2_client.get_trades('MKR', 'ETH', limit=20))
-
-    print(f"\n\nCurrent price of DAI is ~0.0055 ETH")
-    do_pair(v2_client.get_trades('DAI', 'ETH', limit=20))
-    
     close(conn)
 
