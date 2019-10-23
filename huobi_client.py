@@ -5,25 +5,35 @@ API_BASE = 'https://api.huobi.pro'
 SYMBOLS_ENDPOINT = API_BASE + '/v1/common/symbols'
 DEPTH_ENDPOINT = API_BASE + '/market/depth'
 
+TAKER_FEE_PCT = 0.2
+# 0.2% for lowest tier (sources: https://www.huobi.co/en-us/fee https://huobiglobal.zendesk.com/hc/en-us/articles/360000210281-Announcement-New-Tiered-Fee-Structure)
+# 0.03% for VIPs (DMs?) (sources: https://www.huobi.co/en-us/fee https://huobiglobal.zendesk.com/hc/en-us/articles/360000113122-Fees)
+
 class HuobiAPIException(Exception):
     pass
 
 def name():
     return 'Huobi'
 
+def fee_pct():
+    return TAKER_FEE_PCT
+
 ##############################################################################################
 #
 # API calls
 #
 
-def get_pairs(uppercase=True):
+BAD_PAIRS = [('ven', 'eth')]
+
+def get_pairs(quote='ETH'):
+    """Returns pairs for the given quote asset"""
+    h_quote = quote.lower()
     j = requests.get(SYMBOLS_ENDPOINT).json()
     if j['status'] == 'ok':
-
-        lower_pairs = [ (t['base-currency'], t['quote-currency']) for t in j['data'] ]
+        lower_pairs = [ (t['base-currency'], t['quote-currency']) for t in j['data'] if t['quote-currency'] == h_quote ]
         # remove pairs that raise errors
-        lower_pairs.remove(('ven', 'eth'))
-        return [ (b.upper(), q.upper()) for b,q in lower_pairs ] if uppercase else lower_pairs
+        lower_pairs = list(filter(lambda p: p not in BAD_PAIRS, lower_pairs))
+        return [ (b.upper(), q.upper()) for b,q in lower_pairs ]
     else:
         raise HuobiAPIException(f"get_pairs({vars()}) raised {j}")
 
