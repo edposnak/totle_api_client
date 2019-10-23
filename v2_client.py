@@ -288,7 +288,7 @@ def swap_data(response, is_totle):
 # functions to call swap with retries
 #
 
-def post_with_retries(endpoint, inputs, num_retries=3, debug=False, timer=True):
+def post_with_retries(endpoint, inputs, num_retries=3, debug=False, timer=False):
     if debug: print(f"REQUEST to {SWAP_ENDPOINT}:\n{pp(inputs)}\n\n")
 
     timer_start = time.time()

@@ -45,5 +45,5 @@ for trade_size in TRADE_SIZES[0:1]:
         if savings: all_sell_savings[base][trade_size] = savings
 
 
-print_savings(order_type, all_buy_savings, TRADE_SIZES)
-print_savings(order_type, all_sell_savings, TRADE_SIZES)
+print_savings('buy', all_buy_savings, TRADE_SIZES)
+print_savings('sell', all_sell_savings, TRADE_SIZES)
