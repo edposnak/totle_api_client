@@ -1,3 +1,5 @@
+import sys
+import functools
 import requests
 
 API_BASE = 'https://api.1inch.exchange/v1.0'
@@ -29,15 +31,20 @@ def fee_pct():
     return TAKER_FEE_PCT
 
 # TODO put these and overlap functions into a tokens lib
+@functools.lru_cache(1)
+def token_decimals():
+    r = requests.get(TOKENS_ENDPOINT).json()
+    return { t['symbol']: t['decimals'] for _,t in r.items() }
+
 # helper needed to compute amounts from JSON
 def real_amount(int_amount, token):
     """Returns the decimal number of tokens for the given integer amount and token"""
-    return int(int_amount) / (10**token_decimals[token])
+    return int(int_amount) / (10**token_decimals()[token])
 
 # helper needed to convert amounts to request input
 def int_amount(float_amount, token):
     """Returns the integer amount of token units for the given float_amount and token"""
-    return int(float(float_amount) * (10**token_decimals[token]))
+    return int(float(float_amount) * (10**token_decimals()[token]))
 
 ##############################################################################################
 #
@@ -45,16 +52,18 @@ def int_amount(float_amount, token):
 #
 
 # get exchanges
-r = requests.get(EXCHANGES_ENDPOINT).json()
-exchanges = [ e['name'] for e in r ]
+@functools.lru_cache(1)
+def exchanges():
+    return requests.get(EXCHANGES_ENDPOINT).json()
 
 # get tokens
-r = requests.get(TOKENS_ENDPOINT).json()
-tokens = { t['symbol']: t['address'] for _,t in r.items() }
-token_decimals = { t['symbol']: t['decimals'] for _,t in r.items() }
+@functools.lru_cache(1)
+def tokens():
+    r = requests.get(TOKENS_ENDPOINT).json()
+    return {t['symbol']: t['address'] for _, t in r.items()}
 
 def get_pairs(quote='ETH'):
-    return [ (t, quote) for t in tokens ]
+    return [ (t, quote) for t in tokens() ]
 
 # get quote
 def get_quote(from_token, to_token, from_amount):
@@ -63,7 +72,7 @@ def get_quote(from_token, to_token, from_amount):
     j = requests.get(QUOTE_ENDPOINT, params=query).json()
 
     if j.get('message'):
-        print(f"request was {query} response was {j}")
+        print(f"{sys._getframe(  ).f_code.co_name} returned {j['message']} request was {query} response was {j}")
         return {}
     else:
         # Response:
