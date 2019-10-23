@@ -155,7 +155,7 @@ def compare_to_totle(base, quote, order_type, trade_size, exchange, ex_price):
         totle_used = totle_sd['totleUsed']
         pct_savings = 100 - (100.0 * totle_price / ex_price)
 
-        print(f"Totle saved {pct_savings:.2f} percent vs {exchange} {order_type}ing {base} on {totle_sd['totleUsed']} trade size={trade_size} ETH (totle_price={totle_price:.5g} cex_price={ex_price:.5g})")
+        print(f"Totle saved {pct_savings:.2f} percent vs {exchange} {order_type}ing {base} on {totle_sd['totleUsed']} trade size={trade_size} ETH (Totle price={totle_price:.5g} {exchange} price={ex_price:.5g})")
 
         return savings_data(order_type, trade_size, base, exchange, pct_savings, totle_used, totle_price, ex_price)
 
