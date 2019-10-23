@@ -49,21 +49,23 @@ PAGE_SIZE = 200
 NUM_PAGES = 5
 
 try:
-    for base, quote in v2_client.supported_pairs:
+    for base, quote in v2_client.get_trades_pairs():
+        print(f"Doing {base}/{quote} ...")
         buys, sells, page_num = [], [], 0
         while page_num < NUM_PAGES:
             trades = v2_client.get_trades(base, quote, limit=PAGE_SIZE, page=page_num)
-            buys += [ t for t in trades if t['side'] == 'buy' ]
-            sells += [ t for t in trades if t['side'] == 'sell' ]
+            buys += [t for t in trades if t['side'] == 'buy']
+            sells += [t for t in trades if t['side'] == 'sell']
             page_num += 1
-
 
         print_summary(base, quote, buys, sells)
         # print_trades(buys, limit=20)
         # print_trades(sells, limit=20)
 
 except v2_client.TotleAPIException as e:
-    e.print()
+    print(f"{type(e)} {e}")
+    for a in e.args: print(a)
+    # TODO: perhaps don't bail on {'message': 'Endpoint request timed out'}
 
     
 
