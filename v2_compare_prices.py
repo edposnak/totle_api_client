@@ -188,6 +188,7 @@ def get_cex_savings(cex_client, order_type, pairs, trade_sizes, redirect=True):
 
 
 def print_savings(order_type, savings, trade_sizes):
+    """Prints a savings dict, token => trade_size => savings values"""
     pf = lambda x: f"{x:>8.2g}"
     print(f"\n{order_type.upper():<8}", ''.join(map(pf, trade_sizes)))
     for base in savings:
