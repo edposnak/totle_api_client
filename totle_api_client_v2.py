@@ -57,9 +57,9 @@ TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0]
 
 # don't waste time on non-liquid dexes
 non_liquid_dexs = [ 'Compound' ]
-liquid_dexs = tuple(filter(lambda e: e not in non_liquid_dexs, v2_client.enabled_exchanges))
+liquid_dexs = tuple(filter(lambda e: e not in non_liquid_dexs, v2_client.enabled_exchanges()))
 
-liquid_tokens = [t for t in v2_client.tokens if t != 'ETH'] # start with all tradable tokens
+liquid_tokens = [ t for t in v2_client.tokens() if t != 'ETH' ] # start with all tradable tokens
 
 all_savings, all_supported_pairs = {}, {}
 order_type = params['orderType']

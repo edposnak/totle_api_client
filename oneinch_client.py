@@ -33,8 +33,7 @@ def fee_pct():
 # TODO put these and overlap functions into a tokens lib
 @functools.lru_cache(1)
 def token_decimals():
-    r = requests.get(TOKENS_ENDPOINT).json()
-    return { t['symbol']: t['decimals'] for _,t in r.items() }
+    return { t['symbol']: t['decimals'] for _,t in tokens_json().items() }
 
 # helper needed to compute amounts from JSON
 def real_amount(int_amount, token):
@@ -59,8 +58,11 @@ def exchanges():
 # get tokens
 @functools.lru_cache(1)
 def tokens():
-    r = requests.get(TOKENS_ENDPOINT).json()
-    return {t['symbol']: t['address'] for _, t in r.items()}
+    return { t['symbol']: t['address'] for _, t in tokens_json().items() }
+
+@functools.lru_cache(1)
+def tokens_json():
+    return requests.get(TOKENS_ENDPOINT).json()
 
 def get_pairs(quote='ETH'):
     return [ (t, quote) for t in tokens() ]

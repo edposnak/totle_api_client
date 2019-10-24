@@ -33,7 +33,7 @@ def compare_dex_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, p
     order_type, trade_size = params['orderType'], params['tradeSize']
     savings = {}
     from_token, to_token, bidask = ('ETH', token, 'ask') if order_type == 'buy' else (token, 'ETH', 'bid')
-    totle_ex = v2_client.TOTLE_EX
+    totle_ex = v2_client.name()
     
     # Get the best price using Totle's aggregated order books
     totle_sd = v2_client.try_swap(totle_ex, from_token, to_token, **kw_params)
@@ -149,7 +149,7 @@ def compare_to_totle(base, quote, order_type, trade_size, exchange, ex_price):
     from_token, to_token = get_from_to(order_type, base, quote)
     params = {'orderType': order_type, 'tradeSize': trade_size}
 
-    totle_sd = v2_client.try_swap(v2_client.TOTLE_EX, from_token, to_token, params=params, verbose=False)
+    totle_sd = v2_client.try_swap(v2_client.name(), from_token, to_token, params=params, verbose=False)
     if totle_sd:
         totle_price = totle_sd['price']
         totle_used = totle_sd['totleUsed']

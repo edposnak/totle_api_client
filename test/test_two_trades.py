@@ -19,7 +19,7 @@ def run_test(name, trade_size=0.1, from_token='ETH', to_token='BAT', whitelist_e
         else:
             print(json.dumps(j, indent=3))
             e = v2_client.TotleAPIException(None, {}, j)
-            v2_client.handle_swap_exception(e, v2_client.TOTLE_EX, from_token, to_token, {'tradeSize': trade_size})
+            v2_client.handle_swap_exception(e, v2_client.name(), from_token, to_token, {'tradeSize': trade_size})
 
 
 # run_test('buy_ethos_fail', to_token='ETHOS', whitelist_exchange=None)

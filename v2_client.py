@@ -1,7 +1,8 @@
 import sys
+import time
+import functools
 import json
 import requests
-import time
 
 ##############################################################################################
 #
@@ -38,38 +39,63 @@ class TotleAPIException(Exception):
 
         super().__init__(message, request, response)
 
-            
+def name():
+    return 'Totle' # 'Totle' is used for comparison with other exchanges
 
 # get exchanges
-r = requests.get(EXCHANGES_ENDPOINT).json()
-exchanges = { e['name']: e['id'] for e in r['exchanges'] }
-enabled_exchanges = [ e['name'] for e in r['exchanges'] if e['enabled'] ]
+@functools.lru_cache(1)
+def exchanges():
+    return { e['name']: e['id'] for e in exchanges_json() }
 
-r = requests.get(DATA_EXCHANGES_ENDPOINT).json()
-data_exchanges = { e['name']: e['id'] for e in r['exchanges'] }
-data_exchanges_by_id = { v:k for k,v in data_exchanges.items() }
+@functools.lru_cache(1)
+def enabled_exchanges():
+    return [ e['name'] for e in exchanges_json() if e['enabled'] ]
 
+@functools.lru_cache(1)
+def exchanges_json():
+    r = requests.get(EXCHANGES_ENDPOINT).json()
+    return r['exchanges']
+
+@functools.lru_cache(1)
+def data_exchanges():
+    r = requests.get(DATA_EXCHANGES_ENDPOINT).json()
+    return { e['name']: e['id'] for e in r['exchanges'] }
+
+@functools.lru_cache(1)
+def data_exchanges_by_id():
+    return { v:k for k,v in data_exchanges.items() }
 
 # get tokens
-r = requests.get(TOKENS_ENDPOINT).json()
-tokens = { t['symbol']: t['address'] for t in r['tokens'] if t['tradable']}
-token_decimals = { t['symbol']: t['decimals'] for t in r['tokens'] if t['tradable']}
+@functools.lru_cache(1)
+def tokens():
+    return { t['symbol']: t['address'] for t in tokens_json() }
 
-data_tokens_by_addr = { t['address']: t['symbol'] for t in r['tokens'] }
+@functools.lru_cache(1)
+def tokens_by_addr():
+    return { addr: sym for sym, addr in tokens().items() }
+
+@functools.lru_cache(1)
+def token_decimals():
+    return { t['symbol']: t['decimals'] for t in tokens_json() }
+
+@functools.lru_cache(1)
+def tokens_json():
+    """Returns the tokens json filtering out non-tradable tokens"""
+    r = requests.get(TOKENS_ENDPOINT).json()
+    return list(filter(lambda t: t['tradable'], r['tokens']))
 
 def addr(token):
     """Returns the string address that identifies the token"""
-    return tokens[token]
+    return tokens()[token]
 
+# TODO put these and overlap functions into a tokens lib
 def int_amount(float_amount, token):
     """Returns the integer amount of token units for the given float_amount and token"""
-    return int(float(float_amount) * (10**token_decimals[token]))
+    return int(float(float_amount) * (10**token_decimals()[token]))
 
 def real_amount(int_amount, token):
     """Returns the decimal number of tokens for the given integer amount and token"""
-    return int(int_amount) / (10**token_decimals[token])
-
-TOTLE_EX = 'Totle' # 'Totle' is used for comparison with other exchanges
+    return int(int_amount) / (10**token_decimals()[token])
 
 ##############################################################################################
 #
@@ -94,7 +120,7 @@ def calc_exchange_fees(trade):
     orders = trade['orders']
     fee_tokens = [ o['fee']['asset']['symbol'] for o in orders ]
     if len(set(fee_tokens)) != 1:
-        raise ValueError(f"different exchange fee tokens in same trade {fee_tokens}", {}, response)
+        raise ValueError(f"different exchange fee tokens in same trade {fee_tokens}")
         
     exchange_fee_token = fee_tokens[0]
     exchange_fee_div = 10**int(orders[0]['fee']['asset']['decimals'])
@@ -305,11 +331,10 @@ def post_with_retries(endpoint, inputs, num_retries=3, debug=False, timer=False)
         except:
             print(f"failed to extract JSON, retrying ...")
             time.sleep(1)
-        else:
-            break
-    else: # all attempts failed
-        time.sleep(60)  # wait for servers to reboot, as we've probably killed them all
-        raise TotleAPIException(f"Failed to extract JSON response after {num_retries} retries.", inputs, {})
+
+    # all attempts failed
+    time.sleep(60)  # wait for servers to reboot, as we've probably killed them all
+    raise TotleAPIException(f"Failed to extract JSON response after {num_retries} retries.", inputs, {})
 
 
     
@@ -342,7 +367,7 @@ def swap_inputs(from_token, to_token, exchange=None, params={}):
     }
 
     if exchange: # whitelist the given exchange
-        base_inputs["config"]["exchanges"] = { "list": [ exchanges[exchange] ], "type": "white" }
+        base_inputs["config"]["exchanges"] = { "list": [ exchanges()[exchange] ], "type": "white" }
 
     base_inputs['apiKey'] = params.get('apiKey') or TOTLE_API_KEY
 
@@ -395,7 +420,7 @@ def handle_swap_exception(e, dex, from_token, to_token, params, verbose=True):
 def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, debug=False):
     """calls swap endpoint Returns the result as a swap_data dict, {} if the call failed"""
     try:
-        is_totle = dex == TOTLE_EX
+        is_totle = dex == name()
         inputs = swap_inputs(from_token, to_token, exchange, params)
         j = post_with_retries(SWAP_ENDPOINT, inputs, debug=debug)
 
