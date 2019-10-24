@@ -68,7 +68,9 @@ def get_pairs(quote='ETH'):
     return [ (t, quote) for t in tokens() ]
 
 # get quote
-def get_quote(from_token, to_token, from_amount):
+def get_quote(from_token, to_token, from_amount=None, to_amount=None):
+    if to_amount or not from_amount: raise ValueError(f"{name()} only works with from_amount")
+
     # https://api.1inch.exchange/v1.0/quote?fromTokenSymbol=ETH&toTokenSymbol=DAI&amount=100000000000000000000&disabledExchangesList=Bancor
     query = {'fromTokenSymbol': from_token, 'toTokenSymbol': to_token, 'amount': int_amount(from_amount, from_token)}
     j = requests.get(QUOTE_ENDPOINT, params=query).json()

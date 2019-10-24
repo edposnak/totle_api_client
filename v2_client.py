@@ -201,7 +201,9 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
             else: # for sells, user could have paid less than source_amount 
                 source_amount = summary_source_amount * (1 - (totle_fee_pct / 100))
             return source_amount, destination_amount
-    
+
+    ##### HACK_UNTIL_SUMMARY_FIXED == False #####
+    # Below is code to use individual orders (when summary is fixed)
 
     if not is_totle: # subtract fees
         # Only subtract fees for buys where Totle takes fees in the intermediate token. For buys without
