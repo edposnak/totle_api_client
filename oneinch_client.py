@@ -3,7 +3,7 @@ import functools
 import requests
 import token_utils
 
-API_BASE = 'https://api.1inch.exchange/v1.0'
+API_BASE = 'https://api.1inch.exchange/v1.1'
 EXCHANGES_ENDPOINT = API_BASE + '/exchanges'
 TOKENS_ENDPOINT = API_BASE + '/tokens'
 QUOTE_ENDPOINT = API_BASE + '/quote'
