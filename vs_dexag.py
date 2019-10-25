@@ -27,7 +27,7 @@ for order_type in ['buy', 'sell']:
             price = pq['price']
 
             savings = compare_to_totle(base, quote, order_type, trade_size, dexag_client.name(), price)
-            if savings: all_buy_savings[base][trade_size] = savings
+            if savings: savings_data[trade_size] = savings
 
 
 print_savings('buy', all_buy_savings, TRADE_SIZES)

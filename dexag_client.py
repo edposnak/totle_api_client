@@ -54,9 +54,9 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='ag'):
     # sell: https://api.dex.ag/price?from=DAI&to=ETH&toAmount=1&dex=all
     query = {'from': from_token, 'to': to_token, 'dex': dex}
     if from_amount:
-        query['fromAmount'] = token_utils.int_amount(from_amount, from_token)
+        query['fromAmount'] = from_amount
     elif to_amount:
-        query['toAmount'] = token_utils.int_amount(to_amount, to_token)
+        query['toAmount'] = to_amount
     else:
         raise ValueError(f"{name()} only accepts either from_amount or to_amount, not both")
 

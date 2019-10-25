@@ -365,7 +365,7 @@ def swap_inputs(from_token, to_token, exchange=None, params={}):
 
     # add sourceAmount or destinationAmount
     trade_size = params.get('tradeSize') or DEFAULT_TRADE_SIZE
-    eth_amount = int_amount(trade_size, 'ETH')
+    eth_amount = token_utils.int_amount(trade_size, 'ETH')
     if from_token == 'ETH':
         swap_inputs["swap"]["sourceAmount"] = eth_amount
     elif to_token == 'ETH':
