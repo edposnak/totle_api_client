@@ -418,15 +418,39 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, 
         handle_swap_exception(e, dex, from_token, to_token, params, verbose=verbose)
         return {}
 
+# get quote
+def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='ag'):
+    params = {'tradeSize': float(from_amount or to_amount)}
+
+    sd = try_swap(dex, from_token, to_token, exchange=dex, params=params, verbose=False)
+
+    if sd:
+        return {
+            'source_token': sd['sourceToken'],
+            'source_amount': sd['sourceAmount'],
+            'destination_token': sd['destinationToken'],
+            'destination_amount': sd['destinationAmount'],
+            'price': sd['price'],
+            'exchanges_parts': sd['totleUsed'],  # TODO, this is not an order split, it is a multi-hop route
+        }
+    else:
+        return {}
+
+
+def get_pairs(quote='ETH'):
+    # Totle's trade/pairs endpoint returns only select pairs used for the data API, so we just use its tokens
+    # endpoint to get tokens, which are assumed to pair with quote
+    tokens_json = requests.get(TOKENS_ENDPOINT).json()
+
+    # use only the tokens that are listed in token_utils.tokens() and use the canonical name
+    canonical_symbols = [token_utils.canonical_symbol(t) for t in tokens_json]  # will contain lots of None values
+    return [(t, quote) for t in canonical_symbols if t]
+
 
 ##############################################################################################
 #
 # functions to call data APIs
 #
-
-def get_pairs(quote='ETH'):
-    return [ (b,q) for b,q in get_trades_pairs() if q == quote ]
-
 
 @functools.lru_cache(1)
 def get_trades_pairs():
