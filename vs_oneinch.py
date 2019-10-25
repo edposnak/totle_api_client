@@ -1,5 +1,5 @@
 from collections import defaultdict
-import v2_client
+import token_utils
 import oneinch_client
 from v2_compare_prices import compare_to_totle, print_savings
 
@@ -7,9 +7,12 @@ from v2_compare_prices import compare_to_totle, print_savings
 
 TRADE_SIZES = [0.1, 1.0, 5.0, 10.0]
 quote='ETH'
-overlap_pairs = [ (b,q) for b,q in oneinch_client.get_pairs(quote=quote) if q == quote and b in v2_client.tokens() ]
+overlap_pairs = [ (b,q) for b,q in oneinch_client.get_pairs(quote) if b in token_utils.top_tokens() ]
+
 
 print(f"{len(overlap_pairs)} overlapping pairs")
+print([t for t,_ in overlap_pairs])
+exit(0)
 
 all_buy_savings, all_sell_savings = defaultdict(lambda: defaultdict(dict)), defaultdict(lambda: defaultdict(dict))
 

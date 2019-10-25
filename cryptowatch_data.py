@@ -88,7 +88,6 @@ def find(t, trades):
 
 
 def check_cw_api_with_totle_trades_api():
-    global t
     pairs, verbose = v2_client.get_trades_pairs(), False
     # pairs, verbose = [('CVC', 'ETH')], True
     try:

@@ -127,7 +127,7 @@ def best_price(trade_size, book):
     return n_quote / n_base  # e.g 0.5 ETH / 100 DAI = 0.005 ETH / DAI
 
 def best_price_with_fees(trade_size, book, buysell, fee_pct):
-    """returns the best price (in *spent* token unless using book and accounting for exchange fees"""
+    """returns the best price in *spent* token unless using book and accounting for exchange fees"""
     p = best_price(trade_size, book) # this is always denominated in quote token
     markup = 1 + (fee_pct / 100)
     if buysell == 'buy':  # assume user pays fee_pct more quote tokens

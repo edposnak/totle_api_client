@@ -1,6 +1,7 @@
 import sys
 import functools
 import requests
+import token_utils
 
 API_BASE = 'https://api.1inch.exchange/v1.0'
 EXCHANGES_ENDPOINT = API_BASE + '/exchanges'
@@ -30,21 +31,6 @@ def name():
 def fee_pct():
     return TAKER_FEE_PCT
 
-# TODO put these and overlap functions into a tokens lib
-@functools.lru_cache(1)
-def token_decimals():
-    return { t['symbol']: t['decimals'] for _,t in tokens_json().items() }
-
-# helper needed to compute amounts from JSON
-def real_amount(int_amount, token):
-    """Returns the decimal number of tokens for the given integer amount and token"""
-    return int(int_amount) / (10**token_decimals()[token])
-
-# helper needed to convert amounts to request input
-def int_amount(float_amount, token):
-    """Returns the integer amount of token units for the given float_amount and token"""
-    return int(float(float_amount) * (10**token_decimals()[token]))
-
 ##############################################################################################
 #
 # API calls
@@ -55,24 +41,22 @@ def int_amount(float_amount, token):
 def exchanges():
     return requests.get(EXCHANGES_ENDPOINT).json()
 
-# get tokens
-@functools.lru_cache(1)
-def tokens():
-    return { t['symbol']: t['address'] for _, t in tokens_json().items() }
-
-@functools.lru_cache(1)
-def tokens_json():
-    return requests.get(TOKENS_ENDPOINT).json()
-
+@functools.lru_cache()
 def get_pairs(quote='ETH'):
-    return [ (t, quote) for t in tokens() ]
+    # 1-Inch doesn't have a pairs endpoint, so we just use its tokens endpoint to get tokens, which are assumed to pair with quote
+    tokens_json = requests.get(TOKENS_ENDPOINT).json()
+
+    # use only the tokens that are listed in token_utils.tokens() and use the canonical name
+    canonical_symbols = [ token_utils.canonical_symbol(t) for t in tokens_json ] # will contain lots of None values
+    return [ (t, quote) for t in canonical_symbols if t ]
 
 # get quote
 def get_quote(from_token, to_token, from_amount=None, to_amount=None):
+    """Returns the price in terms of the from_token - i.e. how many from_tokens to purchase 1 to_token"""
     if to_amount or not from_amount: raise ValueError(f"{name()} only works with from_amount")
 
     # https://api.1inch.exchange/v1.0/quote?fromTokenSymbol=ETH&toTokenSymbol=DAI&amount=100000000000000000000&disabledExchangesList=Bancor
-    query = {'fromTokenSymbol': from_token, 'toTokenSymbol': to_token, 'amount': int_amount(from_amount, from_token)}
+    query = {'fromTokenSymbol': from_token, 'toTokenSymbol': to_token, 'amount': token_utils.int_amount(from_amount, from_token)}
     j = requests.get(QUOTE_ENDPOINT, params=query).json()
 
     if j.get('message'):
@@ -86,9 +70,9 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None):
         #  "fromTokenAmount":"100000000000000000000",
         #  "exchanges":[{"name":"Oasis","part":66},{"name":"Radar Relay","part":0},{"name":"Uniswap","part":17},{"name":"Kyber","part":7},{"name":"Other 0x","part":10},{"name":"AirSwap","part":0}]}
         source_token = j['fromToken']['symbol']
-        source_amount = real_amount(j['fromTokenAmount'], source_token)
+        source_amount = token_utils.real_amount(j['fromTokenAmount'], source_token)
         destination_token = j['toToken']['symbol']
-        destination_amount = real_amount(j['toTokenAmount'], destination_token)
+        destination_amount = token_utils.real_amount(j['toTokenAmount'], destination_token)
         price = source_amount / destination_amount if destination_amount else 0.0
         exchanges_parts = {ex['name']: ex['part'] for ex in j['exchanges'] if ex['part']}
 

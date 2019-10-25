@@ -5,6 +5,8 @@ import mysql.connector
 # from mysql.connector import Error
 from mysql.connector.conversion import Decimal
 import json
+
+import token_utils
 import v2_client
  
 def connect(conn_info):
@@ -31,7 +33,7 @@ def column_names():
 # if makerAmount is the amount of takerToken the maker gets then:
 def print_row_and_json(r, api_json):
     dex = v2_client.data_exchanges_by_id()[r['exchangeId']]
-    maker_token, taker_token = map(lambda p: v2_client.tokens_by_addr()[r[p]], ['makerToken', 'takerToken'])
+    maker_token, taker_token = map(lambda p: token_utils.tokens_by_addr()[r[p]], ['makerToken', 'takerToken'])
     maker_amount = v2_client.real_amount(r['makerAmount'], maker_token)
     taker_amount = v2_client.real_amount(r['takerAmount'], taker_token)
 

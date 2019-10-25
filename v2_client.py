@@ -3,6 +3,7 @@ import time
 import functools
 import json
 import requests
+import token_utils
 
 ##############################################################################################
 #
@@ -65,37 +66,6 @@ def data_exchanges():
 def data_exchanges_by_id():
     return { v:k for k,v in data_exchanges.items() }
 
-# get tokens
-@functools.lru_cache(1)
-def tokens():
-    return { t['symbol']: t['address'] for t in tokens_json() }
-
-@functools.lru_cache(1)
-def tokens_by_addr():
-    return { addr: sym for sym, addr in tokens().items() }
-
-@functools.lru_cache(1)
-def token_decimals():
-    return { t['symbol']: t['decimals'] for t in tokens_json() }
-
-@functools.lru_cache(1)
-def tokens_json():
-    """Returns the tokens json filtering out non-tradable tokens"""
-    r = requests.get(TOKENS_ENDPOINT).json()
-    return list(filter(lambda t: t['tradable'], r['tokens']))
-
-def addr(token):
-    """Returns the string address that identifies the token"""
-    return tokens()[token]
-
-# TODO put these and overlap functions into a tokens lib
-def int_amount(float_amount, token):
-    """Returns the integer amount of token units for the given float_amount and token"""
-    return int(float(float_amount) * (10**token_decimals()[token]))
-
-def real_amount(int_amount, token):
-    """Returns the decimal number of tokens for the given integer amount and token"""
-    return int(int_amount) / (10**token_decimals()[token])
 
 ##############################################################################################
 #
@@ -376,8 +346,8 @@ def swap_inputs(from_token, to_token, exchange=None, params={}):
     if params.get('partnerContract'):
         base_inputs['partnerContract'] = params['partnerContract']
 
-    from_token_addr = addr(from_token)
-    to_token_addr = addr(to_token)
+    from_token_addr = token_utils.addr(from_token)
+    to_token_addr = token_utils.addr(to_token)
     max_mkt_slip = params.get('maxMarketSlippagePercent') or DEFAULT_MAX_SLIPPAGE_PERCENT
     max_exe_slip = params.get('maxExecutionSlippagePercent') or DEFAULT_MAX_SLIPPAGE_PERCENT
     min_fill = params.get('minFillPercent') or DEFAULT_MIN_FILL_PERCENT
@@ -454,6 +424,11 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, 
 # functions to call data APIs
 #
 
+def get_pairs(quote='ETH'):
+    return [ (b,q) for b,q in get_trades_pairs() if q == quote ]
+
+
+@functools.lru_cache(1)
 def get_trades_pairs():
     """Returns the set of trade pairs which can be passed to get_trades"""
     r = requests.get(PAIRS_ENDPOINT).json()
