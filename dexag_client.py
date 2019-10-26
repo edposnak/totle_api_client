@@ -33,7 +33,12 @@ def fee_pct():
 # get exchanges
 def exchanges():
     # there is no exchanges endpoint yet so we are just using the ones from an ETH/DAI price query where dex == all
-    ['ag', 'bancor', 'uniswap', 'kyber', 'radar-relay', 'idex', 'paradex', 'oasis', 'ddex', 'ethfinex']
+    dex_names = ['ag', 'bancor', 'ddex', 'ethfinex', 'idex', 'kyber', 'oasis', 'paradex', 'radar-relay', 'uniswap']
+
+    # DEX.AG does not have exchange ids, but to keep the same interface we put in 0's for id
+    id = 0
+    return { e: id for e in dex_names }
+
 
 
 @functools.lru_cache()

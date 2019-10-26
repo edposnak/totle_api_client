@@ -39,7 +39,10 @@ def fee_pct():
 # get exchanges
 @functools.lru_cache(1)
 def exchanges():
-    return requests.get(EXCHANGES_ENDPOINT).json()
+    r = requests.get(EXCHANGES_ENDPOINT)
+    # 1-Inch does not have exchange ids, but to keep the same interface we put in 0's for id
+    id = 0
+    return { j['name']: id for j in r.json() }
 
 @functools.lru_cache()
 def get_pairs(quote='ETH'):
