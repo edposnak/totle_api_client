@@ -52,7 +52,8 @@ def get_pairs(quote='ETH'):
 
 
 # get quote
-def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='ag'):
+AG_DEX = 'ag'
+def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=AG_DEX):
     """Returns the price in terms of the from_token - i.e. how many from_tokens to purchase 1 to_token"""
 
     # buy: https://api.dex.ag/price?from=ETH&to=DAI&fromAmount=1&dex=all
@@ -71,16 +72,23 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='ag'):
         # Response:
         # {"dex": "ag", "price": "159.849003708050647455", "pair": {"base": "ETH", "quote": "DAI"}, "liquidity": {"uniswap": 38, "bancor": 62}}
 
-        # TODO: if dex=='all' j will be an array of dicts like this
+        # if dex=='all' j will be an array of dicts like this
         # [ {"dex": "bancor", "price": "159.806431928046276401", "pair": {"base": "ETH", "quote": "DAI"}},
         #   {"dex": "uniswap", "price": "159.737708484933187899", "pair": {"base": "ETH", "quote": "DAI"}}, ... ]
+        exchanges_prices = {}
+        if isinstance(j, list):
+            for dex_data in j:
+                dex, dexag_price = dex_data['dex'], float(dex_data['price'])
+                check_pair(dex_data, query, dex=dex)
+                exchanges_prices[dex] = 1 / dexag_price
+                if dex == AG_DEX: ag_data = dex_data
+        else:
+            ag_data = j
 
         # DEX.AG price is always in quote currency (for 1 base token) and quote is always to_token
-        pair = j['pair']
-        if (pair['base'], pair['quote']) != (query['from'], query['to']):
-            raise ValueError(f"unexpected base,quote: j['pair']={pair} but query={query}")
+        check_pair(ag_data, query)
 
-        dexag_price = float(j['price']) # number of to_tokens for 1 from_token
+        dexag_price = float(ag_data['price']) # number of to_tokens for 1 from_token
         # we want to return price in terms of the from_token (base token), so we invert the dexag_price
         price = 1 / dexag_price # number of from_tokens for 1 to_token
 
@@ -89,7 +97,8 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='ag'):
         else: # to_amount was given
             source_amount, destination_amount = to_amount * price, to_amount
 
-        exchanges_parts = j['liquidity'] if j.get('liquidity') else {}
+        # "liquidity": {"uniswap": 38, "bancor": 62}, ...
+        exchanges_parts = ag_data['liquidity'] if ag_data.get('liquidity') else {}
 
         return {
             'source_token': from_token,
@@ -98,8 +107,15 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='ag'):
             'destination_amount': destination_amount,
             'price': price,
             'exchanges_parts': exchanges_parts,
+            'exchanges_prices': exchanges_prices
         }
 
     except ValueError as e:
         raise DexAGAPIException(r.text, query, r)
+
+
+def check_pair(ag_data, query, dex=AG_DEX):
+    pair = ag_data['pair']
+    if (pair['base'], pair['quote']) != (query['from'], query['to']):
+        raise ValueError(f"unexpected base,quote: dex={dex} pair={pair} but query={query}")
 
