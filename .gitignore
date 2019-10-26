@@ -1,5 +1,6 @@
 .idea
 *.csv
+*.json
 *.xlsx
 fee_bs
 __pycache__
