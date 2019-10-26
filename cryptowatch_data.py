@@ -1,3 +1,4 @@
+import os
 import csv
 import json
 import v2_client
@@ -5,13 +6,15 @@ import cryptowatch_client
 
 ########################################################################################################################
 # read in data
+DATA_DIR = f"{os.path.dirname(os.path.abspath(__file__))}/data"
+
+
 dexwatch_vol_trades = {}
 
 DAY_VOLUME = 90
-TOP_N = 300
 MAX_RANK = 100
 
-with open(f'dexwatch_top_{TOP_N}_tokens_by_{DAY_VOLUME}_day_volume.csv', newline='') as csvfile:
+with open(f'{DATA_DIR}/dexwatch_top_300_tokens_by_{DAY_VOLUME}_day_volume.csv', newline='') as csvfile:
     reader = csv.DictReader(csvfile, fieldnames=None)
     for row in reader:
         token = row['TOKEN']
