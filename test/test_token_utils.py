@@ -14,7 +14,15 @@ print(token_utils.addr(token))
 print(token_utils.int_amount(1.2, token))
 print(token_utils.real_amount(123456789, token))
 
-print("\n\n", token_utils.top_tokens())
+print("\n\n", token_utils.select_tokens())
+
+trade_sizes = list(map(lambda x: x * 0.2, range(1,5)))
+for ts in trade_sizes:
+    amt = token_utils.int_amount(ts, 'ETH')
+    print(f"\n\n{ts} ETH => {amt}")
+
+
+
 exit(0)
 
 # Below is code to compare Totle's tokens endpoint to 1-Inch's

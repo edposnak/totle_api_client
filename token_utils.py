@@ -25,7 +25,7 @@ def canonical_symbol(symbol):
 
 LOW_VOLUME_TOKENS = ['CVC', 'DATA', 'TUSD', 'SNT', 'GNO']
 @functools.lru_cache(1)
-def top_tokens():
+def select_tokens():
     """Returns the tokens listed in Totle's data/pairs API endpoint"""
     r = requests.get('https://api.totle.com/data/pairs').json()
     if r['success']:

@@ -7,7 +7,7 @@ from v2_compare_prices import compare_to_totle, print_savings
 
 TRADE_SIZES = [0.1, 1.0, 5.0, 10.0]
 quote='ETH'
-overlap_pairs = [ (b,q) for b,q in oneinch_client.get_pairs(quote) if b in token_utils.top_tokens() ]
+overlap_pairs = [(b,q) for b,q in oneinch_client.get_pairs(quote) if b in token_utils.select_tokens()]
 
 
 print(f"{len(overlap_pairs)} overlapping pairs")
