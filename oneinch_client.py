@@ -94,6 +94,6 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None):
             }
 
     except ValueError as e:
-        print(f"{name()} {query} raised {r}: {r.text:128}")
+        print(f"{name()} {query} raised {r}: {r.text[:128]}")
         return {}
 
