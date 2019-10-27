@@ -26,16 +26,19 @@ def top_tokens_by_market_cap(top_n=50):
 
 def top_tokens_by_market_cap_with_market_cap():
     cmc_token_market_cap, rank = {}, 0
-    with open(f'{DATA_DIR}/cmc_tokens.json') as f:
-        cmc_data = json.load(f)['data']
-        for t in cmc_data:
-            rank += 1
-            sym, platform = t['symbol'], t['platform'].get('name')
-            if platform and (platform == 'Ethereum' or sym == 'USDT'):
-                mkt_cap = float(t['quote']['USD']['market_cap'] or 0)
-                if mkt_cap > 0 and sym not in cmc_token_market_cap:
-                    cmc_token_market_cap[sym] = (rank, mkt_cap)
+    for t in get_cmc_data():
+        rank += 1
+        sym, platform = t['symbol'], t['platform'].get('name')
+        if platform and (platform == 'Ethereum' or sym == 'USDT'):
+            mkt_cap = float(t['quote']['USD']['market_cap'] or 0)
+            if mkt_cap > 0 and sym not in cmc_token_market_cap:
+                cmc_token_market_cap[sym] = (rank, mkt_cap)
     return cmc_token_market_cap
+
 
 def csv_filename(day_volume):
     return f'{DATA_DIR}/dexwatch_top_300_tokens_by_{day_volume}_day_volume.csv'
+
+def get_cmc_data(filename='cmc_tokens.json'):
+    f = open(f'{DATA_DIR}/{filename}')
+    return json.load(f)['data']

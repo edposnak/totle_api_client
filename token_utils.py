@@ -1,47 +1,7 @@
 import functools
 import requests
 
-
-# get tokens
-@functools.lru_cache(1)
-def tokens():
-    return { t['symbol']: t['address'] for t in tokens_json() }
-
-@functools.lru_cache(1)
-def tokens_by_addr():
-    return { addr: sym for sym, addr in tokens().items() }
-
-@functools.lru_cache(1)
-def token_decimals():
-    return { t['symbol']: t['decimals'] for t in tokens_json() }
-
-def ten_to_the_decimals(token):
-    return 10 ** token_decimals()[token]
-
-def canonical_symbol(symbol):
-    """Returns the canonical symbol name for the given symbol if it is one of the listed tokens, else None"""
-    sym = symbol.upper()
-    return sym if sym in tokens() else None
-
-LOW_VOLUME_TOKENS = ['CVC', 'DATA', 'TUSD', 'SNT', 'GNO']
-@functools.lru_cache(1)
-def select_tokens():
-    """Returns the tokens listed in Totle's data/pairs API endpoint"""
-    r = requests.get('https://api.totle.com/data/pairs').json()
-    if r['success']:
-        return [ base for base, quote in r['response'] if quote == 'ETH' and base not in LOW_VOLUME_TOKENS ] # filters out DAI pairs and low-volume tokens
-    else:
-        raise ValueError(f"{r['name']} ({r['code']}): {r['message']}")
-
-
-@functools.lru_cache(1)
-def tokens_json():
-    """Returns the tokens json filtering out non-tradable tokens"""
-    # For now we'll just use Totle's view of the ERC-20 world. Eventually we can include data from 1-Inch etc.
-    r = requests.get('https://api.totle.com/tokens').json()
-
-    # Totle is currently only returning tradable tokens, so there is no need for this filter
-    return list(filter(lambda t: t['tradable'], r['tokens']))
+import oneinch_client
 
 
 def addr(token):
@@ -56,3 +16,89 @@ def real_amount(int_amount, token):
     """Returns the decimal number of tokens for the given integer amount and token"""
     return int(int_amount) / ten_to_the_decimals(token)
 
+def canonical_symbol(symbol):
+    """Returns the canonical symbol name for the given symbol if it is one of the listed tokens, else None"""
+    sym = canonize(symbol)
+    return sym if sym in tokens() else None
+
+LOW_VOLUME_TOKENS = ['CVC', 'DATA', 'TUSD', 'SNT', 'GNO']
+@functools.lru_cache(1)
+def select_tokens():
+    """Returns the best tokens listed in Totle's data/pairs API endpoint"""
+    r = requests.get('https://api.totle.com/data/pairs').json()
+    if r['success']:
+        return [ base for base, quote in r['response'] if quote == 'ETH' and base not in LOW_VOLUME_TOKENS ] # filters out DAI pairs and low-volume tokens
+    else:
+        raise ValueError(f"{r['name']} ({r['code']}): {r['message']}")
+
+# get tokens
+@functools.lru_cache(1)
+def tokens():
+    return { t['symbol']: t['address'] for t in tokens_json() }
+
+@functools.lru_cache(1)
+def tradable_tokens():
+    return { t['symbol']: t['address'] for t in tokens_json() if t.get('tradable') }
+
+@functools.lru_cache(1)
+def tokens_by_addr():
+    return { addr: sym for sym, addr in tokens().items() }
+
+@functools.lru_cache(1)
+def token_decimals():
+    return { t['symbol']: t['decimals'] for t in tokens_json() }
+
+def ten_to_the_decimals(token):
+    return 10 ** token_decimals()[token]
+
+def canonize(symbol):
+    return symbol.upper()
+#
+# TOTLE: CDAI != cDAI
+# TOTLE: CUSDC != cUSDC
+# TOTLE: IDAI != iDAI
+# TOTLE: SETH != sETH
+# TOTLE: CBAT != cBAT
+# TOTLE: CETH != cETH
+# TOTLE: CREP != cREP
+# TOTLE: CWBTC != cWBTC
+# TOTLE: CZRX != cZRX
+# TOTLE: IUSDC != iUSDC
+# TOTLE: IETH != iETH
+# TOTLE: IWBTC != iWBTC
+# TOTLE: ILINK != iLINK
+# TOTLE: IZRX != iZRX
+# TOTLE: IREP != iREP
+# TOTLE: IKNC != iKNC
+# TOTLE: DZAR != dZAR
+
+@functools.lru_cache(1)
+def tokens_json():
+    """Returns the tokens json filtering out non-tradable tokens"""
+    # get Totle tokens
+    totle_tokens = totle_tokens_json()
+
+    # get 1-inch tokens
+    oneinch_tokens = oneinch_tokens_json()
+
+    # Combine Totle's and 1-Inch's info
+    r, syms, addrs = totle_tokens, [ t['symbol'] for t in totle_tokens ], [ t['address'] for t in totle_tokens ]
+    for t in oneinch_tokens:
+        if not(t['symbol'] in syms or t['address'] in addrs):
+            r.append(t) # Totle's info takes precendence
+
+    return r
+
+def totle_tokens_json(canonical_symbols=True):
+    j = requests.get('https://api.totle.com/tokens').json()
+    tokens = j['tokens']
+    if canonical_symbols:
+        for t in tokens: t['symbol'] = canonize(t['symbol'])
+    return tokens
+
+def oneinch_tokens_json(canonical_symbols=True):
+    j = requests.get(oneinch_client.TOKENS_ENDPOINT).json()
+    tokens = list(j.values())
+    if canonical_symbols:
+        for t in tokens: t['symbol'] = canonize(t['symbol'])
+    return tokens

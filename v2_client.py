@@ -436,14 +436,13 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='ag'):
     else:
         return {}
 
-
 def get_pairs(quote='ETH'):
     # Totle's trade/pairs endpoint returns only select pairs used for the data API, so we just use its tokens
-    # endpoint to get tokens, which are assumed to pair with quote
+    # endpoint to get tokens, which, if tradable=true, are assumed to pair with quote
     tokens_json = requests.get(TOKENS_ENDPOINT).json()
 
     # use only the tokens that are listed in token_utils.tokens() and use the canonical name
-    canonical_symbols = [token_utils.canonical_symbol(t) for t in tokens_json]  # will contain lots of None values
+    canonical_symbols = [ token_utils.canonical_symbol(t['symbol']) for t in tokens_json['tokens'] if t['tradable'] ]
     return [(t, quote) for t in canonical_symbols if t]
 
 
