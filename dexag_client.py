@@ -111,7 +111,8 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=AG_DEX
         }
 
     except ValueError as e:
-        raise DexAGAPIException(r.text, query, r)
+        print(f"{name()} {query} raised {r}: {r.text:128}")
+        return {}
 
 
 def check_pair(ag_data, query, dex=AG_DEX):
