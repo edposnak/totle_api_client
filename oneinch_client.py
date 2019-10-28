@@ -26,7 +26,7 @@ class OneInchAPIException(Exception):
     pass
 
 def name():
-    return '1Inch'
+    return '1-Inch'
 
 def fee_pct():
     return TAKER_FEE_PCT
