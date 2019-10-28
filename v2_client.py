@@ -381,7 +381,7 @@ def handle_swap_exception(e, dex, from_token, to_token, params, verbose=True):
 
     # Check for normal exceptions, maybe print them
     if has_args2 and type(e.args[2]) == dict and 'name' in e.args[2] and e.args[2]['name'] in normal_exceptions:
-        if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} trade size={params['tradeSize']} ETH due to {e.args[2]['name']}")
+        if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} trade size={params.get('tradeSize')} ETH due to {e.args[2]['name']}")
 
     else: # print req/resp for uncommon failures
         print(f"{dex}: swap raised {type(e).__name__}: {e.args[0]}")
@@ -419,19 +419,23 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, 
         return {}
 
 # get quote
-def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='ag'):
+def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None):
     params = {'tradeSize': float(from_amount or to_amount)}
 
-    sd = try_swap(dex, from_token, to_token, exchange=dex, params=params, verbose=False)
+    sd = try_swap(dex or name(), from_token, to_token, exchange=dex, params=params, verbose=False)
 
     if sd:
+        # keep consistent with exchanges_parts from other aggregators
+        # TODO, this is not an order split, it is a multi-hop route
+        used = sd['totleUsed'] or dex
+        exchanges_parts = { used: -1 }
         return {
             'source_token': sd['sourceToken'],
             'source_amount': sd['sourceAmount'],
             'destination_token': sd['destinationToken'],
             'destination_amount': sd['destinationAmount'],
             'price': sd['price'],
-            'exchanges_parts': sd['totleUsed'],  # TODO, this is not an order split, it is a multi-hop route
+            'exchanges_parts': exchanges_parts,
         }
     else:
         return {}
