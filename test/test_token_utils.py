@@ -14,6 +14,7 @@ def test_token_functions(token='ETH'):
     print("\n", token_utils.ten_to_the_decimals(token))
     print("\n", token_utils.tokens_by_addr())
     print("\n", token_utils.addr(token))
+    token_utils.addr(token.lower()) # should not raise keyError
     print("\n", token_utils.int_amount(1.2, token))
     print("\n", token_utils.real_amount(123456789, token))
 
@@ -101,10 +102,10 @@ def compare_totle_to_oneinch(verbose=False):
     print(f"duplicate symbols: {set([s for s in overlap if overlap.count(s) > 1])}")
 
 # test_basics()
-# test_token_functions('ETH')
+test_token_functions('ETH')
 # test_int_amount_on_range_of_floats()
 # compare_totle_to_oneinch()
 
-test_find_duplicates()
+# test_find_duplicates()
 
 

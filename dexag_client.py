@@ -47,7 +47,7 @@ def get_pairs(quote='ETH'):
     tokens_json = requests.get(TOKENS_ENDPOINT).json()
 
     # use only the tokens that are listed in token_utils.tokens() and use the canonical name
-    canonical_symbols = [token_utils.canonical_symbol(t) for t in tokens_json]  # will contain lots of None values
+    canonical_symbols = [token_utils.canonical_symbol(t) for t in tokens_json]  # may contain None values
     return [(t, quote) for t in canonical_symbols if t]
 
 
@@ -56,8 +56,8 @@ AG_DEX = 'ag'
 def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=AG_DEX):
     """Returns the price in terms of the from_token - i.e. how many from_tokens to purchase 1 to_token"""
 
-    # buy: https://api.dex.ag/price?from=ETH&to=DAI&fromAmount=1&dex=all
-    # sell: https://api.dex.ag/price?from=DAI&to=ETH&toAmount=1&dex=all
+    # buy: https://api.dex.ag/price?from=ETH&to=DAI&fromAmount=1.5&dex=all
+    # sell: https://api.dex.ag/price?from=DAI&to=ETH&toAmount=1.5&dex=all
     query = {'from': from_token, 'to': to_token, 'dex': dex}
     if from_amount:
         query['fromAmount'] = from_amount

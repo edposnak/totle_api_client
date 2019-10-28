@@ -25,6 +25,9 @@ def get_split_pairs(tok_ts_dexs_used, verbose=True):
                 if verbose: print(f"{token} {trade_size} {ONE_INCH} {oi_used}")
     return ag_split_pairs, oi_split_pairs
 
+
+########################################################################################################################
+#
 filename = sys.argv[1] if len(sys.argv) > 1 else 'order_splitting_data/2019-10-26_16:45:02_tok_ts'
 p = filename.partition('tok_ts') # strip off anything after tok_ts
 filename = p[0]+p[1]
@@ -50,7 +53,5 @@ tok_ts_prices = json.load(open(f'{filename}_prices.json'))
 print("\n\n")
 for token, aggs in tok_ts_prices.items():
     if not any(aggs.values()): print(f"{token} had no prices for all trade sizes")
-
-
 
 

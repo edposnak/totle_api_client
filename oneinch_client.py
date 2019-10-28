@@ -53,11 +53,11 @@ def get_pairs(quote='ETH'):
     # "ABX":{"symbol":"ABX","name":"Arbidex","address":"0x9a794dc1939f1d78fa48613b89b8f9d0a20da00e","decimals":18}, ...}
 
     # use only the tokens that are listed in token_utils.tokens() and use the canonical name
-    canonical_symbols = [ token_utils.canonical_symbol(t) for t in tokens_json ] # will contain lots of None values
+    canonical_symbols = [ token_utils.canonical_symbol(t) for t in tokens_json ] # may contain None values
     return [ (t, quote) for t in canonical_symbols if t ]
 
 # get quote
-def get_quote(from_token, to_token, from_amount=None, to_amount=None):
+def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None):
     """Returns the price in terms of the from_token - i.e. how many from_tokens to purchase 1 to_token"""
     if to_amount or not from_amount: raise ValueError(f"{name()} only works with from_amount")
 

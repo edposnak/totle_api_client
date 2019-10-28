@@ -6,20 +6,23 @@ import oneinch_client
 
 def addr(token):
     """Returns the string address that identifies the token"""
-    return tokens()[token]
+    return tokens()[canonize(token)]
 
 def int_amount(float_amount, token):
     """Returns the integer amount of token units for the given float_amount and token"""
-    return int(float(float_amount) * ten_to_the_decimals(token))
+    return int(float(float_amount) * ten_to_the_decimals(canonize(token)))
 
 def real_amount(int_amount, token):
     """Returns the decimal number of tokens for the given integer amount and token"""
-    return int(int_amount) / ten_to_the_decimals(token)
+    return int(int_amount) / ten_to_the_decimals(canonize(token))
 
 def canonical_symbol(symbol):
     """Returns the canonical symbol name for the given symbol if it is one of the listed tokens, else None"""
     sym = canonize(symbol)
     return sym if sym in tokens() else None
+
+def canonize(symbol):
+    return symbol.upper()
 
 LOW_VOLUME_TOKENS = ['CVC', 'DATA', 'TUSD', 'SNT', 'GNO']
 @functools.lru_cache(1)
@@ -50,27 +53,6 @@ def token_decimals():
 
 def ten_to_the_decimals(token):
     return 10 ** token_decimals()[token]
-
-def canonize(symbol):
-    return symbol.upper()
-#
-# TOTLE: CDAI != cDAI
-# TOTLE: CUSDC != cUSDC
-# TOTLE: IDAI != iDAI
-# TOTLE: SETH != sETH
-# TOTLE: CBAT != cBAT
-# TOTLE: CETH != cETH
-# TOTLE: CREP != cREP
-# TOTLE: CWBTC != cWBTC
-# TOTLE: CZRX != cZRX
-# TOTLE: IUSDC != iUSDC
-# TOTLE: IETH != iETH
-# TOTLE: IWBTC != iWBTC
-# TOTLE: ILINK != iLINK
-# TOTLE: IZRX != iZRX
-# TOTLE: IREP != iREP
-# TOTLE: IKNC != iKNC
-# TOTLE: DZAR != dZAR
 
 @functools.lru_cache(1)
 def tokens_json():

@@ -2,23 +2,28 @@ import functools
 
 # Every API has different names and ids for exchanges. So this map can be used to correlate data across APIs.
 # It must be maintained manually based on the strings returned by the various APIs
+
 SYM_TO_NAME = {
    '0x relays': '0xMesh',
    '0xmesh': '0xMesh',
    'ag': 'ag',
    'airswap': 'AirSwap',
    'bamboorelay': 'Bamboo Relay',
+   'BANCOR': 'Bancor',
    'bancor': 'Bancor',
+   'COMPOUND': 'Compound',
    'compound': 'Compound',
    'ddex': 'DDEX',
    'dydx': 'dYdX',
    'erc dex': 'ERC DEX',
+   'ETH2DAI': 'Oasis',
    'eth2dai': 'Oasis',
    'etherdelta': 'Ether Delta',
    'ethex': 'Ethex',
    'ethfinex': 'Ethfinex',
    'fulcrum': 'Fulcrum',
    'idex': 'IDEX',
+   'KYBER': 'Kyber',
    'kyber': 'Kyber',
    'oasis': 'Oasis',
    'oasisdex': 'Oasis',
@@ -31,6 +36,7 @@ SYM_TO_NAME = {
    'star bit': 'STAR BIT',
    'thetokenstore': 'Token Store',
    'token store': 'Token Store',
+   'UNISWAP': 'Uniswap',
    'uniswap': 'Uniswap',
    'weidex': 'weiDex',
    'weth': 'WETH'
