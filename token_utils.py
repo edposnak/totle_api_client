@@ -59,25 +59,31 @@ def tokens_json():
     """Returns the tokens json filtering out non-tradable tokens"""
     # get Totle tokens
     totle_tokens = totle_tokens_json()
+    for t in totle_tokens: t['address'] = t['address'].lower()
 
     # get 1-inch tokens
     oneinch_tokens = oneinch_tokens_json()
+    for t in oneinch_tokens: t['address'] = t['address'].lower()
 
     # Combine Totle's and 1-Inch's info
     r, syms, addrs = totle_tokens, [ t['symbol'] for t in totle_tokens ], [ t['address'] for t in totle_tokens ]
     for t in oneinch_tokens:
-        if not(t['symbol'] in syms or t['address'] in addrs):
+        if not (t['symbol'] in syms or t['address'] in addrs):
             r.append(t) # Totle's info takes precendence
 
     return r
 
+@functools.lru_cache(2)
 def totle_tokens_json(canonical_symbols=True):
+    # v2_client imports token_utils so we avoid a circular dependency by not using TOKENS_ENDPOINT
+    # j = requests.get(v2_client.TOKENS_ENDPOINT).json()
     j = requests.get('https://api.totle.com/tokens').json()
     tokens = j['tokens']
     if canonical_symbols:
         for t in tokens: t['symbol'] = canonize(t['symbol'])
     return tokens
 
+@functools.lru_cache(2)
 def oneinch_tokens_json(canonical_symbols=True):
     j = requests.get(oneinch_client.TOKENS_ENDPOINT).json()
     tokens = list(j.values())

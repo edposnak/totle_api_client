@@ -56,10 +56,15 @@ def get_pairs(quote='ETH'):
     canonical_symbols = [ token_utils.canonical_symbol(t) for t in tokens_json ] # may contain None values
     return [ (t, quote) for t in canonical_symbols if t ]
 
+def supported_tokens():
+    # guess based on empirical data
+    return ['ABT','ABYSS','ANT','APPC','AST','BAT','BLZ','BNT','BTU','CBI','CDT','CND','CVC','DAI','DAT','DENT','DGX','DTA','ELF','ENG','ENJ','EQUAD','ETHOS','FUN','GEN','GNO','KNC','LBA','LEND','LINK','LRC','MANA','MCO','MKR','MLN','MOC','MTL','MYB','NEXO','NPXS','OMG','OST','PAX','PAY','PLR','POE','POLY','POWR','QKC','RCN','RDN','REN','REP','REQ','RLC','RPL','SNT','SNX','SPANK','SPN','STORJ','TAU','TKN','TUSD','UPP','USDC','USDT','WBTC','WETH','XCHF','XDCE','ZRX']
+
 # get quote
 def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None):
     """Returns the price in terms of the from_token - i.e. how many from_tokens to purchase 1 to_token"""
     if to_amount or not from_amount: raise ValueError(f"{name()} only works with from_amount")
+    if to_token not in supported_tokens(): return {} # temporary speedup
 
     # https://api.1inch.exchange/v1.1/quote?fromTokenSymbol=ETH&toTokenSymbol=DAI&amount=100000000000000000000&disabledExchangesList=Bancor
     query = {'fromTokenSymbol': from_token, 'toTokenSymbol': to_token, 'amount': token_utils.int_amount(from_amount, from_token)}

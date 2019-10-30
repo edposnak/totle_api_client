@@ -1,3 +1,4 @@
+import json
 import sys
 import functools
 import requests
@@ -35,6 +36,7 @@ def fee_pct():
 #
 
 # get exchanges
+@functools.lru_cache()
 def exchanges():
     # there is no exchanges endpoint yet so we are just using the ones from an ETH/DAI price query
     dex_names = ['KYBER','UNISWAP','BANCOR','ETH2DAI','COMPOUND']
@@ -54,16 +56,23 @@ def get_pairs(quote='ETH'):
     return [(t, quote) for t in canonical_symbols if t]
 
 
+
 # get quote
-AG_DEX = 'ag'
 def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None):
     """Returns the price in terms of the from_token - i.e. how many from_tokens to purchase 1 to_token"""
     if to_amount or not from_amount: raise ValueError(f"{name()} only works with from_amount")
+    if to_token not in supported_tokens(): return {}
 
     # Request: from ETH to DAI
     # https://paraswap.io/api/v1/prices/1/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359/10000000000000000
-    from_addr, to_addr = token_utils.addr(from_token), token_utils.addr(to_token)
-    if from_token == 'ETH': from_addr = ETH_ADDRESS
+    # these addresses are case-sensitive so we have to use paraswap_addr to map them.
+    from_addr, to_addr = paraswap_addr(from_token), paraswap_addr(to_token)
+    for addr, token in [(from_addr, from_token), (to_addr, to_token)]:
+        if not addr:
+            print(f"{token} could not be mapped to case-sensitive {name()} address")
+            return {}
+
+
     req_url = f"{PRICES_ENDPOINT}/{from_addr}/{to_addr}/{token_utils.int_amount(from_amount, from_token)}"
     r = requests.get(req_url)
     try:
@@ -85,15 +94,21 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None):
             return {}
         else:
             exchanges_parts, exchanges_prices = {}, {}
-            source_amount = token_utils.real_amount(from_amount, from_token)
+            source_amount = from_amount
             destination_amount = token_utils.real_amount(price_route['amount'], to_token)
-            price = source_amount / destination_amount
+            if destination_amount == 0:
+                print(f"{name()} destination_amount={0} price_route={json.dumps(price_route, indent=3)}")
+                return {}
 
+            price = source_amount / destination_amount
             for dd in price_route['bestRoute']:
                 dex, pct, src_amt, dest_amt = dd['exchange'], int(dd['percent']), int(dd['srcAmount']), int(dd['destAmount'])
                 if pct > 0:
                     exchanges_parts[dex] = pct
-                    exchanges_prices[dex] = token_utils.real_amount(src_amt, from_token) / token_utils.real_amount(dest_amt, to_token)
+                if dest_amt > 0: # a price quote with destAmount=0 is not a price quote
+                    # when price quotes have srcAmount=0 use the source_amount
+                    real_src_amt = token_utils.real_amount(src_amt, from_token) if src_amt > 0 else source_amount
+                    exchanges_prices[dex] = real_src_amt / token_utils.real_amount(dest_amt, to_token)
 
             return {
                 'source_token': from_token,
@@ -107,8 +122,21 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None):
 
 
     except ValueError as e:
-        print(f"{name()} {query} raised {r}: {r.text[:128]}")
+        print(f"{name()} {req_url} raised {r}: {r.text[:128]}")
         return {}
 
 
+def supported_tokens():
+    """Returns a (short) list of tokens provided by the tokens endpoint"""
+    return list(map(lambda t: t['symbol'], tokens_json()))
 
+
+def paraswap_addr(token):
+    """Returns Paraswap's case-sensitive address for the given token symbol"""
+    # Fortunately (for now) all of Paraswap's token symbols are canonical so we don't have to worry about mapping them too
+    j = next(filter(lambda t: t['symbol'] == token, tokens_json()), None)
+    return j and j['address']
+
+@functools.lru_cache()
+def tokens_json():
+    return requests.get(TOKENS_ENDPOINT).json()['tokens']

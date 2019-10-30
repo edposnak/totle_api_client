@@ -51,10 +51,17 @@ def get_pairs(quote='ETH'):
     return [(t, quote) for t in canonical_symbols if t]
 
 
+def supported_tokens():
+    # guess based on empirical data
+    return ['ABT','ABYSS','ANT','APPC','AST','BAT','BLZ','BNT','BTU','CBI','CDAI','CDT','CETH','CND','CUSDC','CVC','CWBTC','CZRX','DAI','DGX','ELF','ENG','ENJ','EQUAD','ETHOS','FUN','GEN','GNO','IDAI','KNC','LBA','LEND','LINK','LRC','MANA','MCO','MKR','MLN','MOC','MTL','NEXO','OMG','OST','PAX','PAY','PLR','POE','POLY','POWR','QKC','RCN','RDN','REN','REP','REQ','RLC','RPL','SNT','SNX','SPANK','SPN','STORJ','TAU','TKN','TUSD','UPP','USDC','USDT','VERI','WBTC','WETH','XCHF','XDCE','ZRX']
+
+
 # get quote
 AG_DEX = 'ag'
 def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=AG_DEX):
     """Returns the price in terms of the from_token - i.e. how many from_tokens to purchase 1 to_token"""
+    if to_token not in supported_tokens(): return {} # temporary speedup
+
 
     # buy: https://api.dex.ag/price?from=ETH&to=DAI&fromAmount=1.5&dex=all
     # sell: https://api.dex.ag/price?from=DAI&to=ETH&toAmount=1.5&dex=all
