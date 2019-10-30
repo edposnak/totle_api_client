@@ -232,7 +232,7 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
         
 
 def swap_data(response, is_totle):
-    """Extracts relevant data from a swap/rebalance API endpoint response"""
+    """Extracts relevant data from a swap API endpoint response"""
 
     try:
         summary, base_token, source_token, source_div, destination_token, destination_div = get_summary_data(response)
@@ -427,8 +427,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None):
     if sd:
         # keep consistent with exchanges_parts from other aggregators
         # TODO, this is not an order split, it is a multi-hop route
-        used = sd['totleUsed'] or dex
-        exchanges_parts = { used: -1 }
+        exchanges_parts = { dex: -1 } if dex else { tu: -1 for tu in sd['totleUsed']}
         return {
             'source_token': sd['sourceToken'],
             'source_amount': sd['sourceAmount'],
