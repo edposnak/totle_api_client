@@ -74,12 +74,13 @@ def get_agg_data(*clients, tokens=TOKENS, trade_sizes=TRADE_SIZES, quote=QUOTE):
 
 
 COMPOUND_TOKENS = ['CBAT','CDAI','CETH','CREP','CUSDC','CWBTC','CZRX']
+TOTLE_EXCHANGES = integrated_exchanges = list(v2_client.exchanges().keys())
 
-def get_totle_data(tokens=TOKENS, trade_sizes=TRADE_SIZES, quote=QUOTE):
+
+def get_totle_data(tokens=TOKENS, trade_sizes=TRADE_SIZES, quote=QUOTE, exchanges=TOTLE_EXCHANGES):
     filename_base = get_filename_base(prefix='totle_')
 
     # get list of tokens on dexag and 1-inch that are tradable/splittable
-    integrated_exchanges = list(v2_client.exchanges().keys())
     tok_ts_dexs_with_pair = defaultdict(dict)
     tok_ts_splits_by_agg = defaultdict(dict)
     tok_ts_dex_prices = defaultdict(dict)
@@ -91,7 +92,7 @@ def get_totle_data(tokens=TOKENS, trade_sizes=TRADE_SIZES, quote=QUOTE):
             dexs_with_pair, splits_by_agg, dex_prices = set(), {}, {}
             splits_by_agg[TOTLE_EX] = {} # there will just be this one entry, which will list individual DEXs that returned prices
 
-            for dex in integrated_exchanges:
+            for dex in exchanges:
                 can_dex = exchange_utils.canonical_name(dex)
                 if dex == 'Compound' and not base in COMPOUND_TOKENS: continue  # don't waste queries for non-C tokens
 
