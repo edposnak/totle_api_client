@@ -59,21 +59,34 @@ def test_missing():
     not_tradable_2103 = ['0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2', '0x4f3afec4e5a3f2a6a1a411def7d7dfe50ee057bf',
                          '0x865ec58b06bf6305b886793aa20a2da31d034e68']
 
-    not_totle_tokens = []
+    not_found_tokens, not_tradable_tokens, tradable_tokens = [], [], []
 
     print("These tokens return TokenNotFoundError (1203):")
     for t in token_utils.tokens_json():
         if t['address'] in not_found_1203:
             print(t)
-            not_totle_tokens.append(t['symbol'])
+            not_found_tokens.append(t['symbol'])
 
     print("These tokens return TokenNotTradableError (2103):")
     for t in token_utils.tokens_json():
         if t['address'] in not_tradable_2103:
             print(t)
-            not_totle_tokens.append(t['symbol'])
+            not_tradable_tokens.append(t['symbol'])
 
-    print(not_totle_tokens)
+    print("These tokens never returned prices from Totle")
+    for t in token_utils.tokens_json():
+        if t['symbol'] in ['ABYSS', 'LRC', 'MLN']:
+            t.pop('tradable')
+            t.pop('iconUrl')
+            print(t)
+            tradable_tokens.append(t['symbol'])
+
+    print(f"len(not_found_tokens)={len(not_found_tokens)}")
+    print(not_found_tokens)
+    print(f"len(not_tradable_tokens)={len(not_tradable_tokens)}")
+    print(not_tradable_tokens)
+    print(f"len(tradable_tokens)={len(tradable_tokens)}")
+    print(tradable_tokens)
 
 # Below is code to compare Totle's tokens endpoint to 1-Inch's
 def compare_totle_to_oneinch(verbose=False):
