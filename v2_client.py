@@ -420,6 +420,8 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, 
 
 # get quote
 def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None):
+    # TODO: Allow from_amount and to_amount to pass through to the request, regardless of whether from_token or to_token is ETH.
+    #  swap_inputs() is currently hardcoded to set sourceAmount to tradeSize if from_token is ETH or destinationAmount to tradeSize if to_token is ETH.
     params = {'tradeSize': float(from_amount or to_amount)}
 
     sd = try_swap(dex or name(), from_token, to_token, exchange=dex, params=params, verbose=False)

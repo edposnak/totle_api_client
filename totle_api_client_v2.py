@@ -51,7 +51,7 @@ parser.add_argument('apiKey', nargs='?', help='API key')
 
 params = vars(parser.parse_args())
 
-filename = get_filename_base(params['orderType'])
+filename = get_filename_base(suffix=params['orderType'])
 redirect_stdout(filename)
 
 TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0]
