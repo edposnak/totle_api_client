@@ -2,6 +2,8 @@ import sys
 from collections import defaultdict
 import csv
 
+import exchange_utils
+
 csv_files = sys.argv[1:]
 if len(csv_files) < 1:
     print("no CSV files provided")
@@ -22,6 +24,11 @@ for file in csv_files:
     with open(file, newline='') as csvfile:
         reader = csv.DictReader(csvfile, fieldnames=None)
         for row in reader:
+            if row.get('splits'):
+                splits = exchange_utils.canonical_keys(eval(row['splits']))
+                # TODO do something if len(splits) > 1: print(splits)
+
+
             token = row['token']
             pts = per_token_savings[token]
 
@@ -102,7 +109,10 @@ print_savings_summary_table(per_trade_size_savings, exchanges)
 ############################################################################
 # print average savings by token
 
-for token, tss in per_token_savings.items():
-    print(f"\n\n{token}")
-    print_savings_summary_table(tss, exchanges)
+def print_per_token_savings_summary_table(per_token_savings):
+    for token, tss in per_token_savings.items():
+        print(f"\n\n{token}")
+        print_savings_summary_table(tss, exchanges)
 
+print("\n\n")
+print_per_token_savings_summary_table(per_token_savings)
