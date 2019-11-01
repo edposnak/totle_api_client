@@ -8,6 +8,7 @@ import oneinch_client
 import paraswap_client
 
 import exchange_utils
+from v2_compare_prices import get_filename_base
 
 TOTLE_EX = v2_client.name()
 
@@ -31,7 +32,7 @@ TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0]
 EXCLUDE_DEXS = ['ag', 'IDEX', 'DDEX', 'Ethfinex', 'Paradex']
 
 def get_agg_data(*clients, tokens=TOKENS, trade_sizes=TRADE_SIZES, quote=QUOTE):
-    filename_base = get_filename_base()
+    filename_base = get_filename_base(dir=DATA_DIR, prefix='agg')
 
     # get list of tokens on dexag and 1-inch that are tradable/splittable
     tok_ts_dexs_with_pair = defaultdict(dict)
@@ -78,7 +79,7 @@ TOTLE_EXCHANGES = integrated_exchanges = list(v2_client.exchanges().keys())
 
 
 def get_totle_data(tokens=TOKENS, trade_sizes=TRADE_SIZES, quote=QUOTE, exchanges=TOTLE_EXCHANGES):
-    filename_base = get_filename_base(prefix='totle_')
+    filename_base = get_filename_base(dir=DATA_DIR, prefix='totle')
 
     # get list of tokens on dexag and 1-inch that are tradable/splittable
     tok_ts_dexs_with_pair = defaultdict(dict)
@@ -118,12 +119,6 @@ def get_totle_data(tokens=TOKENS, trade_sizes=TRADE_SIZES, quote=QUOTE, exchange
         json.dump(tok_ts_dex_prices, outfile, indent=3)
 
 DATA_DIR='order_splitting_data'
-
-def get_filename_base(prefix=''):
-    d = datetime.today()
-    fb = f"{DATA_DIR}/{prefix}{d.year}-{d.month:02d}-{d.day:02d}_{d.hour:02d}:{d.minute:02d}:{d.second:02d}"
-    print(f"output will go to {fb}*.json")
-    return fb
 
 ########################################################################################################################
 # main

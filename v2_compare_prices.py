@@ -6,7 +6,7 @@ from datetime import datetime
 import v2_client
 
 # Common struct returned by compare_dex_prices and compare_cex_prices
-def savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price):
+def savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price, splits=None):
     """Returns a savings entry suitable for logging or appending to CSV"""
     return {
         'time': datetime.now().isoformat(),
@@ -17,7 +17,8 @@ def savings_data(order_type, trade_size, token, exchange, pct_savings, totle_use
         'pct_savings': pct_savings,
         'totle_used': '/'.join(totle_used),
         'totle_price': totle_price,
-        'exchange_price': exchange_price
+        'exchange_price': exchange_price,
+        'splits':splits
     }
 
 
@@ -144,7 +145,7 @@ def get_from_to(order_type, base, quote):
     from_token, to_token = (quote, base) if order_type == 'buy' else (base, quote)
     return from_token, to_token
 
-def compare_to_totle(base, quote, order_type, trade_size, exchange, ex_price):
+def compare_to_totle(base, quote, order_type, trade_size, exchange, ex_price, splits=None):
     """Returns a savings_data dict comparing price (in *spent* token) to totle's price"""
     from_token, to_token = get_from_to(order_type, base, quote)
     params = {'orderType': order_type, 'tradeSize': trade_size}
@@ -155,9 +156,11 @@ def compare_to_totle(base, quote, order_type, trade_size, exchange, ex_price):
         totle_used = totle_sd['totleUsed']
         pct_savings = 100 - (100.0 * totle_price / ex_price)
 
-        print(f"Totle saved {pct_savings:.2f} percent vs {exchange} {order_type}ing {base} on {totle_sd['totleUsed']} trade size={trade_size} ETH (Totle price={totle_price:.5g} {exchange} price={ex_price:.5g})")
+        trade_info = f"trade size={trade_size} ETH (Totle price={totle_price:.5g} {exchange} price={ex_price:.5g})"
+        if splits: trade_info += f"splits={splits}"
+        print(f"Totle saved {pct_savings:.2f} percent vs {exchange} {order_type}ing {base} on {totle_sd['totleUsed']} {trade_info}")
 
-        return savings_data(order_type, trade_size, base, exchange, pct_savings, totle_used, totle_price, ex_price)
+        return savings_data(order_type, trade_size, base, exchange, pct_savings, totle_used, totle_price, ex_price, splits)
 
     else:
         print(f"Compare {order_type} {base}/{quote} tradeSize={trade_size} got no result from Totle")
@@ -165,7 +168,7 @@ def compare_to_totle(base, quote, order_type, trade_size, exchange, ex_price):
 
 def get_cex_savings(cex_client, order_type, pairs, trade_sizes, redirect=True):
     """Returns a dict of token: { trade_size: savings } for various tokens and trade_sizes"""
-    filename = get_filename_base(order_type)
+    filename = get_filename_base(suffix=order_type)  # TODO add cex_client.name() prefix
     if redirect: redirect_stdout(filename)
 
     all_savings = defaultdict(lambda: defaultdict(dict))
@@ -202,11 +205,15 @@ def print_savings(order_type, savings, trade_sizes):
 # CSV methods
 #
 
-CSV_FIELDS = "time action trade_size token exchange exchange_price totle_used totle_price pct_savings".split()
+CSV_FIELDS = "time action trade_size token exchange exchange_price totle_used totle_price pct_savings splits".split()
 
-def get_filename_base(order_type):
+
+def get_filename_base(dir='outputs', prefix=None, suffix=None):
+    prefix_str = f"{prefix}_" if prefix else ''
+    suffix_str = f"_{suffix}" if suffix else ''
     d = datetime.today()
-    return f"outputs/{d.year}-{d.month:02d}-{d.day:02d}_{d.hour:02d}:{d.minute:02d}:{d.second:02d}_{order_type}"
+    return f"{dir}/{prefix_str}{d.year}-{d.month:02d}-{d.day:02d}_{d.hour:02d}:{d.minute:02d}:{d.second:02d}{suffix_str}"
+
 
 class SavingsCSV():
     def __init__(self, filename):
