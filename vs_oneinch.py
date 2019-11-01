@@ -18,6 +18,9 @@ all_buy_savings, all_sell_savings = defaultdict(lambda: defaultdict(dict)), defa
 
 for trade_size in TRADE_SIZES:
     for base, quote in overlap_pairs:
+        # We have to do buys and sells together because 1-Inch doesn't support to_amount, so we use the amount
+        # from the buy as from_amount in the sell to get approximately trade_size tokens. This approximation should
+        # be good enough for price comparisons at the same trade size
         order_type = 'buy'
         print(quote, base, trade_size)
         pq = oneinch_client.get_quote(quote, base, trade_size)
@@ -33,7 +36,7 @@ for trade_size in TRADE_SIZES:
         if savings: all_buy_savings[base][trade_size] = savings
 
         order_type = 'sell'
-        amt_to_sell = pq['destination_amount'] # should get a little less than trade_size
+        amt_to_sell = pq['destination_amount'] # should fetch a little less than trade_size
         print(base, quote, trade_size, amt_to_sell)
         pq = oneinch_client.get_quote(base, quote, amt_to_sell)
         if not pq:
