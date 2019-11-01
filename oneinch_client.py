@@ -64,7 +64,8 @@ def supported_tokens():
 def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None):
     """Returns the price in terms of the from_token - i.e. how many from_tokens to purchase 1 to_token"""
     if to_amount or not from_amount: raise ValueError(f"{name()} only works with from_amount")
-    if to_token not in supported_tokens(): return {} # temporary speedup
+    for t in [from_token, to_token]:
+        if t != 'ETH' and t not in supported_tokens(): return {} # temporary speedup
 
     # https://api.1inch.exchange/v1.1/quote?fromTokenSymbol=ETH&toTokenSymbol=DAI&amount=100000000000000000000&disabledExchangesList=Bancor
     query = {'fromTokenSymbol': from_token, 'toTokenSymbol': to_token, 'amount': token_utils.int_amount(from_amount, from_token)}

@@ -61,18 +61,16 @@ def get_pairs(quote='ETH'):
 def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None):
     """Returns the price in terms of the from_token - i.e. how many from_tokens to purchase 1 to_token"""
     if to_amount or not from_amount: raise ValueError(f"{name()} only works with from_amount")
-    if to_token not in supported_tokens(): return {}
 
-    # Request: from ETH to DAI
-    # https://paraswap.io/api/v1/prices/1/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359/10000000000000000
     # these addresses are case-sensitive so we have to use paraswap_addr to map them.
     from_addr, to_addr = paraswap_addr(from_token), paraswap_addr(to_token)
     for addr, token in [(from_addr, from_token), (to_addr, to_token)]:
-        if not addr:
+        if not addr: # token is not supported
             print(f"{token} could not be mapped to case-sensitive {name()} address")
             return {}
 
-
+    # Request: from ETH to DAI
+    # https://paraswap.io/api/v1/prices/1/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359/10000000000000000
     req_url = f"{PRICES_ENDPOINT}/{from_addr}/{to_addr}/{token_utils.int_amount(from_amount, from_token)}"
     r = requests.get(req_url)
     try:
@@ -131,6 +129,7 @@ def supported_tokens():
     return list(map(lambda t: t['symbol'], tokens_json()))
 
 
+@functools.lru_cache(128)
 def paraswap_addr(token):
     """Returns Paraswap's case-sensitive address for the given token symbol"""
     # Fortunately (for now) all of Paraswap's token symbols are canonical so we don't have to worry about mapping them too
