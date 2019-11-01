@@ -60,8 +60,9 @@ def supported_tokens():
 AG_DEX = 'ag'
 def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=AG_DEX):
     """Returns the price in terms of the from_token - i.e. how many from_tokens to purchase 1 to_token"""
-    if to_token not in supported_tokens(): return {} # temporary speedup
 
+    for t in [from_token, to_token]:
+        if t != 'ETH' and t not in supported_tokens(): return {} # temporary speedup
 
     # buy: https://api.dex.ag/price?from=ETH&to=DAI&fromAmount=1.5&dex=all
     # sell: https://api.dex.ag/price?from=DAI&to=ETH&toAmount=1.5&dex=all
@@ -92,17 +93,23 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=AG_DEX
         else:
             ag_data = j
 
-        # DEX.AG price is always in quote currency (for 1 base token) and quote is always to_token
+        # sanity check that asserts base == from and quote == to, but the base and quote actually don't matter.
         check_pair(ag_data, query)
 
-        dexag_price = float(ag_data['price']) # number of to_tokens for 1 from_token
-        # we want to return price in terms of the from_token (base token), so we invert the dexag_price
-        price = 1 / dexag_price # number of from_tokens for 1 to_token
+        # BUG? DEX.AG price is not a simple function of base and quote. It changes base on whether you specify toAmount
+        # or fromAmount even though base and quote stay the same! So it has nothing to do with base and quote.
+        # Here are four examples:
+        # https://api.dex.ag/price?from=ETH&to=DAI&toAmount=1.5&dex=ag -> price: 0.0055    <- buy (OK)
+        # https://api.dex.ag/price?from=ETH&to=DAI&fromAmount=1.5&dex=ag -> price: 180     <- buy (inverted)
+        # https://api.dex.ag/price?from=DAI&to=ETH&toAmount=1.5&dex=ag -> price: 180       <- sell (OK)
+        # https://api.dex.ag/price?from=DAI&to=ETH&fromAmount=1.5&dex=ag -> price: 0.0055  <- sell (inverted)
 
-        if from_amount:
-            source_amount, destination_amount = from_amount, from_amount * dexag_price
-        else: # to_amount was given
-            source_amount, destination_amount = to_amount * price, to_amount
+        # We always want to return price in terms of how many from_tokens for 1 to_token, which means we need to
+        # invert DEX.AG's price whenever fromAmount is specified
+        dexag_price = float(ag_data['price']) # number of to_tokens for 1 from_token
+        price = 1 / dexag_price if 'fromAmount' in query else dexag_price
+
+        source_amount, destination_amount = (from_amount, from_amount * dexag_price) if from_amount else (to_amount * dexag_price, to_amount)
 
         # "liquidity": {"uniswap": 38, "bancor": 62}, ...
         exchanges_parts = ag_data['liquidity'] if ag_data.get('liquidity') else {}
