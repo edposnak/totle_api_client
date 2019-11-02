@@ -6,7 +6,11 @@ import oneinch_client
 
 def addr(token):
     """Returns the string address that identifies the token"""
-    return tokens()[canonize(token)]
+    token_addr = tokens().get(canonize(token))
+    if not token_addr:
+        raise ValueError(f"the symbol '{token}' was not found in the tokens list")
+    else:
+        return token_addr
 
 def int_amount(float_amount, token):
     """Returns the integer amount of token units for the given float_amount and token"""

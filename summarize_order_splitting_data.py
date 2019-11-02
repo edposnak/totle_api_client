@@ -264,6 +264,7 @@ for dex in all_dexs:
 print(f"{len(all_tokens)} tokens: ", ', '.join(all_tokens))
 print(f"{len(all_dexs)} DEXs: ", ', '.join(all_dexs))
 
+
 # print(f"\n\nTokens by number of DEXs listing the ETH pair: ({len(all_tokens)} tokens)")
 # print_tokens_num_dexs_csv(token_dexs, supported_tokens=all_tokens, supported_dexs=all_dexs)
 
@@ -286,6 +287,9 @@ ACTIVE_TOTLE_DEXS = ['Ether Delta', 'Kyber', 'Bancor', 'Oasis', 'Uniswap', 'Comp
 print(f"\n\nTokens supported by Totle by number of DEXs active on Totle: ({len(TOTLE_56)} tokens)")
 print_tokens_num_dexs_csv(token_dexs, supported_tokens=TOTLE_56, supported_dexs=ACTIVE_TOTLE_DEXS)
 
+print(f"\n\nTokens supported by Totle by number of DEXs: ({len(TOTLE_56)} tokens)")
+print_tokens_num_dexs_csv(token_dexs, supported_tokens=TOTLE_56)
+exit(0)
 
 # print("\n\nCount of DEXs used to split each token")
 # print(json.dumps(token_splits_dex_counts(tok_ts_splits_by_agg), indent=3))

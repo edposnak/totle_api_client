@@ -158,7 +158,7 @@ def compare_to_totle(base, quote, order_type, trade_size, exchange, ex_price, sp
 
         trade_info = f"trade size={trade_size} ETH (Totle price={totle_price:.5g} {exchange} price={ex_price:.5g})"
         if splits: trade_info += f"splits={splits}"
-        print(f"Totle saved {pct_savings:.2f} percent vs {exchange} {order_type}ing {base} on {totle_sd['totleUsed']} {trade_info}")
+        print(f"Totle saved {pct_savings:.2f} percent vs {exchange} {order_type}ing {base} on {','.join(totle_used)} {trade_info}")
 
         return savings_data(order_type, trade_size, base, exchange, pct_savings, totle_used, totle_price, ex_price, splits)
 
@@ -190,13 +190,14 @@ def get_cex_savings(cex_client, order_type, pairs, trade_sizes, redirect=True):
 
 
 
-def print_savings(order_type, savings, trade_sizes):
+def print_savings(order_type, savings, trade_sizes, title="Savings"):
     """Prints a savings dict, token => trade_size => savings values"""
+    ph = lambda x: f"{x:>8}"
     pf = lambda x: f"{x:>8.2g}"
-    print(f"\n{order_type.upper():<8}", ''.join(map(pf, trade_sizes)))
-    for base in savings:
-        vals = [ savings[base][ts] for ts in trade_sizes ]
-        str_vals = [pf(v['pct_savings']) if v else f"{'-':>8}" for v in vals]
+    print(f"\n{title}\n{order_type.upper():<8}", ''.join(map(ph, trade_sizes)))
+    for base, ts_savings in savings.items():
+        vals = [ ts_savings.get(ts) for ts in trade_sizes ]
+        str_vals = [pf(v['pct_savings']) if v else ph('-') for v in vals]
         print(f"{base:<8}", ''.join(str_vals))
 
 
