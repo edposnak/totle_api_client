@@ -9,21 +9,6 @@ import paraswap_client
 import v2_client
 from v2_compare_prices import savings_data, print_savings, get_filename_base, SavingsCSV
 
-#####################################################################
-
-quote='ETH'
-order_type = 'buy'
-
-TOTLE_39 = ['ANT','AST','BAT','BNT','CDT','CND','CVC','DAI','ENG','ENJ','ETHOS','GNO','KNC','LINK','MANA','MCO','MKR','OMG','PAX','PAY','POE','POLY','POWR','RCN','RDN','REN','REP','REQ','RLC','RPL','SNT','SNX','STORJ','TKN','TUSD','USDC','USDT','WBTC','ZRX']
-AGG_CLIENTS = [dexag_client, oneinch_client, paraswap_client]
-all_buy_savings = defaultdict(lambda: defaultdict(lambda: defaultdict(dict))) # extra lambda prevents KeyError in print_savings
-
-TOKENS, TRADE_SIZES  = TOTLE_39, [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 500.0]
-# TOKENS, TRADE_SIZES = ['CVC', 'DAI', 'LINK'], [0.5, 5.0]
-
-filename = get_filename_base(prefix='totle_vs_aggs', suffix=order_type)
-
-
 def compare_totle_and_aggs(agg_clients, base, quote, trade_size):
     agg_savings = {}
     from_token, to_token = quote, base
@@ -62,6 +47,19 @@ def compare_totle_and_aggs(agg_clients, base, quote, trade_size):
 
 ########################################################################################################################
 # main
+
+quote='ETH'
+order_type = 'buy'
+
+TOTLE_39 = ['ANT','AST','BAT','BNT','CDT','CND','CVC','DAI','ENG','ENJ','ETHOS','GNO','KNC','LINK','MANA','MCO','MKR','OMG','PAX','PAY','POE','POLY','POWR','RCN','RDN','REN','REP','REQ','RLC','RPL','SNT','SNX','STORJ','TKN','TUSD','USDC','USDT','WBTC','ZRX']
+AGG_CLIENTS = [dexag_client, oneinch_client, paraswap_client]
+all_buy_savings = defaultdict(lambda: defaultdict(lambda: defaultdict(dict))) # extra lambda prevents KeyError in print_savings
+
+TOKENS, TRADE_SIZES  = TOTLE_39, [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0]
+# TOKENS, TRADE_SIZES = ['CVC', 'DAI', 'LINK'], [0.5, 5.0]
+
+filename = get_filename_base(prefix='totle_vs_aggs', suffix=order_type)
+
 
 with SavingsCSV(filename) as csv_writer:
     for base in TOKENS:

@@ -20,6 +20,27 @@ AGG_NAMES = [DEX_AG, ONE_INCH, PARASWAP]
 
 COMMON_DEXS = ['0xMesh', 'AirSwap', 'Bancor', 'Kyber', 'Oasis', 'Radar Relay', 'Uniswap']
 
+########################################################################################################################
+# functions to get dexs and tokens
+
+def all_dexs_and_tokens(tok_ts_dexs_with_pair, totle_tok_ts_dexs_with_pair):
+    agg_dexs = unique_dexs(tok_ts_dexs_with_pair)
+    totle_dexs = unique_dexs(totle_tok_ts_dexs_with_pair)
+    all_dexs = sorted(list(set(agg_dexs + totle_dexs)))
+
+    agg_tokens = sorted(tok_ts_dexs_with_pair.keys())
+    totle_tokens = sorted(totle_tok_ts_dexs_with_pair.keys())  # subset of agg_tokens
+    all_tokens = sorted(list(set(agg_tokens + totle_tokens)))
+
+    return all_dexs, all_tokens
+
+def unique_dexs(tok_ts_dexs_with_pair):
+    """Returns a sorted list of all dexs that were used"""
+    all_dexs = set()
+    for token, ts_dexs in tok_ts_dexs_with_pair.items():
+        all_dexs |= set(sum(ts_dexs.values(), []))
+    return sorted(list(all_dexs))
+
 def get_tokens_dexs(tok_ts_dex_prices, totle_tok_ts_dex_prices, tok_ts_dexs_with_pair):
     """Returns a dict of tokens: dexes found to support the token based on the 3 input dicts"""
     token_dexs = defaultdict(set)
@@ -67,6 +88,9 @@ def print_tokens_dex_csv(token_dexs, dex_columns):
         dex_strs = map(lambda d: 'X' if d in dexs else '', dex_columns)
         print(f"{token},{','.join(dex_strs)}")
 
+########################################################################################################################
+# functions to get tokens split/not split
+
 def print_tokens_split_by_agg_csv(tokens_by_agg, tokens_supported_by_totle=None):
     print(f"Aggregator,Num Pairs,Tokens")
     for agg in AGG_NAMES:
@@ -81,8 +105,17 @@ def print_tokens_split_by_agg_csv(tokens_by_agg, tokens_supported_by_totle=None)
         union_tokens = [ t for t in union_tokens if t in tokens_supported_by_totle ]
         print(f"Union with Totle,{len(union_tokens)},\"{','.join(union_tokens)}\"")
         intersection_tokens = [ t for t in intersection_tokens if t in tokens_supported_by_totle ]
-        print("\n\n")
         print(f"Intersection with Totle,{len(intersection_tokens)},\"{','.join(intersection_tokens)}\"")
+
+def print_tokens_not_split_csv():
+    tokens_split = sorted(set(sum(aggs_tokens.values(), [])))
+    print(f"Total number of tokens_split = {len(tokens_split)}")
+    totle_tokens_split = [t for t in tokens_split if t in TOTLE_56]
+    not_split = [t for t in TOTLE_56 if t not in totle_tokens_split]
+    print(f"Token,Num DEXs,DEXs")
+    for token in not_split:
+        if len(token_dexs[token]) > 1:
+            print(f"{token},{len(token_dexs[token])},\"{','.join(token_dexs[token])}\"")
 
 def min_splits(tok_ts_splits_by_agg, verbose=False):
     """Returns dict of split thresholds for various tokens by each DEX aggregator, i.e. token: { agg: min_trade_size }"""
@@ -90,42 +123,92 @@ def min_splits(tok_ts_splits_by_agg, verbose=False):
     # { 'BAT': { 'DEX.AG': 1.0, '1-Inch': 5.0, 'Paradex': inf }, 'CVC': {...}, ...
     min_splits_by_token_agg = defaultdict(lambda: defaultdict(lambda: float('inf')))
 
-    for token, ts_splits_by_agg in tok_ts_splits_by_agg.items():
-        for trade_size, agg_splits in ts_splits_by_agg.items():
-            for agg, splits in agg_splits.items():
-                if any([ len(s) > 1 for s in splits]):
-                    if verbose: print(f"{token} {trade_size} {agg} {splits} prev={min_splits_by_token_agg[token][agg]} min={min(min_splits_by_token_agg[token][agg], float(trade_size))}")
-                    min_splits_by_token_agg[token][agg] = min(min_splits_by_token_agg[token][agg], float(trade_size))
+    for token, trade_size, agg, split in token_ts_agg_split_gen(tok_ts_splits_by_agg):
+        if len(split) > 1:
+            if verbose: print(f"{token} {trade_size} {agg} {split} prev={min_splits_by_token_agg[token][agg]} min={min(min_splits_by_token_agg[token][agg], float(trade_size))}")
+            min_splits_by_token_agg[token][agg] = min(min_splits_by_token_agg[token][agg], float(trade_size))
 
     return dict(sorted(min_splits_by_token_agg.items()))
 
+
+
 def token_splits_dex_counts(tok_ts_splits_by_agg, verbose=False):
     """Returns dict of exchanges used for various splits, i.e. token: { dex: n_times }"""
-
     # { 'BAT': { 'Uniswap': 29, 'Kyber': 43 }, 'CVC': {...}, ...
     tokens_dexs = defaultdict(lambda: defaultdict(int))
 
-    for token, ts_splits_by_agg in tok_ts_splits_by_agg.items():
-        for trade_size, agg_splits in ts_splits_by_agg.items():
-            for agg, splits in agg_splits.items():
-                for split in splits:
-                    if len(split) > 1:
-                        for dex in split:
-                            tokens_dexs[token][dex] += 1
+    for token, trade_size, agg, split in token_ts_agg_split_gen(tok_ts_splits_by_agg):
+        if len(split) > 1:
+            for dex in split:
+                tokens_dexs[token][dex] += 1
 
     return dict(sorted(tokens_dexs.items()))
 
 def tokens_split_by_agg(tok_ts_splits_by_agg):
+    """Returns a dict of agg: tokens containing the set of tokens split by each agg"""
     agg_tokens = defaultdict(set)
+    for token, trade_size, agg, split in token_ts_agg_split_gen(tok_ts_splits_by_agg):
+        if len(split) > 1:
+            agg_tokens[agg].add(token)
+
+    return {agg: sorted(list(tokens)) for agg, tokens in agg_tokens.items()}
+
+def tokens_samples_by_agg(tok_ts_splits_by_agg, only_trade_size=None):
+    token_agg_samples = defaultdict(lambda: defaultdict(int))
+    for token, trade_size, agg, split in token_ts_agg_split_gen(tok_ts_splits_by_agg):
+        if only_trade_size is None or trade_size == only_trade_size:
+            token_agg_samples[token][agg] += 1
+
+    return { token: agg_samples for token, agg_samples in sorted(token_agg_samples.items()) }
+
+def print_token_constants(tok_ts_splits_by_agg, totle_tokens):
+    all_aggs, oneinch_dexag, oneinch, dexag, paraswap = [], [], [], [], []
+
+    for token, agg_samples in tokens_samples_by_agg(tok_ts_splits_by_agg).items():
+        if len(agg_samples) == 3:
+            all_aggs.append(token)
+        elif len(agg_samples) == 2:
+            oneinch_dexag.append(token)
+        else:
+            if ONE_INCH in agg_samples: oneinch.append(token)
+            if DEX_AG in agg_samples: dexag.append(token)
+            if PARASWAP in agg_samples: paraswap.append(token)
+
+    print(f"ALL_AGGS_TOKENS = [{','.join([repr(t) for t in all_aggs])}]")
+    print(f"MORE_ONEINCH_DEXAG_TOKENS = [{','.join([repr(t) for t in oneinch_dexag])}]")
+    print(f"MORE_ONEINCH_TOKENS = [{','.join([repr(t) for t in oneinch])}]")
+    print(f"MORE_DEX_AG_TOKENS = [{','.join([repr(t) for t in dexag])}]")
+    print(f"MORE_PARASwAP_TOKENS = [{','.join([repr(t) for t in paraswap])}]")
+    print(f"TOTLE_ONEINCH_DEXAG_TOKENS = [{','.join([ repr(t) for t in totle_tokens if t in (all_aggs + oneinch_dexag)])}]")
+    print("TOTLE_UNPRICED_TOKENS_TO_TRY = ['ABYSS','LRC','MLN']")
+
+def tokens_split_pct(tok_ts_splits_by_agg, only_token=None, only_agg=None):
+    """Returns a dict of token: {trade_size: split_pct}"""
+    result = defaultdict(dict)
+    n_samples, n_splits = defaultdict(lambda: defaultdict(int)), defaultdict(lambda: defaultdict(int))
+
+    for token, trade_size, agg, split in token_ts_agg_split_gen(tok_ts_splits_by_agg):
+        if only_token and token != only_token: continue
+        if only_agg and agg != only_agg: continue
+        n_samples[token][trade_size] += 1
+        if len(split) > 1: n_splits[token][trade_size] += 1
+        if len(split) > 1: print(f"{token} {trade_size}: {split}")
+        result[token][trade_size] = (100.0 * n_splits[token][trade_size]) / n_samples[token][trade_size]
+    return result
+
+def print_split_pcts_by_token_csv(tok_ts_splits_by_agg, all_trade_sizes, only_token=None, only_agg=None):
+    tokens_ts_pcts = tokens_split_pct(tok_ts_splits_by_agg, only_token=only_token, only_agg=only_agg)
+    print(f"\nTOKEN,{','.join(all_trade_sizes)}")
+    for token, ts_pcts in tokens_ts_pcts.items():
+        print(f"{token}," + ','.join([f"{ts_pcts.get(ts) or '-'}" for ts in all_trade_sizes]))
+
+def token_ts_agg_split_gen(tok_ts_splits_by_agg):
+    """Generates a sequence of (token, trade_size, agg, split) for all leaves in the given JSON"""
     for token, ts_splits_by_agg in tok_ts_splits_by_agg.items():
         for trade_size, agg_splits in ts_splits_by_agg.items():
             for agg, splits in agg_splits.items():
                 for split in splits:
-                    if len(split) > 1:
-                        agg_tokens[agg].add(token)
-
-    return {agg: sorted(list(tokens)) for agg, tokens in agg_tokens.items()}
-
+                    yield token, trade_size, agg, split
 
 def token_aggs_quoting(tok_ts_agg_prices):
     """Returns a dict of token: aggs, e.g. {'BAT': ['1-Inch', 'DEX.AG'], 'CVC': ['1-Inch']"""
@@ -139,24 +222,6 @@ def token_aggs_quoting(tok_ts_agg_prices):
 
     return token_aggs
 
-
-def all_dexs_and_tokens(tok_ts_dexs_with_pair, totle_tok_ts_dexs_with_pair):
-    agg_dexs = unique_dexs(tok_ts_dexs_with_pair)
-    totle_dexs = unique_dexs(totle_tok_ts_dexs_with_pair)
-    all_dexs = sorted(list(set(agg_dexs + totle_dexs)))
-
-    agg_tokens = sorted(tok_ts_dexs_with_pair.keys())
-    totle_tokens = sorted(totle_tok_ts_dexs_with_pair.keys())  # subset of agg_tokens
-    all_tokens = sorted(list(set(agg_tokens + totle_tokens)))
-
-    return all_dexs, all_tokens
-
-def unique_dexs(tok_ts_dexs_with_pair):
-    """Returns a sorted list of all dexs that were used"""
-    all_dexs = set()
-    for token, ts_dexs in tok_ts_dexs_with_pair.items():
-        all_dexs |= set(sum(ts_dexs.values(), []))
-    return sorted(list(all_dexs))
 
 ########################################################################################################################
 # JSON file aggregation functions
@@ -172,15 +237,16 @@ def get_all_dexs_with_pair(files):
 
     return dict(sorted(tok_ts_dexs_with_pair.items()))
 
+
 def get_all_splits_by_agg(files):
     """Returns an aggregated dict of split data, i.e. token: {trade_size: {agg: [{dex: pct, dex: pct}, {...}, ...]}}"""
-    tok_ts_splits_by_agg = defaultdict(lambda: defaultdict(dict)) # TODO defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    tok_ts_splits_by_agg = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
 
     for f in files:
         for token, ts_splits_by_agg in json.load(open(f)).items():
             for ts, agg_splits in ts_splits_by_agg.items():
                 for agg, split in agg_splits.items():
-                    tok_ts_splits_by_agg[token][ts][agg] = (tok_ts_splits_by_agg[token][ts].get(agg) or []) + [split]
+                    tok_ts_splits_by_agg[token][ts][agg].append(split)
 
     return dict(sorted(tok_ts_splits_by_agg.items()))
 
@@ -248,9 +314,11 @@ totle_tok_ts_dexs_with_pair = get_all_dexs_with_pair(glob.glob(f'{DATA_DIR}/totl
 totle_tok_ts_dex_prices = get_all_dex_prices(glob.glob(f'{DATA_DIR}/totle*ts_dex_prices.json'))
 
 all_dexs, all_tokens = all_dexs_and_tokens(tok_ts_dexs_with_pair, totle_tok_ts_dexs_with_pair)
-
-totle_tokens = sorted(totle_tok_ts_dexs_with_pair.keys())  # subset of agg_tokens
-print(f"len(totle_tokens)={len(totle_tokens)}")
+# print(f"{len(all_tokens)} tokens: ", ', '.join(all_tokens))
+# print(f"{len(all_dexs)} DEXs: ", ', '.join(all_dexs))
+all_trade_sizes = set(trade_size for token, trade_size, agg, split in token_ts_agg_split_gen(tok_ts_splits_by_agg))
+all_trade_sizes = list(map(str, sorted(map(float, all_trade_sizes))))
+# print(f"{len(all_trade_sizes)} trade_sizes: ", ', '.join(all_trade_sizes))
 
 # Print dex/token matrix in CSV form
 token_dexs = get_tokens_dexs(tok_ts_dex_prices, totle_tok_ts_dex_prices, tok_ts_dexs_with_pair)
@@ -261,27 +329,26 @@ for dex in all_dexs:
     supported_tokens = [t for t in token_dexs if dex in token_dexs[t]]
     print(f"{dex},{len(supported_tokens)},\"{','.join(supported_tokens)}\"" )
 
-print(f"{len(all_tokens)} tokens: ", ', '.join(all_tokens))
-print(f"{len(all_dexs)} DEXs: ", ', '.join(all_dexs))
-
+tokens_samples = tokens_samples_by_agg(tok_ts_splits_by_agg, only_trade_size='2.0')
+for t, agg_samples in tokens_samples.items(): print(f"{t} {dict(agg_samples)}")
 
 # print(f"\n\nTokens by number of DEXs listing the ETH pair: ({len(all_tokens)} tokens)")
 # print_tokens_num_dexs_csv(token_dexs, supported_tokens=all_tokens, supported_dexs=all_dexs)
 
+# Tokens for which Totle quoted a price
 TOTLE_56 = ['ANT','AST','BAT','BMC','BNT','CDAI','CDT','CETH','CND','CUSDC','CVC','CWBTC','CZRX','DAI','DENT','ENG','ENJ','ETHOS','FUN','GNO','KNC','LEND','LINK','MANA','MCO','MKR','MTL','NEXO','NPXS','OMG','PAX','PAY','PLR','POE','POLY','POWR','RCN','RDN','REN','REP','REQ','RLC','RPL','SNT','SNX','SPANK','STORJ','TAU','TKN','TUSD','USDC','USDT','VERI','WBTC','XDCE','ZRX']
-TOTLE_39 = ['ANT','AST','BAT','BNT','CDT','CND','CVC','DAI','ENG','ENJ','ETHOS','GNO','KNC','LINK','MANA','MCO','MKR','OMG','PAX','PAY','POE','POLY','POWR','RCN','RDN','REN','REP','REQ','RLC','RPL','SNT','SNX','STORJ','TKN','TUSD','USDC','USDT','WBTC','ZRX']
-
 # To compute TOTLE_56
 # totle_56_tokens = set()
 # for token, ts_dexs in totle_tok_ts_dexs_with_pair.items():
-#     for ts, dexs in ts_dexs.items():
-#         if dexs: totle_56_tokens.add(token)
+#     if any(ts_dexs.values()): totle_56_tokens.add(token)
 # print(f"len(totle_56_tokens)={len(totle_56_tokens)}")
 # print(f"TOTLE_56 = [{','.join(map(repr, totle_56_tokens)) }]")
-# These were a tries at comprehensions that don't filter correctly
-# sup_tokens = set([ token for ts, dexs in ts_dexs.items() for token, ts_dexs in totle_tok_ts_dexs_with_pair.items() if dexs ])
-# sup_tokens = set([ token for ts, dexs in ts_dexs.items() if dexs for token, ts_dexs in totle_tok_ts_dexs_with_pair.items()  ])
-# print(f"len(sup_tokens)={len(sup_tokens)}")
+
+# print(f"Totle tokens not priced (in TOTLE_56): {set(tok_ts_dexs_with_pair.keys()) - set(TOTLE_56)}")
+
+print("\n\n")
+print_token_constants(tok_ts_splits_by_agg, TOTLE_56)
+
 ACTIVE_TOTLE_DEXS = ['Ether Delta', 'Kyber', 'Bancor', 'Oasis', 'Uniswap', 'Compound', '0xMesh']
 
 print(f"\n\nTokens supported by Totle by number of DEXs active on Totle: ({len(TOTLE_56)} tokens)")
@@ -289,7 +356,6 @@ print_tokens_num_dexs_csv(token_dexs, supported_tokens=TOTLE_56, supported_dexs=
 
 print(f"\n\nTokens supported by Totle by number of DEXs: ({len(TOTLE_56)} tokens)")
 print_tokens_num_dexs_csv(token_dexs, supported_tokens=TOTLE_56)
-exit(0)
 
 # print("\n\nCount of DEXs used to split each token")
 # print(json.dumps(token_splits_dex_counts(tok_ts_splits_by_agg), indent=3))
@@ -299,20 +365,23 @@ aggs_tokens = tokens_split_by_agg(tok_ts_splits_by_agg)
 print_tokens_split_by_agg_csv(aggs_tokens, tokens_supported_by_totle=TOTLE_56)
 
 print(f"\n\nTotle tokens that were never split by any aggregator but listed on multiple DEXs:")
-tokens_split = sorted(set(sum(aggs_tokens.values(), [])))
-totle_tokens_split = [t for t in tokens_split if t in TOTLE_56]
-not_split = [t for t in TOTLE_56 if t not in totle_tokens_split]
-print(f"\n\nToken,Num DEXs,DEXs")
-for token in not_split:
-    if len(token_dexs[token]) > 1:
-        print(f"{token},{len(token_dexs[token])},\"{','.join(token_dexs[token])}\"")
+print_tokens_not_split_csv()
 
+# Tokens priced by Totle and split by at least 1 agg
+TOTLE_39 = ['ANT','AST','BAT','BNT','CDT','CND','CVC','DAI','ENG','ENJ','ETHOS','GNO','KNC','LINK','MANA','MCO','MKR','OMG','PAX','PAY','POE','POLY','POWR','RCN','RDN','REN','REP','REQ','RLC','RPL','SNT','SNX','STORJ','TKN','TUSD','USDC','USDT','WBTC','ZRX']
 # To compute TOTLE_39
 # print(f"len(totle_tokens_split)={len(totle_tokens_split)}")
 # print(f"TOTLE_39 = [{','.join(map(repr, totle_tokens_split)) }]")
 
+print("\n\nSplit percentage by token")
+# print_split_pcts_by_token_csv(tok_ts_splits_by_agg, all_trade_sizes)
+for token in ['ENJ', 'MKR']:
+    print(f"\n\n\n{token} (all)")
+    print_split_pcts_by_token_csv(tok_ts_splits_by_agg, all_trade_sizes, only_token=token)
+    for agg in [ONE_INCH, DEX_AG, PARASWAP]:
+        print(f"\n{token} ({agg} only)")
+        print_split_pcts_by_token_csv(tok_ts_splits_by_agg, all_trade_sizes, only_token=token, only_agg=agg)
 
-exit(0)
 
 # print("\n\nTokens and aggregators providing quotes")
 # aggs_quoted = token_aggs_quoting(tok_ts_agg_prices)
@@ -325,8 +394,6 @@ exit(0)
 # for agg in AGG_NAMES:
 #     print(f"{agg}: {','.join([token for token,aggs in aggs_quoted.items() if agg in aggs])}")
 #
-#
-# min_splits(tok_ts_splits_by_agg, verbose=True)
 #
 # print("\n\nAggregators list of tokens split")
 # for agg in AGG_NAMES:
