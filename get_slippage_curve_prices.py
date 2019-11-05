@@ -141,9 +141,3 @@ for f in concurrent.futures.as_completed(futures_p):
     _, dex, token, trade_sizes = futures_p[f]
     print(f"{dex} {token} -> {f.result()}")
 
-
-
-
-
-
-
