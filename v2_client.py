@@ -222,7 +222,8 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
                 # to be subtracted (see not is_totle case above)
 
         # Summary amounts should now add up in the is_totle case 
-        # Suggester bugs (floating point to decimal?) mean things don't always add up exactly
+        # Suggester bugs? and conversions from floating point to decimal mean things don't always add up exactly
+        # e.g. Totle: swap raised ValueError: adjusted orders destination_amount=605285284 different from summary destination_amount=605285283
         if source_amount != summary_source_amount:
             raise ValueError(f"adjusted orders source_amount={source_amount} different from summary source_amount={summary_source_amount}")
 
@@ -389,10 +390,10 @@ def handle_swap_exception(e, dex, from_token, to_token, params, verbose=True):
             if has_args1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
             if has_args2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
 
-def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, debug=False):
+def try_swap(label, from_token, to_token, exchange=None, params={}, verbose=True, debug=False):
     """calls swap endpoint Returns the result as a swap_data dict, {} if the call failed"""
     try:
-        is_totle = dex == name()
+        is_totle = label == name()
         inputs = swap_inputs(from_token, to_token, exchange, params)
         j = post_with_retries(SWAP_ENDPOINT, inputs, debug=debug)
 
@@ -415,16 +416,16 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, 
         return sd
 
     except Exception as e:
-        handle_swap_exception(e, dex, from_token, to_token, params, verbose=verbose)
+        handle_swap_exception(e, label, from_token, to_token, params, verbose=verbose)
         return {}
 
 # get quote
-def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, verbose=False):
+def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, verbose=False, debug=False):
     # TODO: Allow from_amount and to_amount to pass through to the request, regardless of whether from_token or to_token is ETH.
     #  swap_inputs() is currently hardcoded to set sourceAmount to tradeSize if from_token is ETH or destinationAmount to tradeSize if to_token is ETH.
     params = {'tradeSize': float(from_amount or to_amount)}
 
-    sd = try_swap(dex or name(), from_token, to_token, exchange=dex, params=params, verbose=verbose)
+    sd = try_swap(dex or name(), from_token, to_token, exchange=dex, params=params, verbose=verbose, debug=debug)
 
     if sd:
         # keep consistent with exchanges_parts from other aggregators
