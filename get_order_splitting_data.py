@@ -35,9 +35,6 @@ TOTLE_ONEINCH_DEXAG_TOKENS = ['ANT','AST','BAT','BNT','CDT','CND','CVC','DAI','E
 # 3 Tokens not priced by Totle but were by both 1-Inch and DEX.AG (maybe Paraswap)
 TOTLE_UNPRICED_TOKENS_TO_TRY = ['ABYSS','LRC','MLN']
 
-
-print(len(TOTLE_ONEINCH_DEXAG_TOKENS))
-exit(0)
 TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0]
 
 # don't bother recording price info for these DEXs; they are never going to be used in splits
