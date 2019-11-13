@@ -1,6 +1,6 @@
-import sys
 import functools
 import requests
+import json
 import token_utils
 
 API_BASE = 'https://api.dex.ag'
@@ -31,6 +31,9 @@ def fee_pct():
 #
 
 # get exchanges
+DEX_NAME_MAP = {'ag': 'ag', 'all':'all', '0xMesh': 'radar-relay', 'Bancor': 'bancor', 'DDEX': 'ddex', 'Ethfinex': 'ethfinex', 'IDEX': 'idex',
+                'Kyber': 'kyber', 'Oasis': 'oasis', 'Paradex': 'paradex', 'Radar Relay': 'radar-relay', 'Uniswap': 'uniswap' }
+
 def exchanges():
     # there is no exchanges endpoint yet so we are just using the ones from an ETH/DAI price query where dex == all
     dex_names = ['ag', 'bancor', 'ddex', 'ethfinex', 'idex', 'kyber', 'oasis', 'paradex', 'radar-relay', 'uniswap']
@@ -58,7 +61,7 @@ def supported_tokens():
 
 # get quote
 AG_DEX = 'ag'
-def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=AG_DEX):
+def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=AG_DEX, verbose=False, debug=False):
     """Returns the price in terms of the from_token - i.e. how many from_tokens to purchase 1 to_token"""
 
     for t in [from_token, to_token]:
@@ -74,9 +77,12 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=AG_DEX
     else:
         raise ValueError(f"{name()} only accepts either from_amount or to_amount, not both")
 
+    if debug: print(f"REQUEST to {PRICE_ENDPOINT}:\n{json.dumps(query, indent=3)}\n\n")
     r = requests.get(PRICE_ENDPOINT, params=query)
     try:
         j = r.json()
+        if debug: print(f"RESPONSE from {PRICE_ENDPOINT}:\n{json.dumps(j, indent=3)}\n\n")
+
         # Response:
         # {"dex": "ag", "price": "159.849003708050647455", "pair": {"base": "ETH", "quote": "DAI"}, "liquidity": {"uniswap": 38, "bancor": 62}}
 

@@ -44,6 +44,9 @@ def name():
     return 'Totle' # 'Totle' is used for comparison with other exchanges
 
 # get exchanges
+DEX_NAME_MAP = { '0xMesh': '0xMesh', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Ether Delta': 'EtherDelta', 'Fulcrum': 'Fulcrum',
+                 'Kyber': 'Kyber', 'Oasis': 'Eth2dai', 'StableCoinSwap': 'Stablecoinswap', 'Uniswap': 'Uniswap', }
+
 @functools.lru_cache(1)
 def exchanges():
     return { e['name']: e['id'] for e in exchanges_json() }
@@ -150,7 +153,6 @@ HACK_UNTIL_SUMMARY_FIXED=True
 def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
     """adjust source and destination amounts so price reflects paying totle fee"""
     # Assumes source_amount and destination amount are sums of order amounts
-
     buying_tokens_with_eth = summary['sourceAsset']['symbol'] == 'ETH'
     summary_destination_token = summary['destinationAsset']['symbol']
 
@@ -165,12 +167,11 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
         if is_totle:
             return summary_source_amount, summary_destination_amount
         else: # subtract out Totle fee
-            source_amount, destination_amount = summary_source_amount, summary_destination_amount
             if buying_tokens_with_eth: # user could have gotten more destination tokens
-                destination_amount = summary_destination_amount / (1 - (totle_fee_pct / 100))
-            else: # for sells, user could have paid less than source_amount 
-                source_amount = summary_source_amount * (1 - (totle_fee_pct / 100))
-            return source_amount, destination_amount
+                # return summary_source_amount, summary_destination_amount / (1 - (totle_fee_pct / 100))
+                return summary_source_amount, summary_destination_amount + int(summary['totleFee']['amount'])
+            else: # for sells, user could have paid less than source_amount
+                return summary_source_amount * (1 - (totle_fee_pct / 100)), summary_destination_amount
 
     ##### HACK_UNTIL_SUMMARY_FIXED == False #####
     # Below is code to use individual orders (when summary is fixed)
@@ -257,7 +258,7 @@ def swap_data(response, is_totle):
         source_amount, destination_amount = adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary)
         source_amount = source_amount / source_div
         destination_amount = destination_amount / destination_div
-        
+
         trade_size = source_amount if source_token == 'ETH' else destination_amount
         price = source_amount / destination_amount
 
@@ -314,7 +315,7 @@ def post_with_retries(endpoint, inputs, num_retries=3, debug=False, timer=False)
 # Default parameters for swap. These can be overridden by passing params
 DEFAULT_WALLET_ADDRESS = "0xD18CEC4907b50f4eDa4a197a50b619741E921B4D"
 DEFAULT_TRADE_SIZE = 1.0 # the amount of ETH to spend or acquire, used to calculate amount
-DEFAULT_MAX_SLIPPAGE_PERCENT = 10
+DEFAULT_MAX_SLIPPAGE_PERCENT = 30
 DEFAULT_MIN_FILL_PERCENT = 80
 DEFAULT_CONFIG = {
     "transactions": False, # just get the prices
@@ -358,6 +359,7 @@ def swap_inputs(from_token, to_token, exchange=None, params={}):
             "sourceAsset": from_token_addr,
             "destinationAsset": to_token_addr,
             "minFillPercent": min_fill,
+            "highExecutionSlippage": True,
             "maxMarketSlippagePercent": max_mkt_slip,
             "maxExecutionSlippagePercent": max_exe_slip,
             "isOptional": False,
@@ -420,17 +422,18 @@ def try_swap(label, from_token, to_token, exchange=None, params={}, verbose=True
         return {}
 
 # get quote
-def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, verbose=False, debug=False):
+def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, params={}, verbose=False, debug=False):
     # TODO: Allow from_amount and to_amount to pass through to the request, regardless of whether from_token or to_token is ETH.
-    #  swap_inputs() is currently hardcoded to set sourceAmount to tradeSize if from_token is ETH or destinationAmount to tradeSize if to_token is ETH.
-    params = {'tradeSize': float(from_amount or to_amount)}
+    #  swap_inputs() is currently hardcoded to set sourceAmount to params['tradeSize'] if from_token is ETH or
+    #  destinationAmount to tradeSize if to_token is ETH.
+    params['tradeSize'] = float(from_amount or to_amount)
 
     sd = try_swap(dex or name(), from_token, to_token, exchange=dex, params=params, verbose=verbose, debug=debug)
 
     if sd:
         # keep consistent with exchanges_parts from other aggregators
         # TODO, this is not an order split, it is a multi-hop route
-        exchanges_parts = { dex: -1 } if dex else { tu: -1 for tu in sd['totleUsed']}
+        exchanges_parts = {dex: -1} if dex else {tu: -1 for tu in sd['totleUsed']}
         return {
             'source_token': sd['sourceToken'],
             'source_amount': sd['sourceAmount'],
@@ -476,7 +479,12 @@ def get_trades(base_asset, quote_asset, limit=None, page=None, begin=None, end=N
 
     url = TRADES_ENDPOINT + f"/{base_asset}/{quote_asset}"
     timer_start = time.time()
-    j = requests.get(url, params=query).json()
+    try:
+        r = requests.get(url, params=query)
+        j = r.json()
+    except ValueError as e:
+        print(f"get_trades raised {type(e).__name__}: {e.args[0]}\nresponse was: {r}")
+
     timer_end = time.time()
     print(f"get_trades {base_asset}/{quote_asset} {query} took {timer_end - timer_start:.1f} seconds")
 

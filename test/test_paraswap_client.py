@@ -1,4 +1,11 @@
+import exchange_utils
 import paraswap_client
+
+dexs = paraswap_client.exchanges()
+for dex_name in dexs:
+    can_name = exchange_utils.canonical_name(dex_name)
+    print(f"{can_name} => {paraswap_client.DEX_NAME_MAP[can_name]}")
+exit(0)
 
 from_token, to_token = 'ETH', 'OMG'
 from_amount, to_amount = 1.0, 200.0

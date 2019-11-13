@@ -36,6 +36,8 @@ def fee_pct():
 #
 
 # get exchanges
+DEX_NAME_MAP = {'Bancor': 'BANCOR', 'Compound': 'COMPOUND', 'Kyber': 'KYBER', 'Oasis': 'ETH2DAI', 'Uniswap': 'UNISWAP', }
+
 @functools.lru_cache()
 def exchanges():
     # there is no exchanges endpoint yet so we are just using the ones from an ETH/DAI price query
@@ -55,10 +57,8 @@ def get_pairs(quote='ETH'):
     canonical_symbols = [token_utils.canonical_symbol(t) for t in tokens_json]  # may contain None values
     return [(t, quote) for t in canonical_symbols if t]
 
-
-
 # get quote
-def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None):
+def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, verbose=False, debug=False):
     """Returns the price in terms of the from_token - i.e. how many from_tokens to purchase 1 to_token"""
     if to_amount or not from_amount: raise ValueError(f"{name()} only works with from_amount")
 
@@ -72,9 +72,13 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None):
     # Request: from ETH to DAI
     # https://paraswap.io/api/v1/prices/1/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359/10000000000000000
     req_url = f"{PRICES_ENDPOINT}/{from_addr}/{to_addr}/{token_utils.int_amount(from_amount, from_token)}"
+    if debug: print(f"REQUEST to {req_url}: (from_token={from_token}, to_token={to_token} from_amount={from_amount})\n\n")
+
     r = requests.get(req_url)
     try:
         j = r.json()
+        if debug: print(f"RESPONSE from {PRICES_ENDPOINT}:\n{json.dumps(j, indent=3)}\n\n")
+
         # Response:
         # {"priceRoute": {
         #     "amount": "1811400076272265830",
