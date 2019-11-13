@@ -94,13 +94,13 @@ def print_tokens_split_by_agg_csv(tokens_by_agg, tokens_supported_by_totle=None)
         print(f"{agg},{len(tokens_by_agg[agg])},\"{','.join(tokens_by_agg[agg])}\"")
 
     union_tokens = sorted(set(sum(tokens_by_agg.values(), [])))
-    print(f"Union,{len(union_tokens)},\"{','.join(union_tokens)}\"")
+    print(f"Splittable by any,{len(union_tokens)},\"{','.join(union_tokens)}\"")
     intersection_tokens = [token for token in union_tokens if all(map(lambda tokens: token in tokens, tokens_by_agg.values()))]
-    print(f"Intersection,{len(intersection_tokens)},\"{','.join(intersection_tokens)}\"")
+    print(f"Splittable by all,{len(intersection_tokens)},\"{','.join(intersection_tokens)}\"")
 
     if tokens_supported_by_totle:
         union_tokens = [ t for t in union_tokens if t in tokens_supported_by_totle ]
-        print(f"Union with Totle,{len(union_tokens)},\"{','.join(union_tokens)}\"")
+        print(f"Splittable by any and supported by Totle ,{len(union_tokens)},\"{','.join(union_tokens)}\"")
         intersection_tokens = [ t for t in intersection_tokens if t in tokens_supported_by_totle ]
         print(f"Intersection with Totle,{len(intersection_tokens)},\"{','.join(intersection_tokens)}\"")
 
@@ -225,11 +225,12 @@ all_dexs, all_tokens = all_dexs_and_tokens(tok_ts_dexs_with_pair, totle_tok_ts_d
 all_trade_sizes = data_import.sorted_unique_trade_sizes(tok_ts_splits_by_agg)
 # print(f"{len(all_trade_sizes)} trade_sizes: ", ', '.join(all_trade_sizes))
 
-# Print dex/token matrix in CSV form
 token_dexs = get_tokens_dexs(tok_ts_dex_prices, totle_tok_ts_dex_prices, tok_ts_dexs_with_pair)
+# Print dex/token matrix in CSV form
 # print_tokens_dex_csv(token_dexs, all_dexs)
 
 # print a list of tokens supported by each exchange
+print(f"\n\nList of tokens supported by each exchange")
 for dex in all_dexs:
     supported_tokens = [t for t in token_dexs if dex in token_dexs[t]]
     print(f"{dex},{len(supported_tokens)},\"{','.join(supported_tokens)}\"" )
@@ -251,16 +252,16 @@ TOTLE_56 = ['ANT','AST','BAT','BMC','BNT','CDAI','CDT','CETH','CND','CUSDC','CVC
 
 # print(f"Totle tokens not priced (in TOTLE_56): {set(tok_ts_dexs_with_pair.keys()) - set(TOTLE_56)}")
 
-print("\n\n")
-print_token_constants(tok_ts_splits_by_agg, TOTLE_56)
+# print(f"\n\nConstants useful for selecting per-DEX token pairs")
+# print_token_constants(tok_ts_splits_by_agg, TOTLE_56)
 
 ACTIVE_TOTLE_DEXS = ['Ether Delta', 'Kyber', 'Bancor', 'Oasis', 'Uniswap', 'Compound', '0xMesh']
 
-print(f"\n\nTokens supported by Totle by number of DEXs active on Totle: ({len(TOTLE_56)} tokens)")
-print_tokens_num_dexs_csv(token_dexs, supported_tokens=TOTLE_56, supported_dexs=ACTIVE_TOTLE_DEXS)
-
-print(f"\n\nTokens supported by Totle by number of DEXs: ({len(TOTLE_56)} tokens)")
-print_tokens_num_dexs_csv(token_dexs, supported_tokens=TOTLE_56)
+# print(f"\n\nTokens supported by Totle by number of DEXs active on Totle: ({len(TOTLE_56)} tokens)")
+# print_tokens_num_dexs_csv(token_dexs, supported_tokens=TOTLE_56, supported_dexs=ACTIVE_TOTLE_DEXS)
+#
+# print(f"\n\nTokens supported by Totle by number of DEXs: ({len(TOTLE_56)} tokens)")
+# print_tokens_num_dexs_csv(token_dexs, supported_tokens=TOTLE_56)
 
 # print("\n\nCount of DEXs used to split each token")
 # print(json.dumps(token_splits_dex_counts(tok_ts_splits_by_agg), indent=3))
@@ -281,12 +282,12 @@ TOTLE_39 = ['ANT','AST','BAT','BNT','CDT','CND','CVC','DAI','ENG','ENJ','ETHOS',
 print("\n\nSplit percentage by token")
 # print_split_pcts_by_token_csv(tok_ts_splits_by_agg, all_trade_sizes)
 for token in ['ENJ', 'MKR']:
-    print(f"\n\n\n{token} (all)")
+    print(f"\n{token} (all)")
     print_split_pcts_by_token_csv(tok_ts_splits_by_agg, all_trade_sizes, only_token=token)
     for agg in [ONE_INCH, DEX_AG, PARASWAP]:
-        print(f"\n{token} ({agg} only)")
+        print(f"{token} ({agg} only)")
         print_split_pcts_by_token_csv(tok_ts_splits_by_agg, all_trade_sizes, only_token=token, only_agg=agg)
-
+exit(0)
 
 # print("\n\nTokens and aggregators providing quotes")
 # aggs_quoted = token_aggs_quoting(tok_ts_agg_prices)

@@ -1,4 +1,4 @@
-import json
+import os
 from collections import defaultdict
 import concurrent.futures
 
@@ -47,6 +47,9 @@ def compare_totle_and_aggs(agg_clients, base, quote, trade_size):
 
 ########################################################################################################################
 # main
+
+working_dir = os.path.dirname(__file__)
+if working_dir: os.chdir(working_dir)
 
 quote='ETH'
 order_type = 'buy'

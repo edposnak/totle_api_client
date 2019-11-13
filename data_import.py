@@ -2,6 +2,7 @@
 import functools
 import glob
 import os
+import sys
 from datetime import datetime
 from collections import defaultdict
 import csv
@@ -14,8 +15,10 @@ import v2_client
 
 import exchange_utils
 
+CSV_DATA_DIR = f"{os.path.dirname(os.path.abspath(__file__))}/outputs"
+
 @functools.lru_cache()
-def parse_csv_files(csv_files, only_tokens=None, only_splits=False, only_non_splits=False):
+def parse_csv_files(csv_files, only_splits=False, only_non_splits=False):
     """Returns 2 dicts containing pct savings and prices/split data both having the form
     token: { trade_size:  {exchange: [sample, sample, ...], ...}"""
 
@@ -33,7 +36,7 @@ def parse_csv_files(csv_files, only_tokens=None, only_splits=False, only_non_spl
                     if only_splits and len(splits) < 2: continue
                     if only_non_splits and len(splits) > 1: continue
 
-                time = datetime.fromisoformat(row['time']).isoformat(' ', 'seconds')
+                # time = datetime.fromisoformat(row['time']).isoformat(' ', 'seconds')
                 token, trade_size, exchange = row['token'], row['trade_size'], row['exchange']
                 exchange_price, totle_price = float(row['exchange_price']), float(row['totle_price'])
                 pct_savings, totle_used = float(row['pct_savings']), row['totle_used']
@@ -53,10 +56,14 @@ def parse_csv_files(csv_files, only_tokens=None, only_splits=False, only_non_spl
                     continue
 
                 # get slippage and splits
+                # TODO use lowest price, maybe DEX.AG is better for this
                 if not per_file_base_prices.get(token): # this assumes prices recorded from lowest to highest for a token
                     per_file_base_prices[token] = totle_price  # should be same for all aggs, but is slightly different sometimes
 
                 slip = (totle_price / per_file_base_prices[token]) - 1.0  # should be 0 when trade_size == '0.1'
+                # i.e.
+                # slip = (totle_price - per_file_base_prices[token]) / per_file_base_prices[token]
+
                 slip = 0.0 if slip < 0.0 and slip > -0.00001 else slip # get rid of -0.0000
                 price_diff = (totle_price - exchange_price) / exchange_price
 
@@ -65,6 +72,34 @@ def parse_csv_files(csv_files, only_tokens=None, only_splits=False, only_non_spl
 
 
     return per_token_savings, slip_price_diff_splits
+
+@functools.lru_cache()
+def read_slippage_csvs(csv_files=None):
+    """Returns a dict of price_slip_cost data points, i.e. {exchange: {token: [{trade_size: slip}, {trade_size: slip}}]}} """
+    exchange_token_pscs = defaultdict(lambda: defaultdict(list))
+    csv_files = csv_files or glob.glob(f'{CSV_DATA_DIR}/*buy_slippage.csv')
+
+
+    for file in csv_files:
+        print(f"reading {file} ...")
+        f_exchange, f_token, *_ = os.path.basename(file).split('_')
+        with open(file, newline='') as csvfile:
+            reader = csv.DictReader(csvfile, fieldnames=None)
+            ts_prices = {}
+            # time,action,trade_size,token,exchange,exchange_price,slippage,cost
+            for row in reader:
+                # time = datetime.fromisoformat(row['time']).isoformat(' ', 'seconds')
+                trade_size = row['trade_size']
+                ts_prices[trade_size] = (float(row['exchange_price']), float(row['slippage']), float(row['cost']))
+
+            # only include slips that have a baseline quote at 0.1 ETH
+            if '0.1' in ts_prices:
+                exchange_token_pscs[f_exchange][f_token].append(ts_prices)
+            else: # slippage was based off of higher trade_size trades
+                print(f"{file}: does not have baseline price for trade_size of 0.1 ETH")
+
+    return exchange_token_pscs
+
 
 # generator
 def pct_savings_gen(per_token_savings):
@@ -187,6 +222,6 @@ def tokens_split_pct(tok_ts_splits_by_agg, only_token=None, only_agg=None):
         if only_agg and agg != only_agg: continue
         n_samples[token][trade_size] += 1
         if len(split) > 1: n_splits[token][trade_size] += 1
-        if len(split) > 1: print(f"{token} {trade_size}: {split}")
+        # if len(split) > 1: print(f"{token} {trade_size}: {split}")
         result[token][trade_size] = (100.0 * n_splits[token][trade_size]) / n_samples[token][trade_size]
     return result
