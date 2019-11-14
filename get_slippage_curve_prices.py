@@ -77,6 +77,7 @@ TOKENS_MAXTS_DEXS = {
     'ENJ': (100.0, ['0xMesh', 'Bancor', 'Uniswap', 'Ether Delta', 'Kyber']),
     'KNC': (60.0, ['0xMesh', 'Bancor', 'Uniswap', 'Ether Delta', 'Kyber']),
     'MKR': (1000.0, ['0xMesh', 'Oasis', 'Bancor', 'Uniswap', 'Kyber']),
+    'OMG': (500.0, ['0xMesh', 'Bancor', 'Uniswap', 'Kyber']),
     'TUSD': (400.0, ['Uniswap', 'Ether Delta', 'Kyber']),
     'USDC': (800.0, ['0xMesh', 'Uniswap', 'Kyber']),
     'ZRX': (100.0, ['0xMesh', 'Uniswap', 'Ether Delta', 'Kyber']),
