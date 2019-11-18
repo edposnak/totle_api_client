@@ -72,12 +72,12 @@ TOKENS = STABLE_COINS + NETWORK_COINS
 # {'DAI': 1000.0, 'ENJ': 100.0, 'KNC': 60.0, 'ZRX': 100.0, 'BAT': 500.0, 'MKR': 1000.0, 'TUSD': 400.0, 'USDC': 800.0}
 
 TOKENS_MAXTS_DEXS = {
-    'BAT': (1000.0, ['0xMesh', 'Bancor', 'Uniswap', 'Kyber']),
+    'BAT': (1000.0, ['0xMesh', 'Bancor', 'Uniswap', 'Kyber', 'Radar Relay']),
     'DAI': (1000.0, ['0xMesh', 'Oasis', 'Bancor', 'Uniswap', 'Ether Delta', 'Kyber']),
     'ENJ': (100.0, ['0xMesh', 'Bancor', 'Uniswap', 'Ether Delta', 'Kyber']),
     'KNC': (60.0, ['0xMesh', 'Bancor', 'Uniswap', 'Ether Delta', 'Kyber']),
     'MKR': (1000.0, ['0xMesh', 'Oasis', 'Bancor', 'Uniswap', 'Kyber']),
-    'OMG': (500.0, ['0xMesh', 'Bancor', 'Uniswap', 'Kyber']),
+    'OMG': (500.0, ['0xMesh', 'Bancor', 'Kyber']),
     'TUSD': (400.0, ['Uniswap', 'Ether Delta', 'Kyber']),
     'USDC': (800.0, ['0xMesh', 'Uniswap', 'Kyber']),
     'ZRX': (100.0, ['0xMesh', 'Uniswap', 'Ether Delta', 'Kyber']),
@@ -113,8 +113,8 @@ def do_dex_token_on_agg(client, dex, to_token, trade_sizes, from_token='ETH', or
                 num_prices+= 1
                 price = pq['price']
                 base_price = base_price or price
-                slippage = (price - base_price) / base_price
-                cost = trade_size * slippage
+                slippage = (price - base_price) / base_price # slippage in pct of base price
+                cost = trade_size * slippage # cost in ETH, i.e. trade size * pct price increase
 
                 csv_writer.writerow({'time': datetime.now().isoformat(), 'action': order_type,
                                      'trade_size': trade_size, 'token': to_token, 'exchange': dex,
