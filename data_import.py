@@ -75,30 +75,23 @@ def parse_csv_files(csv_files, only_splits=False, only_non_splits=False):
 
 @functools.lru_cache()
 def read_slippage_csvs(csv_files=None):
-    """Returns a dict of price_slip_cost data points, i.e. {exchange: {token: [{trade_size: slip}, {trade_size: slip}}]}} """
-    exchange_token_pscs = defaultdict(lambda: defaultdict(list))
+    """Returns a dict of price_slip_cost data points, i.e. {token: {trade_size: {exchange: [ (psc), (psc) ] }}}"""
     csv_files = csv_files or glob.glob(f'{CSV_DATA_DIR}/*buy_slippage.csv')
 
+    tok_ts_ex_pscs = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
 
     for file in csv_files:
         print(f"reading {file} ...")
         f_exchange, f_token, *_ = os.path.basename(file).split('_')
         with open(file, newline='') as csvfile:
             reader = csv.DictReader(csvfile, fieldnames=None)
-            ts_prices = {}
             # time,action,trade_size,token,exchange,exchange_price,slippage,cost
             for row in reader:
                 # time = datetime.fromisoformat(row['time']).isoformat(' ', 'seconds')
                 trade_size = row['trade_size']
-                ts_prices[trade_size] = (float(row['exchange_price']), float(row['slippage']), float(row['cost']))
+                tok_ts_ex_pscs[f_token][trade_size][f_exchange].append( (float(row['exchange_price']), float(row['slippage']), float(row['cost'])) )
 
-            # only include slips that have a baseline quote at 0.1 ETH
-            if '0.1' in ts_prices:
-                exchange_token_pscs[f_exchange][f_token].append(ts_prices)
-            else: # slippage was based off of higher trade_size trades
-                print(f"{file}: does not have baseline price for trade_size of 0.1 ETH")
-
-    return exchange_token_pscs
+    return tok_ts_ex_pscs # TODO: don't return defaultdicts, users should get key errors
 
 
 # generator
