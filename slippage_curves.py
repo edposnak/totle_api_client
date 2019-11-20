@@ -102,31 +102,21 @@ OPTIMAL_SOLUTIONS = {
 
 def enumerate_stuff(ts_ex_pscs, target_trade_sizes):
     base_price, sorted_dex_names, _ = extract(ts_ex_pscs)
-    price_matrix = get_price_matrix(ts_ex_pscs, base_price)
-    hi_res_price_matrix = get_hi_res_price_matrix(price_matrix)
+    lo_res_price_matrix = get_price_matrix(ts_ex_pscs, base_price)
+    hi_res_price_matrix = get_hi_res_price_matrix(lo_res_price_matrix)
 
     for target_trade_size in target_trade_sizes:
         print(f"\n\nBest splits for a target trade size of {target_trade_size}")
-        # enum_winner, enum_best = enumerate_solutions(target_trade_size, price_matrix, sorted_dex_names)
+        lo_res_enum_winner, lo_res_enum_best = enumerate_solutions(target_trade_size, lo_res_price_matrix, sorted_dex_names)
         print(f"\n\ncalling enumerate_solutions with hi_res_price_matrix sorted_dex_names={sorted_dex_names} target_trade_size={target_trade_size}\n\n")
         hi_res_enum_winner, hi_res_enum_best = enumerate_solutions(target_trade_size, hi_res_price_matrix, sorted_dex_names)
-
-        print(f"WINNER={hi_res_enum_winner}")
-
-        # enum_baseline = enum_best[1] or enum_best[2] or enum_best[3]
-        # compare_costs("Lo-res Enumerated solution", enum_baseline, enum_winner, price_matrix)
-        # for i in [1, 2, 3, 4, 5]:
-        #     if enum_best[i]: compare_costs(f"Lo-res Enumerated {i}=split ", enum_baseline, enum_best[i], price_matrix)
-        #
-        # compare_costs("Hi-res Enumerated solution", enum_baseline, hi_res_enum_winner, price_matrix)
-        # for i in [1, 2, 3, 4, 5]:
-        #     if hi_res_enum_best[i]: compare_costs(f"Lo-res Enumerated {i}=split ", enum_baseline, hi_res_enum_best[i], price_matrix)
-
-        # compare_costs("Hi-res vs Lo-res Enumerated solution", enum_winner, hi_res_enum_winner, price_matrix)
+        print(f"hi_res_enum_winner={hi_res_enum_winner}")
+        compare_costs(f"Hi-res vs Low-res", lo_res_enum_winner, hi_res_enum_winner, hi_res_price_matrix)
 
 
 def enumerate_solutions(target_trade_size, price_matrix, dexs, max_ways=None):
     """Evaluates solutions of the form { 'Bancor': 12, 'Kyber': 8 } """
+    price_matrix = get_hi_res_price_matrix(price_matrix)
     trade_sizes = [sts for sts in price_matrix.keys() if sts <= target_trade_size]
     max_ways = max_ways or len(dexs)
     best, winner = [{}]*(max_ways+1), None
@@ -146,9 +136,12 @@ def enumerate_solutions(target_trade_size, price_matrix, dexs, max_ways=None):
 
     return winner, best
 
+########################################################################################################################
+# optimization algorithms
+
 def run_optimization_algorithms(ts_ex_pscs, target_trade_sizes):
     base_price, sorted_dex_names, _ = extract(ts_ex_pscs)
-    price_matrix = get_hi_res_price_matrix(get_price_matrix(ts_ex_pscs, base_price))
+    price_matrix = get_price_matrix(ts_ex_pscs, base_price)
 
     for target_trade_size in target_trade_sizes:
         baseline, _ = enumerate_solutions(target_trade_size, price_matrix, sorted_dex_names, max_ways=1)
@@ -203,7 +196,7 @@ def branch_and_bound_solutions(target_trade_size, price_matrix, dexs, precision=
                 best_for_ex = new_candidate
 
         if is_better(best_for_ex, best_new_candidate, price_matrix):
-            print(f"new best: {best_for_ex}")
+            # print(f"new best: {best_for_ex}")
             best_new_candidate = best_for_ex
 
     return best_new_candidate
@@ -308,6 +301,8 @@ def greedy_alg(target_trade_size, price_matrix, dexs, steps):
         # print(f"allocated={sum(candidate.values())} best_dex={best_dex}, best_cost={best_cost} next_step_size={next_step_size} candidate={dict(candidate)}")
     return dict(candidate)
 
+########################################################################################################################
+# utility methods
 def is_better(candidate, best_candidate, price_matrix):
     """Returns True of the best_candidate is falsey or the price of candidate is lower than best_candidate"""
     if not best_candidate: return True
@@ -381,88 +376,36 @@ def first_slippage_cost(pscs, trade_size, base_price):
 
 
 ########################################################################################################################
-# main
 
-CSV_FILES = [
+CSV_FILES = (
     'outputs/Bancor_BAT_2019-11-15_14:00:00_DEX.AG_buy_slippage.csv',
     'outputs/Kyber_BAT_2019-11-15_14:00:00_DEX.AG_buy_slippage.csv',
     'outputs/Radar Relay_BAT_2019-11-15_14:00:14_DEX.AG_buy_slippage.csv',
     'outputs/Uniswap_BAT_2019-11-15_14:00:00_DEX.AG_buy_slippage.csv',
     'outputs/0xMesh_BAT_2019-11-15_14:00:00_Totle_buy_slippage.csv',
-]
+)
+
+def main():
+    csv_files = tuple(sys.argv[1:])
+    if len(csv_files) < 1:
+        csv_files = CSV_FILES
+    else:
+        print(f"processing {len(csv_files)} CSV files ...")
+
+    tok_ts_ex_pscs = data_import.read_slippage_csvs(csv_files)
+    # print_dex_cost_comparison_csv(tok_ts_ex_pscs)
+    # print_dex_price_comparison_csv(tok_ts_ex_pscs)
+
+    # for token in tok_ts_ex_pscs:
+    token = list(tok_ts_ex_pscs.keys())[0]
+    ts_ex_pscs = tok_ts_ex_pscs[token]
+    base_price, sorted_dex_names, sorted_float_trade_sizes = extract(ts_ex_pscs)
+    price_matrix = get_price_matrix(ts_ex_pscs, base_price)
+
+    # enumerate_stuff(tok_ts_ex_pscs[token], [20.0])
+    run_optimization_algorithms(tok_ts_ex_pscs[token], OPTIMAL_SOLUTIONS.keys())
 
 
-csv_files = tuple(sys.argv[1:])
-if len(csv_files) < 1:
-    csv_files = tuple(CSV_FILES)
-else:
-    print(f"processing {len(csv_files)} CSV files ...")
-
-tok_ts_ex_pscs = data_import.read_slippage_csvs(csv_files)
-# print_dex_cost_comparison_csv(tok_ts_ex_pscs)
-# print_dex_price_comparison_csv(tok_ts_ex_pscs)
-
-# for token in tok_ts_ex_pscs:
-token = list(tok_ts_ex_pscs.keys())[0]
-ts_ex_pscs = tok_ts_ex_pscs[token]
-base_price, sorted_dex_names, sorted_float_trade_sizes = extract(ts_ex_pscs)
-price_matrix = get_price_matrix(ts_ex_pscs, base_price)
-
-
-# TODO: move to test_slippage_curves
-#
-# solutions_at_ts_30 = [
-#     {'0xMesh': 5, 'Bancor': 1.3, 'Kyber': 20, 'Radar Relay': 0.7, 'Uniswap': 3}         # hi-res enum
-#     {'0xMesh': 5.0, 'Bancor': 1.0, 'Kyber': 20.0, 'Radar Relay': 1.0, 'Uniswap': 3.0},  # enum (31.15%)
-#     {'0xMesh': 7.0, 'Bancor': 2.0, 'Kyber': 8.0, 'Radar Relay': 9.0, 'Uniswap': 4.0},   # greedy 30 steps (22.85%)
-#     {'0xMesh': 6.0, 'Bancor': 1.5, 'Kyber': 8.0, 'Radar Relay': 10.0, 'Uniswap': 4.5},  # greedy 60 steps
-#     {'0xMesh': 5.0, 'Bancor': 0.0, 'Kyber': 20.0, 'Radar Relay': 0.0, 'Uniswap': 5.0}   # greedy 6 steps (27.98%)
-#     {'0xMesh': 4.2857, 'Bancor': 0.0, 'Kyber': 17.142900000000004, 'Radar Relay': 4.2857, 'Uniswap': 4.2857} greedy 7 steps (27.90%)
-#     {'0xMesh': 3.75, 'Bancor': 0.0, 'Kyber': 18.75, 'Radar Relay': 3.75, 'Uniswap': 3.75} # greedy 8 steps (27.94%)
-#     {'0xMesh': 6.6666, 'Bancor': 0.0, 'Kyber': 19.9998, 'Radar Relay': 0.0, 'Uniswap': 3.3335999999999992} # greedy 9 steps (28.59%)
-#     {'0xMesh': 6.0, 'Bancor': 0.0, 'Kyber': 18.0, 'Radar Relay': 3.0, 'Uniswap': 3.0} # greedy 10 steps (28.47%)
-#     {'0xMesh': 5.4546, 'Bancor': 0.0, 'Kyber': 19.0911, 'Radar Relay': 2.7270000000000003, 'Uniswap': 2.7273} # greedy 11 steps (28.76%)
-#     {'0xMesh': 5.0, 'Bancor': 2.5, 'Kyber': 20.0, 'Radar Relay': 0.0, 'Uniswap': 2.5}  # greedy 12 steps (29.41%)
-#     {'0xMesh': 5.0001, 'Bancor': 1.6667, 'Kyber': 19.9998, 'Uniswap': 3.3334,  }            # greedy 18 steps (31.23%)
-#     {'0xMesh': 6.0, 'Bancor': 1.5, 'Kyber': 17.0, 'Radar Relay': 1.0, 'Uniswap': 4.5},  # wtf?
-#     {'0xMesh': 5.0, 'Bancor': 1.0, 'Kyber': 19.0, 'Radar Relay': 1.0, 'Uniswap': 4.0},
-#     ]
-
-# 0xMesh at exceeded Kyber price at 1.6000000000000003 / 8.4
-# Radar Relay at exceeded Kyber price at 0.1 / 9.9
-# Uniswap at exceeded Kyber price at 3.3000000000000016 / 6.699999999999998
-# Bancor at exceeded Kyber price at 0.2 / 9.8
-# solutions = [
-#     {'Kyber': 10.0}, # Baseline
-#     {'0xMesh': 0.5, 'Bancor': 0.5, 'Kyber': 7.0, 'Uniswap': 2.0}, # Enumerated solution: (25.34%)
-#     {'0xMesh': 0.5, 'Bancor': 0.5, 'Kyber': 7.3, 'Uniswap': 1.7}, #
-#     {'0xMesh': 0.5, 'Bancor': 0.5, 'Kyber': 7.4, 'Uniswap': 1.6}, #
-#     {'0xMesh': 0.5, 'Bancor': 0.5, 'Kyber': 7.5, 'Uniswap': 1.5}, #
-#     {'0xMesh': 0.5, 'Bancor': 0.5, 'Kyber': 7.6, 'Uniswap': 1.4}, #
-#     {'0xMesh': 0.5, 'Bancor': 0.5, 'Kyber': 7.7, 'Uniswap': 1.3}, #
-#     {'0xMesh': 0.5, 'Bancor': 0.5, 'Kyber': 7.8, 'Uniswap': 1.2}, #
-#     {'0xMesh': 0.5, 'Bancor': 0.5, 'Kyber': 7.9, 'Uniswap': 1.1}, #
-#
-#     {'Kyber': 6.0, 'Uniswap': 4.0},  #
-#     {'Kyber': 6.1, 'Uniswap': 3.9},  #
-#     {'Kyber': 6.2, 'Uniswap': 3.8},  #
-#     {'Kyber': 6.3, 'Uniswap': 3.7},  #
-#     {'Kyber': 6.7, 'Uniswap': 3.3},  #
-#     {'Kyber': 7.1, 'Uniswap': 2.9},  #
-#     {'Kyber': 7.5, 'Uniswap': 2.5},  #
-#     {'Kyber': 7.9, 'Uniswap': 2.1},  #
-#     {'Kyber': 8.0, 'Uniswap': 2.0},  #
-#     {'Kyber': 8.1, 'Uniswap': 1.9},  #
-#     {'Kyber': 8.2, 'Uniswap': 1.8},  #
-#     {'Kyber': 8.3, 'Uniswap': 1.7},  #
-# ]
-#
-# for solution in solutions:
-#     cost = solution_cost(solution, price_matrix)
-#     print(f"{cost}: \t{solution} ")
-
-# enumerate_stuff(tok_ts_ex_pscs[token], [20.0])
-run_optimization_algorithms(tok_ts_ex_pscs[token], OPTIMAL_SOLUTIONS.keys())
-# run_optimization_algorithms(tok_ts_ex_pscs[token], [5, 10, 15] )
-
+if __name__ == "__main__":
+    main()
 
