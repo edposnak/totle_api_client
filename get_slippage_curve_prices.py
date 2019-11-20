@@ -1,12 +1,10 @@
+import json
 import os
 import csv
 import concurrent.futures
 from datetime import datetime
+from collections import defaultdict
 
-import dexag_client
-import exchange_utils
-import oneinch_client
-import paraswap_client
 import v2_client
 from v2_compare_prices import savings_data, print_savings, get_filename_base, SavingsCSV
 
@@ -56,6 +54,13 @@ STABLE_COINS = ['DAI','USDC','TUSD']
 NETWORK_COINS = ['MKR', 'BAT', 'ZRX', 'KNC', 'ENJ']
 TOKENS = STABLE_COINS + NETWORK_COINS
 
+# These are the tokens with the most cost to Totle due to splitting by other aggregators, which are splittable on
+# at least 2 Totle-integrated DEXs
+# We want to compare Totle's hypothetical split price to the prices that DEXs get for these tokens
+
+WORST_TOKENS=['RDN','GNO','MANA','RCN','POWR','POE','REP','REQ','SNT','RLC','OMG','BAT','ENJ','KNC','REN']
+
+
 # TOKENS_MAXTS_DEXS = {
 #     'DAI': (500.0, ['0xMesh', 'Oasis', 'Bancor', 'Uniswap', 'Ether Delta', 'Kyber']),
 #     'USDC': (500.0, ['0xMesh', 'Uniswap', 'Kyber']),
@@ -83,12 +88,123 @@ TOKENS_MAXTS_DEXS = {
     'ZRX': (100.0, ['0xMesh', 'Uniswap', 'Ether Delta', 'Kyber']),
 }
 
+TOKENS_DEX_MAX_TS = {
+   "RDN": {
+      "0xMesh": 1.0,
+      "Bancor": 40.0,
+      "Uniswap": 20.0,
+      "Ether Delta": 1000.0,
+      "Kyber": 5.0
+   },
+   "GNO": {
+      "0xMesh": 20.0,
+      "Bancor": 80.0,
+      "Uniswap": 100.0,
+      "Ether Delta": 3.0
+   },
+   "MANA": {
+      "0xMesh": 0.1,
+      "Bancor": 80.0,
+      "Uniswap": 10.0,
+      "Kyber": 10.0
+   },
+   "RCN": {
+      "Bancor": 100.0,
+      "Uniswap": 100.0,
+      "Ether Delta": 9.0
+   },
+   "POWR": {
+      "0xMesh": 1000.0,
+      "Bancor": 60.0,
+      "Uniswap": 0.1,
+      "Ether Delta": 4.0,
+      "Kyber": 7.0
+   },
+   "POE": {
+      "Ether Delta": 3.0,
+      "Kyber": 4.0
+   },
+   "REP": {
+      "0xMesh": 0.1,
+      "Oasis": 1000.0,
+      "Uniswap": 200.0,
+      "Kyber": 20.0
+   },
+   "REQ": {
+      "Bancor": 60.0,
+      "Uniswap": 3.0,
+      "Ether Delta": 0.5,
+      "Kyber": 6.0
+   },
+   "SNT": {
+      "0xMesh": 20.0,
+      "Bancor": 30.0,
+      "Uniswap": 40.0,
+      "Ether Delta": 1000.0,
+      "Kyber": 9.0
+   },
+   "RLC": {
+      "Bancor": 50.0,
+      "Uniswap": 60.0,
+      "Ether Delta": 10.0,
+      "Kyber": 20.0
+   },
+   "OMG": {
+      "0xMesh": 300.0,
+      "Bancor": 80.0,
+      "Kyber": 8.0
+   },
+   "BAT": {
+      "0xMesh": 100.0,
+      "Oasis": 1000.0,
+      "Bancor": 200.0,
+      "Uniswap": 800.0,
+      "Kyber": 30.0
+   },
+   "ENJ": {
+      "0xMesh": 10.0,
+      "Bancor": 100.0,
+      "Uniswap": 10.0,
+      "Ether Delta": 0.5,
+      "Kyber": 40.0
+   },
+   "KNC": {
+      "0xMesh": 0.1,
+      "Bancor": 60.0,
+      "Uniswap": 30.0,
+      "Ether Delta": 1.0,
+      "Kyber": 30.0
+   },
+   "REN": {
+      "0xMesh": 1000.0,
+      "Uniswap": 5.0,
+      "Ether Delta": 0.1,
+      "Kyber": 10.0
+   }
+}
 
-AGG_CLIENTS = [dexag_client, oneinch_client, paraswap_client]
+
 
 TRADE_SIZES  = [0.1, 0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0,
                 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0,
                 100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0]
+
+TOTLE_DEXS = ['0xMesh', 'Oasis', 'Bancor', 'Uniswap', 'Ether Delta', 'Kyber']
+def get_max_trade_sizes_and_dexs(tokens, from_token='ETH'):
+    # TOKENS_MAXTS_DEXS
+    max_trade_sizes = defaultdict(lambda: defaultdict(float))
+    for to_token in tokens:
+        for dex in TOTLE_DEXS:
+            dex_name = v2_client.DEX_NAME_MAP.get(dex)
+            for trade_size in TRADE_SIZES:
+                pq = v2_client.get_quote(from_token, to_token, from_amount=trade_size, dex=dex_name)
+                if pq:
+                    max_trade_sizes[to_token][dex] = max(trade_size, max_trade_sizes[to_token][dex])
+
+    print(json.dumps(max_trade_sizes, indent=3))
+
+get_max_trade_sizes_and_dexs(WORST_TOKENS)
+exit(0)
 
 CSV_FIELD_NAMES = "time action trade_size token exchange exchange_price slippage cost".split()
 
@@ -124,22 +240,30 @@ def do_dex_token_on_agg(client, dex, to_token, trade_sizes, from_token='ETH', or
 
 
 ########################################################################################################################
-# main
-working_dir = os.path.dirname(__file__)
-if working_dir: os.chdir(working_dir)
+def main():
+    working_dir = os.path.dirname(__file__)
+    if working_dir: os.chdir(working_dir)
 
-todo = []
-for to_token, (max_ts, dexs) in TOKENS_MAXTS_DEXS.items():
-    trade_sizes = [ t for t in TRADE_SIZES if t <= max_ts ]
-    for dex in dexs:
-        for client in [v2_client, dexag_client]:
-            todo.append((do_dex_token_on_agg, client, dex, to_token, trade_sizes))
+    todo = []
 
-MAX_THREADS = 8
-with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
-    futures_p = { executor.submit(*p): p for p in todo }
+    for to_token, dex_max_ts in TOKENS_DEX_MAX_TS:
+        for dex, max_ts in dex_max_ts:
+            trade_sizes = [t for t in TRADE_SIZES if t <= max_ts]
+            todo.append((do_dex_token_on_agg, v2_client, dex, to_token, trade_sizes))
 
-for f in concurrent.futures.as_completed(futures_p):
-    _, _, dex, token, trade_sizes = futures_p[f]
-    print(f"{dex} {token} -> {f.result()}")
+    # for to_token, (max_ts, dexs) in TOKENS_MAXTS_DEXS.items():
+    #     trade_sizes = [ t for t in TRADE_SIZES if t <= max_ts ]
+    #     for dex in dexs:
+    #         todo.append((do_dex_token_on_agg, v2_client, dex, to_token, trade_sizes))
+
+    MAX_THREADS = 8
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
+        futures_p = { executor.submit(*p): p for p in todo }
+
+    for f in concurrent.futures.as_completed(futures_p):
+        _, _, dex, token, trade_sizes = futures_p[f]
+        print(f"{dex} {token} -> {f.result()}")
+
+if __name__ == "__main__":
+    main()
 
