@@ -315,7 +315,7 @@ def post_with_retries(endpoint, inputs, num_retries=3, debug=False, timer=False)
 # Default parameters for swap. These can be overridden by passing params
 DEFAULT_WALLET_ADDRESS = "0xD18CEC4907b50f4eDa4a197a50b619741E921B4D"
 DEFAULT_TRADE_SIZE = 1.0 # the amount of ETH to spend or acquire, used to calculate amount
-DEFAULT_MAX_SLIPPAGE_PERCENT = 30
+DEFAULT_MAX_SLIPPAGE_PERCENT = 50
 DEFAULT_MIN_FILL_PERCENT = 80
 DEFAULT_CONFIG = {
     "transactions": False, # just get the prices
@@ -388,9 +388,8 @@ def handle_swap_exception(e, dex, from_token, to_token, params, verbose=True):
 
     else: # print req/resp for uncommon failures
         print(f"{dex}: swap raised {type(e).__name__}: {e.args[0]}")
-        if verbose:
-            if has_args1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
-            if has_args2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
+        if has_args1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
+        if has_args2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
 
 def try_swap(label, from_token, to_token, exchange=None, params={}, verbose=True, debug=False):
     """calls swap endpoint Returns the result as a swap_data dict, {} if the call failed"""
