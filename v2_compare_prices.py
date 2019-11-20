@@ -217,9 +217,9 @@ def get_filename_base(dir='outputs', prefix=None, suffix=None):
 
 
 class SavingsCSV():
-    def __init__(self, filename):
+    def __init__(self, filename, fieldnames=CSV_FIELDS):
         self.filename = filename if filename.endswith('.csv') else filename + '.csv'
-        self.fieldnames = CSV_FIELDS
+        self.fieldnames = fieldnames
 
     def __enter__(self):
         self.csvfile = open(self.filename, 'w', newline='') 
