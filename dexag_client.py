@@ -61,7 +61,7 @@ def supported_tokens():
 
 # get quote
 AG_DEX = 'ag'
-def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=AG_DEX, verbose=False, debug=False):
+def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='all', verbose=False, debug=False):
     """Returns the price in terms of the from_token - i.e. how many from_tokens to purchase 1 to_token"""
 
     for t in [from_token, to_token]:
@@ -94,13 +94,11 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=AG_DEX
             for dex_data in j:
                 dex, dexag_price = dex_data['dex'], float(dex_data['price'])
                 check_pair(dex_data, query, dex=dex)
-                exchanges_prices[dex] = 1 / dexag_price
+                exchanges_prices[dex] = 1 / dexag_price if from_amount else dexag_price
                 if dex == AG_DEX: ag_data = dex_data
         else:
             ag_data = j
-
-        # sanity check that asserts base == from and quote == to, but the base and quote actually don't matter.
-        check_pair(ag_data, query)
+            check_pair(ag_data, query, dex=AG_DEX)
 
         # BUG? DEX.AG price is not a simple function of base and quote. It changes base on whether you specify toAmount
         # or fromAmount even though base and quote stay the same! So it has nothing to do with base and quote.
@@ -110,12 +108,17 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=AG_DEX
         # https://api.dex.ag/price?from=DAI&to=ETH&toAmount=1.5&dex=ag -> price: 180       <- sell (OK)
         # https://api.dex.ag/price?from=DAI&to=ETH&fromAmount=1.5&dex=ag -> price: 0.0055  <- sell (inverted)
 
-        # We always want to return price in terms of how many from_tokens for 1 to_token, which means we need to
-        # invert DEX.AG's price whenever fromAmount is specified
-        dexag_price = float(ag_data['price']) # number of to_tokens for 1 from_token
-        price = 1 / dexag_price if 'fromAmount' in query else dexag_price
+        dexag_price = float(ag_data['price'])
+        if debug: print(f"dexag_price={dexag_price}")
 
-        source_amount, destination_amount = (from_amount, from_amount * dexag_price) if from_amount else (to_amount * dexag_price, to_amount)
+        # We always want to return price in terms of how many from_tokens for 1 to_token, which means we need to
+        # invert DEX.AG's price whenever from_amount is specified.
+        if from_amount: # When from_amount is specified, dexag_price is the amount of to_tokens per 1 from_token.
+            source_amount, destination_amount = (from_amount, from_amount * dexag_price)
+            price = 1 / dexag_price
+        else: # When to_amount is specified, price is the amount of from_tokens per 1 to_token.
+            source_amount, destination_amount = (to_amount * dexag_price, to_amount)
+            price = dexag_price
 
         # "liquidity": {"uniswap": 38, "bancor": 62}, ...
         exchanges_parts = ag_data['liquidity'] if ag_data.get('liquidity') else {}
@@ -136,6 +139,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=AG_DEX
 
 
 def check_pair(ag_data, query, dex=AG_DEX):
+    """sanity check that asserts base == from and quote == to, but the base and quote actually don't matter in how the price is quoted"""
     pair = ag_data['pair']
     if (pair['base'], pair['quote']) != (query['from'], query['to']):
         raise ValueError(f"unexpected base,quote: dex={dex} pair={pair} but query={query}")
