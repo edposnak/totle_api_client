@@ -4,6 +4,7 @@ import functools
 # It must be maintained manually based on the strings returned by the various APIs
 
 SYM_TO_NAME = {
+   '0x': '0xMesh',
    '0x relays': '0xMesh',
    '0xmesh': '0xMesh',
    '0x mesh': '0xMesh',
@@ -59,13 +60,17 @@ def canonical_names(dex_names):
     return [ canonical_name(d) for d in dex_names ]
 
 def canonical_keys(dex_dict):
-    """Converts a dict with dex names as keys into one with canonical names as keys"""
+    """Returns a dict with canonical dex names as keys by translating the given keys"""
     r = { canonical_name(d): v for d, v in dex_dict.items() }
     # if the keys include e.g. 'Eth2dai' and 'Oasis' the result will be shorter so we catch that here
     if len(r) != len(dex_dict):
         raise ValueError(f"dict contains conflicting keys: {dex_dict.keys()}")
     return r
 
+def canonical_and_splittable(dex_dict):
+    # these DEXs are never going to be used in splits
+    EXCLUDE_DEXS = ['ag', 'IDEX', 'DDEX', 'Ethfinex', 'Paradex']
+    canonical_keys(dex_dict)
 
 ########################################################################################################################
 # To generate the SYM_TO_NAME map
