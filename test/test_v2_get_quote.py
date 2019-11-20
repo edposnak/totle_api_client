@@ -22,6 +22,10 @@ def test_get_quote(base, trade_sizes, quote='ETH', dex=None, verbose=True, debug
 # # EtherDelta bug
 # for base in [ 'AST','CDT','CND','CVC','ETHOS','GNO','LEND','POLY','POWR','REQ','STORJ' ]:
 #     test_get_quote(base, [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0], dex='EtherDelta', debug=False)
+
+# for base in ['MANA','REP','KNC']:
+#     test_get_quote(base, [0.1, 0.5, 1.0, 2.0, 3.0], dex='0xMesh', debug=False)
+
 #
 # test_get_quote('USDC', [100.0, 200.0, 300.0, 400.0, 500.0])
 #
