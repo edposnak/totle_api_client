@@ -18,57 +18,75 @@ import exchange_utils
 CSV_DATA_DIR = f"{os.path.dirname(os.path.abspath(__file__))}/outputs"
 
 @functools.lru_cache()
-def parse_csv_files(csv_files, only_splits=False, only_non_splits=False):
+def csv_row_gen(file, only_splits=False, only_non_splits=False):
+    print(f"\n\nDoing {file} ...")
+    with open(file, newline='') as csvfile:
+        reader = csv.DictReader(csvfile, fieldnames=None)
+
+        for row in reader:
+            if not row.get('splits'): print(f"WARNING no splits for row in {file}")
+            splits_val = row.get('splits') or '{}'
+            splits = exchange_utils.canonical_keys(eval(splits_val))
+            if only_splits and len(splits) < 2: continue
+            if only_non_splits and len(splits) > 1: continue
+
+            time, action = datetime.fromisoformat(row['time']).isoformat(' ', 'seconds'), row['action']
+            token, trade_size = row['token'], row['trade_size']
+            exchange, exchange_price = row['exchange'], float(row['exchange_price'])
+            totle_used, totle_price, pct_savings = row['totle_used'], float(row['totle_price']), float(row['pct_savings']),
+            ex_prices = row.get('ex_prices')
+
+            # Exclude suspicious data
+            # if (exchange, token) in  [('DEX.AG', 'ETHOS')]:
+            #     # print(f"Excluding data for {token} on {exchange}")
+            #     print(f"Excluding {row}")
+            #     continue
+            # if trade_size in ['0.1', '0.5'] and token == 'ZRX' and exchange == '1-Inch':
+            if exchange == '1-Inch' and token == 'ZRX' and trade_size in ['0.1', '0.5'] and pct_savings < -1.0:
+                # print(f"{time} {token} {trade_size} {pct_savings:.2f}% savings: {exchange} price={exchange_price} using {splits} Totle price={totle_price} using {totle_used} ")
+                continue
+
+            if pct_savings > 10.0 or (len(splits) < 1 and pct_savings < -5.0) or (
+                    float(trade_size) < 1 and pct_savings < -5.0):
+                # print(f"{time} {token} {trade_size} {pct_savings:.2f}% savings: {exchange} price={exchange_price} using {splits} Totle price={totle_price} using {totle_used} ")
+                continue
+
+            yield time, action, trade_size, token, exchange, exchange_price, totle_used, totle_price, pct_savings, splits, ex_prices
+
+
+@functools.lru_cache()
+def read_agg_split_csvs(csv_files, **kwargs):
+    for file in csv_files:
+        per_file_base_prices = {}
+        for time, action, trade_size, token, exchange, exchange_price, totle_used, totle_price, pct_savings, splits, ex_prices in csv_row_gen(file, **kwargs):
+            print(time, action, trade_size, token, exchange, exchange_price, totle_used, totle_price, pct_savings, splits)
+
+    return per_file_base_prices
+
+@functools.lru_cache()
+def parse_csv_files(csv_files, **kwargs):
     """Returns 2 dicts containing pct savings and prices/split data both having the form
-    token: { trade_size:  {exchange: [sample, sample, ...], ...}"""
+    token: { trade_size:  {exchange: [sample, sample, ...], ...}
+    kwargs have these defaults: only_splits=False, only_non_splits=False
+    """
 
     per_token_savings = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
     slip_price_diff_splits = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
 
-
     for file in csv_files:
-        with open(file, newline='') as csvfile:
-            per_file_base_prices = {}
-            reader = csv.DictReader(csvfile, fieldnames=None)
-            for row in reader:
-                if row.get('splits'):
-                    splits = exchange_utils.canonical_keys(eval(row['splits']))
-                    if only_splits and len(splits) < 2: continue
-                    if only_non_splits and len(splits) > 1: continue
+        per_file_base_prices = {}
+        for _, _, trade_size, token, exchange, exchange_price, _, totle_price, pct_savings, splits, _ in csv_row_gen(file, **kwargs):
+            if not per_file_base_prices.get(token): # this assumes prices recorded from lowest to highest for a token
+                per_file_base_prices[token] = totle_price  # should be same for all aggs, but is slightly different sometimes
 
-                # time = datetime.fromisoformat(row['time']).isoformat(' ', 'seconds')
-                token, trade_size, exchange = row['token'], row['trade_size'], row['exchange']
-                exchange_price, totle_price = float(row['exchange_price']), float(row['totle_price'])
-                pct_savings, totle_used = float(row['pct_savings']), row['totle_used']
+            slip = (totle_price / per_file_base_prices[token]) - 1.0  # should be 0 for the lowest trade_size
+            # i.e. slip = (totle_price - per_file_base_prices[token]) / per_file_base_prices[token]
 
-                # Exclude suspicious data
-                # if (exchange, token) in  [('DEX.AG', 'ETHOS')]:
-                #     # print(f"Excluding data for {token} on {exchange}")
-                #     print(f"Excluding {row}")
-                #     continue
-                # if trade_size in ['0.1', '0.5'] and token == 'ZRX' and exchange == '1-Inch':
-                if exchange == '1-Inch' and token == 'ZRX' and trade_size in ['0.1', '0.5'] and pct_savings < -1.0:
-                    # print(f"{time} {token} {trade_size} {pct_savings:.2f}% savings: {exchange} price={exchange_price} using {splits} Totle price={totle_price} using {totle_used} ")
-                    continue
+            slip = 0.0 if slip < 0.0 and slip > -0.00001 else slip # get rid of -0.0000
+            price_diff = (totle_price - exchange_price) / exchange_price
 
-                if pct_savings > 10.0 or (len(splits) < 1 and pct_savings < -5.0) or (float(trade_size) < 1 and pct_savings < -5.0):
-                    # print(f"{time} {token} {trade_size} {pct_savings:.2f}% savings: {exchange} price={exchange_price} using {splits} Totle price={totle_price} using {totle_used} ")
-                    continue
-
-                # get slippage and splits
-                # TODO use lowest price, maybe DEX.AG is better for this
-                if not per_file_base_prices.get(token): # this assumes prices recorded from lowest to highest for a token
-                    per_file_base_prices[token] = totle_price  # should be same for all aggs, but is slightly different sometimes
-
-                slip = (totle_price / per_file_base_prices[token]) - 1.0  # should be 0 when trade_size == '0.1'
-                # i.e.
-                # slip = (totle_price - per_file_base_prices[token]) / per_file_base_prices[token]
-
-                slip = 0.0 if slip < 0.0 and slip > -0.00001 else slip # get rid of -0.0000
-                price_diff = (totle_price - exchange_price) / exchange_price
-
-                slip_price_diff_splits[token][trade_size][exchange].append((slip, price_diff, splits))
-                per_token_savings[token][trade_size][exchange].append(pct_savings)
+            slip_price_diff_splits[token][trade_size][exchange].append((slip, price_diff, splits))
+            per_token_savings[token][trade_size][exchange].append(pct_savings)
 
 
     return per_token_savings, slip_price_diff_splits
