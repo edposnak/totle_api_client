@@ -83,11 +83,11 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
         # {"priceRoute": {
         #     "amount": "1811400076272265830",
         #     "bestRoute": [
-        #          {"exchange": "BANCOR", "percent": "100", "srcAmount": "10000000000000000", "destAmount": "1811400076272265830"},
-        #          {"exchange": "UNISWAP", "percent": "0", "srcAmount": "0", "destAmount": "1807813865444263126"},
-        #          {"exchange": "KYBER", "percent": "0", "srcAmount": "0", "destAmount": "1804732523842902460"},
-        #          {"exchange": "ETH2DAI", "percent": "0", "srcAmount": "0", "destAmount": "1801799999999999999"},
-        #          {"exchange": "COMPOUND", "percent": "0", "srcAmount": "0", "destAmount": "0"}],
+        #          {"exchange": "BANCOR", "percent": "100", "srcAmount": "10000000000000000", "amount": "1811400076272265830"},
+        #          {"exchange": "UNISWAP", "percent": "0", "srcAmount": "0", "amount": "1807813865444263126"},
+        #          {"exchange": "KYBER", "percent": "0", "srcAmount": "0", "amount": "1804732523842902460"},
+        #          {"exchange": "ETH2DAI", "percent": "0", "srcAmount": "0", "amount": "1801799999999999999"},
+        #          {"exchange": "COMPOUND", "percent": "0", "srcAmount": "0", "amount": "0"}],
         #     "others": [ ... ] }}
 
         price_route = j.get('priceRoute')
@@ -104,13 +104,17 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
 
             price = source_amount / destination_amount
             for dd in price_route['bestRoute']:
-                dex, pct, src_amt, dest_amt = dd['exchange'], int(dd['percent']), int(dd['srcAmount']), int(dd['destAmount'])
+                dex, pct, src_amt, dest_amt = dd['exchange'], int(dd['percent']), int(dd['srcAmount']), int(dd['amount'])
                 if pct > 0:
                     exchanges_parts[dex] = pct
-                if dest_amt > 0: # a price quote with destAmount=0 is not a price quote
-                    # when price quotes have srcAmount=0 use the source_amount
-                    real_src_amt = token_utils.real_amount(src_amt, from_token) if src_amt > 0 else source_amount
-                    exchanges_prices[dex] = real_src_amt / token_utils.real_amount(dest_amt, to_token)
+
+                # Don't try to compute exchanges_prices because these amounts are wack. They add up to more than
+                # destination_amount, and are sometimes 0 even when percent > 0
+                #
+                # if dest_amt > 0: # a price quote with amount=0 is not a price quote
+                #     # when price quotes have srcAmount=0 use the source_amount
+                #     real_src_amt = token_utils.real_amount(src_amt, from_token) if src_amt > 0 else source_amount
+                #     exchanges_prices[dex] = real_src_amt / token_utils.real_amount(dest_amt, to_token)
 
             return {
                 'source_token': from_token,
@@ -119,7 +123,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
                 'destination_amount': destination_amount,
                 'price': price,
                 'exchanges_parts': exchanges_parts,
-                'exchanges_prices': exchanges_prices
+                # 'exchanges_prices': exchanges_prices
             }
 
 
