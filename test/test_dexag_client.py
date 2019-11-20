@@ -1,8 +1,6 @@
 import dexag_client
-import exchange_utils
 
-def test_get_quote(to_token, trade_sizes, from_token='ETH', dex=None, to_amount=None, verbose=True, debug=True, client=dexag_client):
-    dex = dex or dexag_client.AG_DEX
+def test_get_quote(to_token, trade_sizes, from_token='ETH', dex=dexag_client.AG_DEX, to_amount=None, verbose=True, debug=True, client=dexag_client):
     n_quotes = 0
     for trade_size in trade_sizes:
         if to_amount:
@@ -16,7 +14,6 @@ def test_get_quote(to_token, trade_sizes, from_token='ETH', dex=None, to_amount=
             # print(f"price={pq['price']} from {from_token} to {to_token}\nexchanges_prices={pq['exchanges_prices']}")
             print(pq)
     return n_quotes
-
 
 # dexs = dexag_client.exchanges()
 # for dex_name in dexs:
