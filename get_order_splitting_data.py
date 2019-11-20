@@ -37,9 +37,6 @@ TOTLE_UNPRICED_TOKENS_TO_TRY = ['ABYSS','LRC','MLN']
 
 TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0]
 
-# don't bother recording price info for these DEXs; they are never going to be used in splits
-EXCLUDE_DEXS = ['ag', 'IDEX', 'DDEX', 'Ethfinex', 'Paradex']
-
 def get_agg_data(*agg_clients, tokens=ALL_AGGS_TOKENS, trade_sizes=TRADE_SIZES, quote=QUOTE):
     filename_base = get_filename_base(dir=DATA_DIR, prefix='agg')
 
@@ -72,7 +69,7 @@ def get_agg_data(*agg_clients, tokens=ALL_AGGS_TOKENS, trade_sizes=TRADE_SIZES, 
                     agg_prices[agg_name] = pq['price']
                     if pq.get('exchanges_prices'):
                         dps = exchange_utils.canonical_keys(pq['exchanges_prices'])
-                        dex_prices[agg_name] = { d: p for d, p in dps.items() if d not in EXCLUDE_DEXS }
+                        dex_prices[agg_name] = exchange_utils.canonical_and_splittable(pq['exchanges_prices'])
 
             tok_ts_dexs_with_pair[base][trade_size] = list(dexs_with_pair)
             tok_ts_splits_by_agg[base][trade_size] = splits_by_agg
