@@ -18,23 +18,25 @@ import exchange_utils
 CSV_DATA_DIR = f"{os.path.dirname(os.path.abspath(__file__))}/outputs"
 
 @functools.lru_cache()
-def csv_row_gen(file, only_splits=False, only_non_splits=False):
+def csv_row_gen(file, string_trade_sizes=False, only_splits=False, only_non_splits=False):
     print(f"\n\nDoing {file} ...")
     with open(file, newline='') as csvfile:
         reader = csv.DictReader(csvfile, fieldnames=None)
 
         for row in reader:
             if not row.get('splits'): print(f"WARNING no splits for row in {file}")
-            splits_val = row.get('splits') or '{}'
-            splits = exchange_utils.canonical_keys(eval(splits_val))
+            splits = exchange_utils.canonical_keys(eval(row.get('splits') or '{}'))
             if only_splits and len(splits) < 2: continue
             if only_non_splits and len(splits) > 1: continue
 
             time, action = datetime.fromisoformat(row['time']).isoformat(' ', 'seconds'), row['action']
             token, trade_size = row['token'], row['trade_size']
+            if not string_trade_sizes:
+                trade_size = float(trade_size)
             exchange, exchange_price = row['exchange'], float(row['exchange_price'])
             totle_used, totle_price, pct_savings = row['totle_used'], float(row['totle_price']), float(row['pct_savings']),
-            ex_prices = row.get('ex_prices')
+            # Some older CSVs have the non-splittable dexs in the ex_prices column
+            ex_prices = exchange_utils.canonical_and_splittable(eval(row.get('ex_prices') or '{}'))
 
             # Exclude suspicious data
             # if (exchange, token) in  [('DEX.AG', 'ETHOS')]:
@@ -54,14 +56,6 @@ def csv_row_gen(file, only_splits=False, only_non_splits=False):
             yield time, action, trade_size, token, exchange, exchange_price, totle_used, totle_price, pct_savings, splits, ex_prices
 
 
-@functools.lru_cache()
-def read_agg_split_csvs(csv_files, **kwargs):
-    for file in csv_files:
-        per_file_base_prices = {}
-        for time, action, trade_size, token, exchange, exchange_price, totle_used, totle_price, pct_savings, splits, ex_prices in csv_row_gen(file, **kwargs):
-            print(time, action, trade_size, token, exchange, exchange_price, totle_used, totle_price, pct_savings, splits)
-
-    return per_file_base_prices
 
 @functools.lru_cache()
 def parse_csv_files(csv_files, **kwargs):
@@ -106,7 +100,7 @@ def read_slippage_csvs(csv_files=None):
             # time,action,trade_size,token,exchange,exchange_price,slippage,cost
             for row in reader:
                 # time = datetime.fromisoformat(row['time']).isoformat(' ', 'seconds')
-                trade_size = row['trade_size']
+                trade_size = float(row['trade_size'])
                 tok_ts_ex_pscs[f_token][trade_size][f_exchange].append( (float(row['exchange_price']), float(row['slippage']), float(row['cost'])) )
 
     return tok_ts_ex_pscs # TODO: don't return defaultdicts, users should get key errors

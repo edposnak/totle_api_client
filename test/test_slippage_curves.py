@@ -53,14 +53,36 @@ CSV_FILES = (
 )
 
 tok_ts_ex_pscs = data_import.read_slippage_csvs(CSV_FILES)
-ts_ex_pscs = tok_ts_ex_pscs[TOKEN]
-base_price, *_ = slippage_curves.extract(ts_ex_pscs)
-price_matrix = slippage_curves.get_price_matrix(ts_ex_pscs, base_price)
+base_price, *_ = slippage_curves.extract(tok_ts_ex_pscs[TOKEN])
+
+price_estimator = slippage_curves.construct_price_estimator(TOKEN, tok_ts_ex_pscs[TOKEN])
+
+for ts, ex_pscs in tok_ts_ex_pscs[TOKEN].items():
+    for ex, pscs in ex_pscs.items():
+        mx_price = slippage_curves.first_price(pscs)
+        ls_price = price_estimator.get_price(ex, ts)
+        diff = mx_price - ls_price
+        # if diff > 0.000001: print(f"{TOKEN} {ts} {ex} LS is off by {diff}  ({100.0 * diff / mx_price}%)")
+
+for trade_size, ex_nprices in price_estimator.price_matrix.items():
+    if trade_size not in [10.0, 30.0]: continue
+    print(f"\n\nTrade Size = {trade_size}")
+    for ex, nprice in ex_nprices.items():
+        matrix_price = slippage_curves.first_price(tok_ts_ex_pscs[TOKEN][trade_size][ex])
+        ls_price = price_estimator.get_price(ex, trade_size)
+        print(f"{ex} matrix price = {matrix_price}  LS price = {ls_price} base_price={base_price} ls base_price={price_estimator.base_price}")
+        print(f"{ex} matrix price - base_price = {matrix_price - base_price}  LS price - ls base_price = {ls_price - price_estimator.base_price}")
+        print(f"{ex} matrix price NORMD = {(matrix_price - base_price)/base_price}  LS price NORMD = {(ls_price - price_estimator.base_price)/price_estimator.base_price}")
+        ls_nprice = price_estimator.get_normalized_slippage_price(ex, trade_size)
+        mx_nprice = price_estimator.get_normalized_price(ex, trade_size)
+        print(f"{ex} matrix normalized price = {nprice}  LS normalized price = {ls_nprice}")
+        print(f"{ex} matrix normalized cost = {trade_size * nprice}  LS normalized cost = {trade_size * ls_nprice}")
+        print("\n")
 
 for solution in solutions_at_ts_10:
-    cost = slippage_curves.solution_cost(solution, price_matrix)
+    cost = price_estimator.solution_cost(solution)
     print(f"{cost}: \t{solution} ")
 
 for solution in solutions_at_ts_30:
-    cost = slippage_curves.solution_cost(solution, price_matrix)
+    cost = price_estimator.solution_cost(solution)
     print(f"{cost}: \t{solution} ")

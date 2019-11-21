@@ -70,7 +70,7 @@ def canonical_keys(dex_dict):
 def canonical_and_splittable(dex_dict):
     # these DEXs are never going to be used in splits
     EXCLUDE_DEXS = ['ag', 'IDEX', 'DDEX', 'Ethfinex', 'Paradex']
-    canonical_keys(dex_dict)
+    return {k:v for k,v in canonical_keys(dex_dict).items() if k not in EXCLUDE_DEXS}
 
 ########################################################################################################################
 # To generate the SYM_TO_NAME map

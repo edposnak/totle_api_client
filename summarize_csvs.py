@@ -202,10 +202,10 @@ if len(csv_files) < 1:
 else:
     print(f"processing {len(csv_files)} CSV files ...")
 
-per_token_savings, slip_price_splits = data_import.parse_csv_files(csv_files)
+per_token_savings, slip_price_splits = data_import.parse_csv_files(csv_files, string_trade_sizes=True)
 per_trade_size_savings = aggregated_savings(per_token_savings)
-per_token_splits_only_savings, _ = data_import.parse_csv_files(csv_files, only_splits=True)
-per_token_non_splits_only_savings, non_splits_only_slip_price_splits = data_import.parse_csv_files(csv_files, only_non_splits=True)
+per_token_splits_only_savings, _ = data_import.parse_csv_files(csv_files, string_trade_sizes=True, only_splits=True)
+per_token_non_splits_only_savings, non_splits_only_slip_price_splits = data_import.parse_csv_files(csv_files, string_trade_sizes=True, only_non_splits=True)
 per_trade_size_splits_only = aggregated_savings(per_token_splits_only_savings)
 per_trade_size_non_splits = aggregated_savings(per_token_non_splits_only_savings)
 

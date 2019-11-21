@@ -61,8 +61,8 @@ def compare_dex_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, p
         if other_dexs:  # there is data to compare
             totle_price = swap_prices[totle_ex]
             for e in other_dexs:
-                ratio = totle_price/swap_prices[e] # totle_price assumed lower
-                pct_savings = 100 - (100.0 * ratio)
+                # totle_price assumed lower
+                pct_savings = get_pct_savings(totle_price, swap_prices[e])
                 savings[e] = savings_data(order_type, trade_size, token, e, pct_savings, totle_used, totle_price, swap_prices[e])
                 print(f"Totle saved {pct_savings:.2f} percent vs {e} {order_type}ing {token} on {totle_used} trade size={trade_size} ETH")
         else:
@@ -154,7 +154,7 @@ def compare_to_totle(base, quote, order_type, trade_size, exchange, ex_price, sp
     if totle_sd:
         totle_price = totle_sd['price']
         totle_used = totle_sd['totleUsed']
-        pct_savings = 100 - (100.0 * totle_price / ex_price)
+        pct_savings = get_pct_savings(totle_price, ex_price)
 
         trade_info = f"trade size={trade_size} ETH (Totle price={totle_price:.5g} {exchange} price={ex_price:.5g})"
         if splits: trade_info += f"splits={splits}"
@@ -200,6 +200,8 @@ def print_savings(order_type, savings, trade_sizes, title="Savings"):
         str_vals = [pf(v['pct_savings']) if v else ph('-') for v in vals]
         print(f"{base:<8}", ''.join(str_vals))
 
+def get_pct_savings(p1, p2):
+    return 100 - (100.0 * p1 / p2)
 
 ##############################################################################################
 #

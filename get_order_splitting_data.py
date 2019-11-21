@@ -68,7 +68,6 @@ def get_agg_data(*agg_clients, tokens=ALL_AGGS_TOKENS, trade_sizes=TRADE_SIZES, 
                     dexs_with_pair |= splits.keys()   # assumes each DEX client strips out keys with 0 pct in exchanges_parts
                     agg_prices[agg_name] = pq['price']
                     if pq.get('exchanges_prices'):
-                        dps = exchange_utils.canonical_keys(pq['exchanges_prices'])
                         dex_prices[agg_name] = exchange_utils.canonical_and_splittable(pq['exchanges_prices'])
 
             tok_ts_dexs_with_pair[base][trade_size] = list(dexs_with_pair)

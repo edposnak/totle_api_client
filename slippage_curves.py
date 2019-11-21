@@ -2,6 +2,156 @@ import sys
 from collections import defaultdict
 from itertools import permutations, combinations_with_replacement
 import data_import
+from v2_compare_prices import get_pct_savings
+
+
+class PriceEstimator:
+    def __init__(self, token, ex_ts_prices):
+        self.token = token
+        self.base_price = float('inf') # TODO: this should be replaced with intercept from least squares
+        self.all_dexs = set()
+
+        # get the base_price and set of dexs
+        for ex, ts_prices in ex_ts_prices.items():
+            self.all_dexs.add(ex)
+            for trade_size, price in ts_prices.items():
+                self.base_price = min(self.base_price, price)
+        self.all_dexs = sorted(self.all_dexs)
+
+        # get the price_funcs
+        self.price_funcs = {}
+        for ex, ts_prices in ex_ts_prices.items():
+            if len(ts_prices) == 0: print(f"WARNING: no ts_prices for {token} {ex} all prices will be infinite")
+            self.price_funcs[ex] = self.get_price_func(ts_prices)
+
+        # set the new base price
+        print(f"{token} old base price was = {self.base_price}")
+        self.base_price = float('inf')
+        for ex, pf in self.price_funcs.items():
+            self.base_price = min(self.base_price, pf(0.01))
+        print(f"{token} new base price = {self.base_price}")
+
+        # create the price_matrix (for enumeration) based on base_price
+        self.price_matrix = defaultdict(dict)
+        for ex, ts_prices in ex_ts_prices.items():
+            for trade_size, price in ts_prices.items():
+                self.price_matrix[float(trade_size)][ex] = (price - self.base_price) / self.base_price
+
+
+
+    def __repr__(self):
+        return f"CostEstimator<{self.token}>[{self.all_dexs}]"
+
+    def is_better(self, candidate, best_candidate):
+        """Returns True of the best_candidate is falsey or the price of candidate is lower than best_candidate"""
+        if not best_candidate: return True
+        return self.solution_cost(candidate) < self.solution_cost(best_candidate)
+
+    def rank_by_cost(self, dexs, target_trade_size):
+        sorted_dex_costs = sorted([(self.solution_cost({ex: target_trade_size}), ex) for ex in dexs])
+
+        sorted_dexs = [dc[1] for dc in sorted_dex_costs]
+        print(f"sorted_dex_costs={sorted_dex_costs}")
+        return sorted_dexs
+
+    def compare_costs(self, label, baseline, candidate):
+        baseline = dict(sorted(baseline.items()))
+        candidate = dict(sorted(candidate.items()))
+
+        baseline_cost = self.solution_cost(baseline)
+        candidate_cost = self.solution_cost(candidate)
+        savings = baseline_cost - candidate_cost  # will be positive if candidate is a better solution
+        savings_pct = 0.0 if baseline_cost == 0 else get_pct_savings(candidate_cost, baseline_cost)
+        print(f"{label}: saved {savings:.4f} ETH ({savings_pct:.2f}%)\n\tcandidate: {candidate} -> {candidate_cost}\n\tbaseline:  {baseline} -> {baseline_cost:.4f}")
+
+    def solution_cost(self, solution):
+        sum_cost = 0.0
+        for ex, ts in solution.items():
+            sum_cost += self.get_slippage_cost(ex, ts)
+        return sum_cost
+
+    def get_slippage_cost(self, ex, ts):
+        # Assumption is that interpolating between two known data points is more accurate than interpolating off the
+        # least squares line, especially when prices jump at certain trade sizes (as happens on 0x and Kyber)
+        # return ts * self.get_normalized_slippage_price(ex, ts)
+        return ts * self.get_normalized_price(ex, ts)
+
+    def get_normalized_slippage_price(self, ex, ts):
+        if ts == 0: return 0
+        return (self.get_price(ex, ts) - self.base_price) / self.base_price
+
+    def get_price(self, ex, ts):
+        return self.price_funcs[ex](ts)
+
+    def get_normalized_price(self, ex, ts):
+        if ts == 0: return 0
+        if self.price_matrix.get(ts) and ex in self.price_matrix[ts]:
+            return self.price_matrix[ts][ex]
+        return self.interpolate_price(ex, ts)
+
+    def interpolate_price(self, ex, ts):
+        lower, higher = 0.0, float('inf')
+        ex_trade_sizes = [ets for ets in self.price_matrix.keys() if self.price_matrix[ets].get(ex)]
+        for trade_size in ex_trade_sizes:
+            if self.price_matrix[trade_size].get(ex):
+                if trade_size < ts and trade_size > lower:
+                    lower = trade_size
+                if trade_size > ts and trade_size < higher:
+                    higher = trade_size
+
+        if higher == float('inf'):
+            # raise ValueError(f"Can't interpolate {ts} for {ex} because there is no higher value in the price matrix.\ntrade_sizes for {ex}={ex_trade_sizes}")
+            # return self.get_normalized_slippage_price(ex, ts) # TODO this is normalized against a different base price
+            return float('inf')  # <- This is the behavoir optimal solutions were based on
+
+        l_price = 0.0 if lower == 0.0 else self.price_matrix[lower][ex]
+        h_price = self.price_matrix[higher][ex]
+        frac = (ts - lower) / (higher - lower)
+        return l_price + frac * (h_price - l_price)
+
+
+    def get_price_func(self, ts_prices):
+        if len(ts_prices) == 0:  # no prices, so return a func that ensures this DEX won't be used
+            print(f"WARNING: len(ts_prices) == 0")
+            return lambda ts: float('inf')
+        elif len(ts_prices) == 1:  # one prices, so return a func that returns that one price
+            one_ts, one_price = list(ts_prices.items())[0]
+            return lambda ts: one_price if float(ts) == one_ts else float('inf')
+        else:  # return a func based on least squares
+            slope, intercept = self.least_squares(ts_prices)
+            return lambda ts: slope * ts + intercept
+
+    def least_squares(self, ts_prices):
+        # number of observations/points
+        n_samples = len(ts_prices)
+
+        mean_ts, mean_price = sum(ts_prices.keys()) / n_samples, sum(ts_prices.values()) / n_samples
+
+        # calculating cross-deviation and deviation about x
+        SS_xy = sum([x * y for x, y in ts_prices.items()]) - n_samples * mean_price * mean_ts
+        SS_xx = sum([x * x for x, _ in ts_prices.items()]) - n_samples * mean_ts * mean_ts
+
+        # calculating regression coefficients
+        slope = SS_xy / SS_xx
+        intercept = mean_price - slope * mean_ts
+
+        return slope, intercept
+
+    #
+    # @classmethod
+    # def foo(cls, args):
+    #     pass
+
+def construct_price_estimator(token, ts_ex_pscs):
+    """Returns a PriceEstimator by converting the given pscs into prices"""
+    ex_ts_prices = defaultdict(lambda: defaultdict(dict))
+    for ts, ex_pscs in ts_ex_pscs.items():
+        for ex, pscs in ex_pscs.items():
+            ex_ts_prices[ex][ts] = first_price(pscs)
+    price_estimator = PriceEstimator(token, ex_ts_prices)
+    return price_estimator
+
+
 
 def extract(ts_ex_pscs):
     all_dexs, all_trade_sizes = set(), set()
@@ -15,31 +165,6 @@ def extract(ts_ex_pscs):
     sorted_float_trade_sizes = sorted(map(float, (all_trade_sizes)))
     sorted_dex_names = sorted(all_dexs)
     return base_price, sorted_dex_names, sorted_float_trade_sizes
-
-def get_price_matrix(ts_ex_pscs, base_price):
-    ts_ex_prices = defaultdict(dict)
-    for trade_size, ex_pscs in ts_ex_pscs.items():
-        for ex, pscs in ex_pscs.items():
-            ts_ex_prices[trade_size][ex] = first_price_normalized(pscs, trade_size, base_price)
-    return {float(ts): ec for ts, ec in ts_ex_prices.items()}
-
-def get_hi_res_price_matrix(low_res_price_matrix, max_trade_size=100):
-    ts_ex_prices = defaultdict(dict)
-
-    dexs = sorted(low_res_price_matrix.get(min(low_res_price_matrix.keys())).keys())
-
-    # do 0.1 ETH granularity up to trade_size = 2
-    for i in range(1, 10*min(max_trade_size, 2)):
-        ts = i / 10
-        for ex in dexs:
-            ts_ex_prices[ts][ex] = get_price(ex, ts, low_res_price_matrix)
-
-    for i in range(2, int(max_trade_size)+1):
-        ts = round(float(i),1)
-        for ex in dexs:
-            ts_ex_prices[ts][ex] = get_price(ex, ts, low_res_price_matrix)
-
-    return ts_ex_prices
 
 def print_dex_cost_comparison_csv(tok_ts_ex_pscs, dexs=None):
     for token, ts_ex_pscs in tok_ts_ex_pscs.items():
@@ -100,27 +225,14 @@ OPTIMAL_SOLUTIONS = {
     95.0: {'0xMesh': 14.0, 'Bancor': 4.0, 'Kyber': 50.0, 'Radar Relay': 15.0, 'Uniswap': 12.0}
 }
 
-def enumerate_stuff(ts_ex_pscs, target_trade_sizes):
-    base_price, sorted_dex_names, _ = extract(ts_ex_pscs)
-    lo_res_price_matrix = get_price_matrix(ts_ex_pscs, base_price)
-    hi_res_price_matrix = get_hi_res_price_matrix(lo_res_price_matrix)
 
-    for target_trade_size in target_trade_sizes:
-        print(f"\n\nBest splits for a target trade size of {target_trade_size}")
-        lo_res_enum_winner, lo_res_enum_best = enumerate_solutions(target_trade_size, lo_res_price_matrix, sorted_dex_names)
-        print(f"\n\ncalling enumerate_solutions with hi_res_price_matrix sorted_dex_names={sorted_dex_names} target_trade_size={target_trade_size}\n\n")
-        hi_res_enum_winner, hi_res_enum_best = enumerate_solutions(target_trade_size, hi_res_price_matrix, sorted_dex_names)
-        print(f"hi_res_enum_winner={hi_res_enum_winner}")
-        compare_costs(f"Hi-res vs Low-res", lo_res_enum_winner, hi_res_enum_winner, hi_res_price_matrix)
-
-
-def enumerate_solutions(target_trade_size, price_matrix, dexs, max_ways=None):
+def enumerate_solutions(target_trade_size, price_estimator, dexs, max_ways=None):
     """Evaluates solutions of the form { 'Bancor': 12, 'Kyber': 8 } """
-    price_matrix = get_hi_res_price_matrix(price_matrix)
-    trade_sizes = [sts for sts in price_matrix.keys() if sts <= target_trade_size]
+    hi_res_price_matrix = get_hi_res_price_matrix(price_estimator)
+    trade_sizes = [sts for sts in hi_res_price_matrix.keys() if sts <= target_trade_size]
     max_ways = max_ways or len(dexs)
     best, winner = [{}]*(max_ways+1), None
-    sol_cost = lambda solution: solution_cost(solution, price_matrix)
+    sol_cost = lambda solution: price_estimator.solution_cost(solution)
 
     for n in range(1, len(best)):
         # print(f"enumerate_solutions: computing the best {n}-DEX splits")
@@ -136,37 +248,58 @@ def enumerate_solutions(target_trade_size, price_matrix, dexs, max_ways=None):
 
     return winner, best
 
+
+def get_hi_res_price_matrix(price_estimator, max_trade_size=100):
+    low_res_price_matrix = price_estimator.price_matrix
+    ts_ex_prices = defaultdict(dict)
+
+    dexs = sorted(low_res_price_matrix.get(min(low_res_price_matrix.keys())).keys())
+
+    # do 0.1 ETH granularity up to trade_size = 2
+    for i in range(1, 10*min(max_trade_size, 2)):
+        ts = i / 10
+        for ex in dexs:
+            ts_ex_prices[ts][ex] = price_estimator.get_normalized_price(ex, ts)
+
+    for i in range(2, int(max_trade_size)+1):
+        ts = round(float(i),1)
+        for ex in dexs:
+            ts_ex_prices[ts][ex] = price_estimator.get_normalized_price(ex, ts)
+
+    return ts_ex_prices
+
+
 ########################################################################################################################
 # optimization algorithms
 
-def run_optimization_algorithms(ts_ex_pscs, target_trade_sizes):
-    base_price, sorted_dex_names, _ = extract(ts_ex_pscs)
-    price_matrix = get_price_matrix(ts_ex_pscs, base_price)
+def run_optimization_algorithms(token, ts_ex_pscs, target_trade_sizes):
+    _, sorted_dex_names, _ = extract(ts_ex_pscs)
+
+    price_estimator = construct_price_estimator(token, ts_ex_pscs)
 
     for target_trade_size in target_trade_sizes:
-        baseline, _ = enumerate_solutions(target_trade_size, price_matrix, sorted_dex_names, max_ways=1)
+        baseline, _ = enumerate_solutions(target_trade_size, price_estimator, sorted_dex_names, max_ways=1)
         optimal = OPTIMAL_SOLUTIONS.get(target_trade_size)
         if not optimal: raise ValueError(f"target_trade_size={target_trade_size} but we only have solutions for trade sizes {list(OPTIMAL_SOLUTIONS.keys())}")
 
         print(f"\n\nBest splits for a target trade size of {target_trade_size}")
-        # greedy_winner, greedy_best, best_steps = greedy_solutions(target_trade_size, price_matrix, sorted_dex_names)
-        branch_winner = branch_and_bound_solutions(target_trade_size, price_matrix, sorted_dex_names)
-        # rebalancing_branch_winner = rebalancing_branch_and_bound_solutions(target_trade_size, price_matrix, sorted_dex_names)
+        # greedy_winner, greedy_best, best_steps = greedy_solutions(target_trade_size, price_estimator, sorted_dex_names)
+        branch_winner = branch_and_bound_solutions(target_trade_size, price_estimator, sorted_dex_names)
+        # rebalancing_branch_winner = rebalancing_branch_and_bound_solutions(target_trade_size, price_estimator, sorted_dex_names)
 
-        # compare_costs(f"Optimal", baseline, optimal, price_matrix)
-        # compare_costs(f"Greedy ({best_steps} steps)", baseline, greedy_winner, price_matrix)
-        # compare_costs(f"Greedy ({best_steps} steps) vs optimal", optimal, greedy_winner, price_matrix)
-        compare_costs(f"Basic Branch", baseline, branch_winner, price_matrix)
-        compare_costs(f"Basic Branch vs optimal", optimal, branch_winner, price_matrix)
-        # compare_costs(f"Rebalancing Branch vs optimal", optimal, rebalancing_branch_winner, price_matrix)
-        # compare_costs(f"Rebalancing Branch vs Basic Branch", branch_winner, rebalancing_branch_winner, price_matrix)
-
-
+        # price_estimator.compare_costs(f"Optimal", baseline, optimal)
+        # price_estimator.compare_costs(f"Greedy ({best_steps} steps)", baseline, greedy_winner)
+        # price_estimator.compare_costs(f"Greedy ({best_steps} steps) vs optimal", optimal, greedy_winner)
+        price_estimator.compare_costs(f"Basic Branch", baseline, branch_winner)
+        price_estimator.compare_costs(f"Basic Branch vs optimal", optimal, branch_winner)
+        # price_estimator.compare_costs(f"Rebalancing Branch vs optimal", optimal, rebalancing_branch_winner)
+        # price_estimator.compare_costs(f"Rebalancing Branch vs Basic Branch", branch_winner, rebalancing_branch_winner)
 
 
-def branch_and_bound_solutions(target_trade_size, price_matrix, dexs, precision=4):
+
+def branch_and_bound_solutions(target_trade_size, price_estimator, dexs, precision=4):
     # get a ranking of dexs by lowest cost at target_trade_size
-    sorted_dexs = rank_by_cost(dexs, target_trade_size, price_matrix)
+    sorted_dexs = price_estimator.rank_by_cost(dexs, target_trade_size)
     # start with baseline candidate: 1 DEX with the lowest cost at target_trade_size
     best_new_candidate = {sorted_dexs[0]: target_trade_size}
     print(f"baseline={best_new_candidate} sorted_dexs[1:]={sorted_dexs[1:]}")
@@ -189,22 +322,20 @@ def branch_and_bound_solutions(target_trade_size, price_matrix, dexs, precision=
                 raise ValueError(f"new_candidate sum allocations = {sum(new_candidate.values())}\n{new_candidate}")
                 # print(f"new_candidate sum allocations = {sum(new_candidate.values())}")
 
-            if is_better(new_candidate, best_for_ex, price_matrix):
-                if best_for_ex:
-                    how_much_better = solution_cost(new_candidate, price_matrix) - solution_cost(best_for_ex, price_matrix)
-                    # print(f"{ex} at {new_alloc} is {how_much_better:.4f} better: \t{new_candidate}")
+            if price_estimator.is_better(new_candidate, best_for_ex):
+                # if best_for_ex: print(f"{ex} at {new_alloc} is {solution_cost(new_candidate, price_matrix) - solution_cost(best_for_ex, price_matrix) :.4f} better: \t{new_candidate}")
                 best_for_ex = new_candidate
 
-        if is_better(best_for_ex, best_new_candidate, price_matrix):
+        if price_estimator.is_better(best_for_ex, best_new_candidate):
             # print(f"new best: {best_for_ex}")
             best_new_candidate = best_for_ex
 
     return best_new_candidate
 
 
-def rebalancing_branch_and_bound_solutions(target_trade_size, price_matrix, dexs, precision=4):
+def rebalancing_branch_and_bound_solutions(target_trade_size, price_estimator, dexs, precision=4):
     # get a ranking of dexs by lowest cost at target_trade_size
-    sorted_dexs = rank_by_cost(dexs, target_trade_size, price_matrix)
+    sorted_dexs = price_estimator.rank_by_cost(dexs, target_trade_size)
     # start with baseline candidate: 1 DEX with the lowest cost at target_trade_size
     best_new_candidate = {sorted_dexs[0]: target_trade_size}
     print(f"rebal baseline={best_new_candidate} sorted_dexs[1:]={sorted_dexs[1:]}")
@@ -227,19 +358,19 @@ def rebalancing_branch_and_bound_solutions(target_trade_size, price_matrix, dexs
                 raise ValueError(f"new_candidate sum allocations = {sum(new_candidate.values())}\n{new_candidate}")
                 # print(f"new_candidate sum allocations = {sum(new_candidate.values())}")
 
-            if is_better(new_candidate, best_for_ex, price_matrix):
+            if price_estimator.is_better(new_candidate, best_for_ex):
                 if best_for_ex:
-                    how_much_better = solution_cost(new_candidate, price_matrix) - solution_cost(best_for_ex, price_matrix)
+                    how_much_better = price_estimator.solution_cost(new_candidate) - price_estimator.solution_cost(best_for_ex)
                     # print(f"{ex} at {new_alloc} is {how_much_better:.4f} better: \t{new_candidate}")
                 best_for_ex = new_candidate
 
-        if is_better(best_for_ex, best_new_candidate, price_matrix):
+        if price_estimator.is_better(best_for_ex, best_new_candidate):
             print(f"rebal new best: {best_for_ex}")
             # what does rebalancing do?
             if len(best_for_ex) == 3:
                 print(f"starting rebalance on {sorted_dexs[2]} best_for_ex={best_for_ex} sorted_dexs={sorted_dexs}")
-                even_better_candidate = optimal_rebalance(ex, best_for_ex, price_matrix)
-                how_much = solution_cost(even_better_candidate, price_matrix) - solution_cost(best_for_ex, price_matrix)
+                even_better_candidate = optimal_rebalance(ex, best_for_ex, price_estimator)
+                how_much = price_estimator.solution_cost(even_better_candidate) - price_estimator.solution_cost(best_for_ex)
                 print(f"rebal even better {how_much:.4f}: {even_better_candidate}")
                 best_for_ex = even_better_candidate
 
@@ -247,7 +378,7 @@ def rebalancing_branch_and_bound_solutions(target_trade_size, price_matrix, dexs
 
     return best_new_candidate
 
-def optimal_rebalance(new_ex, new_candidate, price_matrix):
+def optimal_rebalance(new_ex, new_candidate, price_estimator):
     """Given some new DEX and solution try to find a better one by optimizing the split between the existing DEXs"""
     new_ex_fixed_alloc = new_candidate[new_ex]
     old_exs_allocs = {x: t for x, t in new_candidate.items() if x != new_ex }
@@ -262,30 +393,30 @@ def optimal_rebalance(new_ex, new_candidate, price_matrix):
         test_candidate = {new_ex: new_ex_fixed_alloc}
         test_candidate[d1] = round(sum_old_allocs * frac, 4)
         test_candidate[d2] = round(sum_old_allocs - test_candidate[d1], 4)
-        how_much_better = solution_cost(test_candidate, price_matrix) - solution_cost(best_candidate, price_matrix)
-        # print(f"\t\t{how_much_better} better: \t{solution_cost(test_candidate, price_matrix)} - {solution_cost(best_candidate, price_matrix)} \t{test_candidate}")
+        how_much_better = price_estimator.solution_cost(test_candidate) - price_estimator.solution_cost(best_candidate)
+        # print(f"\t\t{how_much_better} better: \t{price_estimator.solution_cost(test_candidate)} - {solution_cost(price_estimator.best_candidate)} \t{test_candidate}")
 
-        if is_better(test_candidate, best_candidate, price_matrix):
+        if price_estimator.is_better(test_candidate, best_candidate):
             best_candidate = test_candidate
 
     return best_candidate
 
 
 
-def greedy_solutions(target_trade_size, price_matrix, dexs):
+def greedy_solutions(target_trade_size, price_estimator, dexs):
     max_steps = round(target_trade_size * 2)
     best, winner = [{}]*(max_steps+1), None
 
     for steps in range(1, max_steps + 1):
-        best[steps] = greedy_alg(target_trade_size, price_matrix, dexs, steps)
-        if is_better(best[steps], winner, price_matrix):
+        best[steps] = greedy_alg(target_trade_size, price_estimator, dexs, steps)
+        if price_estimator.is_better(best[steps], winner):
             # print(f"{steps} steps is best so far for target_trade_size={target_trade_size}")
             winner = best[steps]
             best_steps = steps
 
     return winner, best, best_steps
 
-def greedy_alg(target_trade_size, price_matrix, dexs, steps):
+def greedy_alg(target_trade_size, price_estimator, dexs, steps):
     """Finds a solution by choosing the best option at each step (steps=10 takes ten steps)"""
     candidate = defaultdict(float)
     step_size = round(target_trade_size / steps, 4)
@@ -295,7 +426,7 @@ def greedy_alg(target_trade_size, price_matrix, dexs, steps):
         for ex in dexs:
             new_candidate = candidate.copy()
             new_candidate[ex] += next_step_size
-            if is_better(new_candidate, best_new_candidate, price_matrix):
+            if price_estimator.is_better(new_candidate, best_new_candidate):
                 best_new_candidate = new_candidate
         candidate = best_new_candidate
         # print(f"allocated={sum(candidate.values())} best_dex={best_dex}, best_cost={best_cost} next_step_size={next_step_size} candidate={dict(candidate)}")
@@ -303,62 +434,65 @@ def greedy_alg(target_trade_size, price_matrix, dexs, steps):
 
 ########################################################################################################################
 # utility methods
-def is_better(candidate, best_candidate, price_matrix):
-    """Returns True of the best_candidate is falsey or the price of candidate is lower than best_candidate"""
-    if not best_candidate: return True
-    return solution_cost(candidate, price_matrix) < solution_cost(best_candidate, price_matrix)
+# def is_better(candidate, best_candidate, price_matrix):
+#     """Returns True of the best_candidate is falsey or the price of candidate is lower than best_candidate"""
+#     if not best_candidate: return True
+#     return solution_cost(candidate, price_matrix) < solution_cost(best_candidate, price_matrix)
+# 
+# def rank_by_cost(dexs, target_trade_size, price_matrix):
+#     sorted_dex_costs = sorted([(solution_cost({ex: target_trade_size}, price_matrix), ex) for ex in dexs])
+# 
+#     sorted_dexs = [ dc[1] for dc in sorted_dex_costs ]
+#     print(f"sorted_dex_costs={sorted_dex_costs}")
+#     return sorted_dexs
+# 
+# def compare_costs(label, baseline, candidate, price_matrix):
+#     baseline = dict(sorted(baseline.items()))
+#     candidate = dict(sorted(candidate.items()))
+# 
+#     baseline_cost = solution_cost(baseline, price_matrix)
+#     candidate_cost = solution_cost(candidate, price_matrix)
+#     savings = baseline_cost - candidate_cost # will be positive if candidate is a better solution
+#     savings_pct = 0.0 if baseline_cost == 0 else get_pct_savings(candidate_cost, baseline_cost)
+#     print(f"{label}: saved {savings:.4f} ETH ({savings_pct:.2f}%)\n\tcandidate: {candidate} -> {candidate_cost}\n\tbaseline:  {baseline} -> {baseline_cost:.4f}")
+# 
+# def solution_cost(solution, price_matrix):
+#     sum_cost = 0.0
+#     for ex, ts in solution.items():
+#         sum_cost += get_cost(ex, ts, price_matrix)
+#     return sum_cost
+# 
+# def get_cost(ex, ts, price_matrix):
+#     return ts * get_price(ex, ts, price_matrix)
+# 
+# def get_price(ex, ts, price_matrix):
+#     if ts == 0: return 0
+#     if price_matrix.get(ts) and ex in price_matrix[ts]:
+#         return price_matrix[ts][ex]
+#     try:
+#         return interpolate_price(ex, ts, price_matrix)
+#     except ValueError:
+#         return float('inf')
+# 
+# def interpolate_price(ex, ts, price_matrix):
+#     lower, higher = 0.0, float('inf')
+#     ex_trade_sizes = [ets for ets in price_matrix.keys() if price_matrix[ets].get(ex)]
+#     for trade_size in ex_trade_sizes:
+#         if price_matrix[trade_size].get(ex):
+#             if trade_size < ts and trade_size > lower:
+#                 lower = trade_size
+#             if trade_size > ts and trade_size < higher:
+#                 higher = trade_size
+# 
+#     if higher == float('inf'): raise ValueError(f"Can't interpolate {ts} for {ex} because there is no higher value in the price matrix.\ntrade_sizes for {ex}={ex_trade_sizes}")
+# 
+#     l_price = 0.0 if lower == 0.0 else price_matrix[lower][ex]
+#     h_price = price_matrix[higher][ex]
+#     frac = (ts-lower) / (higher-lower)
+#     return l_price + frac * (h_price - l_price)
 
-def rank_by_cost(dexs, target_trade_size, price_matrix):
-    sorted_dex_costs = sorted([(solution_cost({ex: target_trade_size}, price_matrix), ex) for ex in dexs])
-
-    sorted_dexs = [ dc[1] for dc in sorted_dex_costs ]
-    print(f"sorted_dex_costs={sorted_dex_costs}")
-    return sorted_dexs
-
-def compare_costs(label, baseline, candidate, price_matrix):
-    baseline = dict(sorted(baseline.items()))
-    candidate = dict(sorted(candidate.items()))
-
-    baseline_cost = solution_cost(baseline, price_matrix)
-    candidate_cost = solution_cost(candidate, price_matrix)
-    savings = baseline_cost - candidate_cost # will be positive if candidate is a better solution
-    savings_pct = 0.0 if baseline_cost == 0 else 100.0 * (1 - candidate_cost / baseline_cost)
-    print(f"{label}: saved {savings:.4f} ETH ({savings_pct:.2f}%)\n\tcandidate: {candidate} -> {candidate_cost}\n\tbaseline:  {baseline} -> {baseline_cost:.4f}")
-
-def solution_cost(solution, price_matrix):
-    sum_cost = 0.0
-    for ex, ts in solution.items():
-        sum_cost += get_cost(ex, ts, price_matrix)
-    return sum_cost
-
-def get_cost(ex, ts, price_matrix):
-    return ts * get_price(ex, ts, price_matrix)
-
-def get_price(ex, ts, price_matrix):
-    if ts == 0: return 0
-    if price_matrix.get(ts) and ex in price_matrix[ts]:
-        return price_matrix[ts][ex]
-    try:
-        return interpolate_price(ex, ts, price_matrix)
-    except ValueError:
-        return float('inf')
-
-def interpolate_price(ex, ts, price_matrix):
-    lower, higher = 0.0, float('inf')
-    ex_trade_sizes = [ets for ets in price_matrix.keys() if price_matrix[ets].get(ex)]
-    for trade_size in ex_trade_sizes:
-        if price_matrix[trade_size].get(ex):
-            if trade_size < ts and trade_size > lower:
-                lower = trade_size
-            if trade_size > ts and trade_size < higher:
-                higher = trade_size
-
-    if higher == float('inf'): raise ValueError(f"Can't interpolate {ts} for {ex} because there is no higher value in the price matrix.\ntrade_sizes for {ex}={ex_trade_sizes}")
-
-    l_price = 0.0 if lower == 0.0 else price_matrix[lower][ex]
-    h_price = price_matrix[higher][ex]
-    frac = (ts-lower) / (higher-lower)
-    return l_price + frac * (h_price - l_price)
+########################################################################################################################
+# these are used in CSV generation
 
 def first_price(pscs):
     """ Returns the first price of the first psc tuple in the given list of tuples"""
@@ -372,7 +506,7 @@ def first_price_normalized(pscs, trade_size, base_price):
 # lambda slippage_cost : float(trade_size) * (first_price(pscs) - base_prices[token]) / base_prices[token]
 def first_slippage_cost(pscs, trade_size, base_price):
     """Returns a cost in ETH of the slippage expressed as a percent difference in the price vs base_price"""
-    return float(trade_size) * (first_price(pscs) - base_price)/base_price
+    return float(trade_size) * first_price_normalized(pscs, trade_size, base_price)
 
 
 ########################################################################################################################
@@ -398,12 +532,10 @@ def main():
 
     # for token in tok_ts_ex_pscs:
     token = list(tok_ts_ex_pscs.keys())[0]
-    ts_ex_pscs = tok_ts_ex_pscs[token]
-    base_price, sorted_dex_names, sorted_float_trade_sizes = extract(ts_ex_pscs)
-    price_matrix = get_price_matrix(ts_ex_pscs, base_price)
 
     # enumerate_stuff(tok_ts_ex_pscs[token], [20.0])
-    run_optimization_algorithms(tok_ts_ex_pscs[token], OPTIMAL_SOLUTIONS.keys())
+    # run_optimization_algorithms(tok_ts_ex_pscs[token], OPTIMAL_SOLUTIONS.keys())
+    run_optimization_algorithms(token, tok_ts_ex_pscs[token], [30.0])
 
 
 if __name__ == "__main__":

@@ -7,7 +7,8 @@ import exchange_utils
 import oneinch_client
 import paraswap_client
 import v2_client
-from v2_compare_prices import savings_data, print_savings, get_filename_base, SavingsCSV
+from v2_compare_prices import savings_data, get_pct_savings, print_savings, get_filename_base, SavingsCSV
+
 
 def compare_totle_and_aggs(agg_clients, base, quote, trade_size, order_type='buy'):
     agg_savings = {}
@@ -31,9 +32,10 @@ def compare_totle_and_aggs(agg_clients, base, quote, trade_size, order_type='buy
             # print(f"{agg_name}: {pq}")
             if pq:
                 agg_price = pq['price']
-                pct_savings = 100 - (100.0 * totle_price / agg_price)
+                pct_savings = get_pct_savings(totle_price, agg_price)
                 splits = exchange_utils.canonical_keys(pq['exchanges_parts'])
                 savings = savings_data(order_type, trade_size, base, agg_name, pct_savings, totle_used, totle_price, agg_price, splits)
+                savings['ex_prices'] = pq.get('exchanges_prices') and exchange_utils.canonical_and_splittable(pq['exchanges_prices'])
                 agg_savings[agg_name] = savings
                 trade_info = f"trade size={trade_size} ETH (Totle price={totle_price:.5g} {agg_name} price={agg_price:.5g})"
                 if splits: trade_info += f"splits={splits}"

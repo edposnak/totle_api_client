@@ -20,9 +20,9 @@ def test_get_quote(to_token, trade_sizes, from_token='ETH', dex=dexag_client.AG_
 #     can_name = exchange_utils.canonical_name(dex_name)
 #     print(f"{can_name} => {dexag_client.DEX_NAME_MAP[can_name]}")
 
-for base in ['MKR', 'GNO']:
+for base in ['BAT']:
     # n_quotes = test_get_quote(base, [0.1, 1.0], dex='Kyber', debug=True)
-    n_quotes = test_get_quote(base, [0.1, 1.0, 100.0], debug=True)
+    n_quotes = test_get_quote(base, [100.0], dex='all', debug=True)
     print(f"{base}: {n_quotes}")
 exit(0)
 
