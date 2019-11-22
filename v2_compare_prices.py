@@ -6,19 +6,21 @@ from datetime import datetime
 import v2_client
 
 # Common struct returned by compare_dex_prices and compare_cex_prices
-def savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price, splits=None):
+def savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price, splits=None, ex_prices=None):
     """Returns a savings entry suitable for logging or appending to CSV"""
+    # CSV header=time, action, trade_size, token, exchange, exchange_price, totle_used, totle_price, pct_savings, splits, ex_prices
     return {
         'time': datetime.now().isoformat(),
         'action': order_type,
         'trade_size': trade_size,
         'token': token,
         'exchange': exchange,
-        'pct_savings': pct_savings,
+        'exchange_price': exchange_price,
         'totle_used': '/'.join(totle_used),
         'totle_price': totle_price,
-        'exchange_price': exchange_price,
-        'splits':splits
+        'pct_savings': pct_savings,
+        'splits': splits,
+        'ex_prices': ex_prices
     }
 
 
