@@ -19,7 +19,7 @@ CSV_DATA_DIR = f"{os.path.dirname(os.path.abspath(__file__))}/outputs"
 
 @functools.lru_cache()
 def csv_row_gen(file, string_trade_sizes=False, only_splits=False, only_non_splits=False):
-    print(f"\n\nDoing {file} ...")
+    print(f"\n\ncsv_row_gen doing {file} string_trade_sizes={string_trade_sizes}, only_splits={only_splits}, only_non_splits={only_non_splits}) ...")
     with open(file, newline='') as csvfile:
         reader = csv.DictReader(csvfile, fieldnames=None)
 
