@@ -6,12 +6,17 @@ from v2_compare_prices import get_pct_savings
 
 
 class PriceEstimator:
-    def __init__(self, token, ex_ts_prices):
-        self.token = token
+    def __init__(self, token, ex_ts_prices, ex_known_liquidity):
+
         # Since DEX.AG uses 'Radar Relay' we never get any price quotes for 0xMesh, which is used in Totle and
         # Paradex swaps. So we create a 0xMesh price curve based on Radar's prices
         if 'Radar Relay' in ex_ts_prices:
             ex_ts_prices['0xMesh'] = ex_ts_prices['Radar Relay'].copy()
+            ex_known_liquidity['0xMesh'] = ex_known_liquidity['Radar Relay']
+
+        self.token = token
+        self.ex_known_liquidity = ex_known_liquidity
+        self.num_price_points = { ex: len(ts_prices) for ex, ts_prices in ex_ts_prices.items()}
 
         # get the set of dexs and price_funcs (currently used only to set self.base_price)
         self.all_dexs, self.price_funcs = set(), {}
@@ -87,7 +92,7 @@ class PriceEstimator:
     def solution_cost(self, solution, infinite_liquidity=False):
         sum_cost = 0.0
         for ex, ts in solution.items():
-            sum_cost += ts * self.get_normalized_price(ex, ts, infinite_liquidity=infinite_liquidity)
+            sum_cost += self.get_slippage_cost(ex, ts, infinite_liquidity=infinite_liquidity)
         return sum_cost
 
     def get_slippage_cost(self, ex, ts, infinite_liquidity=False):
@@ -96,17 +101,18 @@ class PriceEstimator:
         # return ts * self.get_ls_normalized_slippage_price(ex, ts)
         return ts * self.get_normalized_price(ex, ts, infinite_liquidity=infinite_liquidity)
 
+    def get_normalized_price(self, ex, ts, infinite_liquidity=False):
+        abs_price = self.get_absolute_price(ex, ts, infinite_liquidity=infinite_liquidity)
+        return (abs_price - self.base_price) / self.base_price
+        # return self.get_price_from(self.normalized_slippage_prices, ex, ts, infinite_liquidity=infinite_liquidity)
+
     def get_absolute_price(self, ex, ts, infinite_liquidity=False):
         ts = float(ts) # self.absolute_prices was created with float keys
         if ts == 0: return 0
         if self.absolute_prices.get(ts) and ex in self.absolute_prices[ts]: return self.absolute_prices[ts][ex]
         return self.interpolate_price(ex, ts, self.absolute_prices, infinite_liquidity=infinite_liquidity)
 
-    def get_normalized_price(self, ex, ts, infinite_liquidity=False):
-        abs_price = self.get_absolute_price(ex, ts, infinite_liquidity=infinite_liquidity)
-        return (abs_price - self.base_price) / self.base_price
-        # return self.get_price_from(self.normalized_slippage_prices, ex, ts, infinite_liquidity=infinite_liquidity)
-
+    # TODO now that we have known_liquidty, remove infinite_liquidity
     def interpolate_price(self, ex, ts, matrix, infinite_liquidity=False):
         lower_ts, higher_ts = 0.0, float('inf')
         ex_trade_sizes = [ets for ets in matrix.keys() if matrix[ets].get(ex)]
@@ -122,8 +128,8 @@ class PriceEstimator:
                 # return self.get_ls_price(ex, ts)
                 # use the slope between the closest 2 samples to estimate price
                 t1, t2 = ex_trade_sizes[-2:]
-                if not infinite_liquidity: # extend only the last delta trade_size
-                    if (ts - t2) > (t2 - t1): return float('inf')
+                if not infinite_liquidity: # extend only to known_liquidity for ex
+                    if ts > self.ex_known_liquidity[ex] : return float('inf')
 
                 dydx = (matrix[t2][ex] - matrix[t1][ex]) / (t2 - t1)
                 return matrix[t2][ex] + ((ts - t2) * dydx)
@@ -280,6 +286,7 @@ def run_optimization_algorithms(token, ts_ex_pscs, target_trade_sizes, delta=0.0
 
 def branch_and_bound_solutions(target_trade_size, price_estimator, delta=0.005, exclude_dexs=[], precision=4):
     """Performs the branch and bound algorithm on all dexs not in exclude_dexs, adding DEXs that lower cost by more than delta"""
+
     # get a ranking of dexs by lowest cost at target_trade_size
     sorted_dexs = price_estimator.dexs_ranked_by_cost(target_trade_size)
     if exclude_dexs: sorted_dexs = [d for d in sorted_dexs if d not in exclude_dexs]
@@ -291,23 +298,21 @@ def branch_and_bound_solutions(target_trade_size, price_estimator, delta=0.005, 
     # loop over remaining DEXs adding some amount of each as long as cost gets lower
     for ex in sorted_dexs[1:]:
         best_for_ex = None
+        # Iterate over all i because the slippage cost function has multiple local minima
         for i in range(1,100):
             frac = i/100
-            # adjust allocations to precision digits
+            # create a new candidate with frac allocated to ex and (1 - frac) allocated to DEXs in existing solution
             new_candidate = { e: round(t*(1-frac),precision) for e,t in best_new_candidate.items() }
             new_alloc = round(target_trade_size - sum(new_candidate.values()), precision)
-
-            if abs(new_alloc - (frac * target_trade_size)) > 2 * 10**-precision:
-                raise ValueError(f"BIG DIFF ({abs(new_alloc - (frac * target_trade_size)):.4f}) between new_alloc={new_alloc:.4f} and (frac * target_trade_size) {frac * target_trade_size:.4f}")
-
             new_candidate[ex] = new_alloc # frac * target_trade_size
 
             if abs(sum(new_candidate.values()) - target_trade_size) > 10**-precision:
                 raise ValueError(f"new_candidate sum allocations = {sum(new_candidate.values())}\n{new_candidate}")
                 # print(f"new_candidate sum allocations = {sum(new_candidate.values())}")
 
-            if price_estimator.is_better(new_candidate, best_for_ex, delta):
-                # if best_for_ex: print(f"{ex} at {new_alloc} is {solution_cost(new_candidate, price_matrix) - solution_cost(best_for_ex, price_matrix) :.4f} better: \t{new_candidate}")
+            # Find the candidate with the minimum cost (no delta) for this exchange. If it beats the existing best by delta,
+            # then we'll add the exchange to the best solution
+            if price_estimator.is_better(new_candidate, best_for_ex):
                 best_for_ex = new_candidate
 
         if price_estimator.is_better(best_for_ex, best_new_candidate, delta):

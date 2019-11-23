@@ -191,7 +191,6 @@ def get_cex_savings(cex_client, order_type, pairs, trade_sizes, redirect=True):
     return all_savings
 
 
-
 def print_savings(order_type, savings, trade_sizes, title="Savings"):
     """Prints a savings dict, token => trade_size => savings values"""
     ph = lambda x: f"{x:>8}"
@@ -211,7 +210,6 @@ def get_pct_savings(p1, p2):
 #
 
 CSV_FIELDS = "time action trade_size token exchange exchange_price totle_used totle_price pct_savings splits".split()
-
 
 def get_filename_base(dir='outputs', prefix=None, suffix=None):
     prefix_str = f"{prefix}_" if prefix else ''
