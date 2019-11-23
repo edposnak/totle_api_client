@@ -82,7 +82,7 @@ def estimate_savings(totle_solution, estimator, actual_agg_dest_amount, agg_spli
     if totle_split == agg_split: # use the aggregator's amount for more accurate price comparison
         est_totle_dest_amount = actual_agg_dest_amount
     else:
-        est_totle_dest_amount = estimator.destination_amount(totle_solution, infinite_liquidity=True)
+        est_totle_dest_amount = estimator.destination_amount(totle_solution)
 
     est_totle_dest_amount *= (1 - TOTLE_FEE) # subtract Totle's fee from dest amount
     est_totle_split_pct_savings = get_pct_savings(actual_agg_dest_amount, est_totle_dest_amount)
@@ -139,8 +139,8 @@ def get_error_pcts(actual_agg_dest_amount, estimator, trade_size, agg_price, agg
         return 999999999, 999999999
     actual_agg_solution_cost = trade_size * (agg_price - estimator.base_price) / estimator.base_price
     agg_solution = slippage_curves.to_trade_size_allocations(agg_split, trade_size)
-    est_agg_dest_amount = estimator.destination_amount(agg_solution, infinite_liquidity=True)
-    est_agg_solution_cost = estimator.solution_cost(agg_solution, infinite_liquidity=True)
+    est_agg_dest_amount = estimator.destination_amount(agg_solution)
+    est_agg_solution_cost = estimator.solution_cost(agg_solution)
 
     # This is to ensure that the prices and slippage curves we're using are reasonably close
     cost_error = est_agg_solution_cost - actual_agg_solution_cost
@@ -166,6 +166,7 @@ def summary_csv_row_gen(summary_csv_file, string_trade_sizes=False, only_splits=
     """Reads in the summary CSV and yields rows based on price data that meets max_cost_error_pct and max_tokens_error_pct constraints"""
     print(f"\n\nsummary_csv_row_gen doing {summary_csv_file} string_trade_sizes={string_trade_sizes}, only_splits={only_splits}, only_non_splits={only_non_splits}) ...")
 
+    hits = 0
     with open(summary_csv_file, newline='') as csvfile:
         reader = csv.DictReader(csvfile, fieldnames=None)
         for row in reader:
@@ -184,8 +185,10 @@ def summary_csv_row_gen(summary_csv_file, string_trade_sizes=False, only_splits=
             totle_split_price, totle_split_pct_savings = float(row['totle_split_price']), float(row['totle_split_pct_savings'])
             cost_error_pct, tokens_error_pct = float(row['cost_error_pct']), float(row['tokens_error_pct'])
 
+            print(f"hits={hits}")
             # Discard rows where calculations are off because price data is incomplete/different
             if cost_error_pct < max_cost_error_pct and tokens_error_pct < max_tokens_error_pct:
+                hits += 1
                 yield time, action, trade_size, token, agg, agg_price, agg_split, no_split_totle_used, no_split_totle_price, no_split_pct_savings, totle_split, totle_split_price, totle_split_pct_savings
 
 

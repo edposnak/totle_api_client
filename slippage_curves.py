@@ -79,41 +79,40 @@ class PriceEstimator:
         print(f"{label}: saved {savings:.4f} ETH ({savings_pct:.2f}%)\n\tcandidate: {candidate} -> {candidate_cost}\n\tbaseline:  {baseline} -> {baseline_cost:.4f}")
         print(f"    In percent allocations:\n\tcandidate: {to_percentages(candidate)} -> {candidate_cost}\n\tbaseline:  {to_percentages(baseline)} -> {baseline_cost:.4f}")
 
-    def destination_amount(self, solution, infinite_liquidity=False):
+    def destination_amount(self, solution):
         for ex, ts in solution.items():
-            abs_price = self.get_absolute_price(ex,ts,infinite_liquidity=infinite_liquidity)
-            normz_price = self.base_price + self.base_price * self.get_normalized_price(ex, ts, infinite_liquidity=infinite_liquidity)
+            abs_price = self.get_absolute_price(ex,ts)
+            normz_price = self.base_price + self.base_price * self.get_normalized_price(ex, ts)
             if abs(normz_price - abs_price) > 0.00001:
-                print(f"destination_amount({solution}, inf_liq={infinite_liquidity}) PRICE DISCREPENCY: {ex} {ts} abs_price={abs_price} normz_price={normz_price} abs_price - normz price = {abs_price-normz_price:.6f} self.base_price={self.base_price}")
+                print(f"destination_amount({solution}, PRICE DISCREPENCY: {ex} {ts} abs_price={abs_price} normz_price={normz_price} abs_price - normz price = {abs_price-normz_price:.6f} self.base_price={self.base_price}")
 
         # All of the above is just a check, this function is a one-liner
-        return sum([ ts / self.get_absolute_price(ex,ts,infinite_liquidity=infinite_liquidity) for ex, ts in solution.items()])
+        return sum([ ts / self.get_absolute_price(ex,ts) for ex, ts in solution.items()])
 
-    def solution_cost(self, solution, infinite_liquidity=False):
+    def solution_cost(self, solution):
         sum_cost = 0.0
         for ex, ts in solution.items():
-            sum_cost += self.get_slippage_cost(ex, ts, infinite_liquidity=infinite_liquidity)
+            sum_cost += self.get_slippage_cost(ex, ts)
         return sum_cost
 
-    def get_slippage_cost(self, ex, ts, infinite_liquidity=False):
+    def get_slippage_cost(self, ex, ts):
         # Assumption is that interpolating between two known data points is more accurate than interpolating off the
         # least squares line, especially when prices jump at certain trade sizes (as happens on 0x and Kyber)
         # return ts * self.get_ls_normalized_slippage_price(ex, ts)
-        return ts * self.get_normalized_price(ex, ts, infinite_liquidity=infinite_liquidity)
+        return ts * self.get_normalized_price(ex, ts)
 
-    def get_normalized_price(self, ex, ts, infinite_liquidity=False):
-        abs_price = self.get_absolute_price(ex, ts, infinite_liquidity=infinite_liquidity)
+    def get_normalized_price(self, ex, ts):
+        abs_price = self.get_absolute_price(ex, ts)
         return (abs_price - self.base_price) / self.base_price
-        # return self.get_price_from(self.normalized_slippage_prices, ex, ts, infinite_liquidity=infinite_liquidity)
+        # return self.get_price_from(self.normalized_slippage_prices, ex, ts)
 
-    def get_absolute_price(self, ex, ts, infinite_liquidity=False):
+    def get_absolute_price(self, ex, ts):
         ts = float(ts) # self.absolute_prices was created with float keys
         if ts == 0: return 0
         if self.absolute_prices.get(ts) and ex in self.absolute_prices[ts]: return self.absolute_prices[ts][ex]
-        return self.interpolate_price(ex, ts, self.absolute_prices, infinite_liquidity=infinite_liquidity)
+        return self.interpolate_price(ex, ts, self.absolute_prices)
 
-    # TODO now that we have known_liquidty, remove infinite_liquidity
-    def interpolate_price(self, ex, ts, matrix, infinite_liquidity=False):
+    def interpolate_price(self, ex, ts, matrix):
         lower_ts, higher_ts = 0.0, float('inf')
         ex_trade_sizes = [ets for ets in matrix.keys() if matrix[ets].get(ex)]
         for trade_size in ex_trade_sizes:
@@ -128,8 +127,8 @@ class PriceEstimator:
                 # return self.get_ls_price(ex, ts)
                 # use the slope between the closest 2 samples to estimate price
                 t1, t2 = ex_trade_sizes[-2:]
-                if not infinite_liquidity: # extend only to known_liquidity for ex
-                    if ts > self.ex_known_liquidity[ex] : return float('inf')
+                # extend only to known_liquidity for ex
+                if ts > self.ex_known_liquidity[ex] : return float('inf')
 
                 dydx = (matrix[t2][ex] - matrix[t1][ex]) / (t2 - t1)
                 return matrix[t2][ex] + ((ts - t2) * dydx)
