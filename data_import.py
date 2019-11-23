@@ -17,7 +17,7 @@ import exchange_utils
 
 CSV_DATA_DIR = f"{os.path.dirname(os.path.abspath(__file__))}/outputs"
 
-@functools.lru_cache()
+# don't lru_cache() a generator, the second time it will not produce any data
 def csv_row_gen(file, string_trade_sizes=False, only_splits=False, only_non_splits=False):
     print(f"\n\ncsv_row_gen doing {file} string_trade_sizes={string_trade_sizes}, only_splits={only_splits}, only_non_splits={only_non_splits}) ...")
     with open(file, newline='') as csvfile:
@@ -29,8 +29,8 @@ def csv_row_gen(file, string_trade_sizes=False, only_splits=False, only_non_spli
             if only_splits and len(splits) < 2: continue
             if only_non_splits and len(splits) > 1: continue
 
-            time, action = datetime.fromisoformat(row['time']).isoformat(' ', 'seconds'), row['action']
-            token, trade_size = row['token'], row['trade_size']
+            time, action = row['time'], row['action'] # datetime.fromisoformat(row['time']).isoformat(' ', 'seconds')
+            trade_size, token = row['trade_size'], row['token']
             if not string_trade_sizes:
                 trade_size = float(trade_size)
             exchange, exchange_price = row['exchange'], float(row['exchange_price'])
