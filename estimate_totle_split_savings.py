@@ -36,7 +36,7 @@ def get_cost_comparisons(csv_files):
             actual_agg_dest_amount = trade_size / agg_price
 
             exclude_dexs = ['Radar Relay'] # always exclude Radar Relay, Totle uses 0xMesh
-            totle_solution = slippage_curves.branch_and_bound_solutions(trade_size, estimator, exclude_dexs=exclude_dexs)
+            totle_solution = slippage_curves.splitting_algorithm(trade_size, estimator, exclude_dexs=exclude_dexs)
             est_totle_dest_amount, est_totle_split_pct_savings = estimate_savings(totle_solution, estimator, actual_agg_dest_amount, agg_split)
 
             # TODO Account for situations where agg knows Kyber is using Uniswap (or is excluding Uniswap reserve) and using Uniswap
@@ -44,7 +44,7 @@ def get_cost_comparisons(csv_files):
                 if ('Uniswap' in agg_split or 'Kyber' in agg_split) and not {'Uniswap', 'Kyber'}.issubset(agg_split):
                     # print(f"RECALCULATE: {time} {token} {trade_size} {est_totle_split_pct_savings} \nTotle: amt={est_totle_dest_amount} {totle_solution}\n{agg} amt={actual_agg_dest_amount} {agg_split}")
                     exclude_dexs += ['Kyber'] if 'Uniswap' in agg_split else ['Uniswap']
-                    totle_solution = slippage_curves.branch_and_bound_solutions(trade_size, estimator, exclude_dexs=exclude_dexs)
+                    totle_solution = slippage_curves.splitting_algorithm(trade_size, estimator, exclude_dexs=exclude_dexs)
                     est_totle_dest_amount, est_totle_split_pct_savings = estimate_savings(totle_solution, estimator, actual_agg_dest_amount, agg_split)
 
             totle_split = slippage_curves.to_percentages(totle_solution)
@@ -117,14 +117,13 @@ def get_all_prices_and_known_liquidities(csv_file):
     tok_ex_known_liquidity = defaultdict(lambda: defaultdict(float))
     # Use splits and non-splits to get price data
     for time, action, trade_size, token, agg, agg_price, totle_used, totle_price, pct_savings, agg_split, ex_prices in data_import.csv_row_gen(csv_file):
-        # print(action, trade_size, token, agg, agg_price, totle_used, totle_price, pct_savings)
         if ex_prices and agg == dexag_client.name():  # only use DEX.AG ex_prices data
             for ex, price in ex_prices.items():
                 tok_ex_ts_prices[token][ex][trade_size] = price
-                for ex in agg_split:
-                    eth_used = trade_size * agg_split[ex] / 100
-                    if eth_used > tok_ex_known_liquidity[token][ex]:
-                        tok_ex_known_liquidity[token][ex] = eth_used
+        for ex in agg_split:
+            eth_used = trade_size * agg_split[ex] / 100
+            if eth_used > tok_ex_known_liquidity[token][ex]:
+                tok_ex_known_liquidity[token][ex] = eth_used
     return tok_ex_ts_prices, tok_ex_known_liquidity
 
 
@@ -166,7 +165,6 @@ def summary_csv_row_gen(summary_csv_file, string_trade_sizes=False, only_splits=
     """Reads in the summary CSV and yields rows based on price data that meets max_cost_error_pct and max_tokens_error_pct constraints"""
     print(f"\n\nsummary_csv_row_gen doing {summary_csv_file} string_trade_sizes={string_trade_sizes}, only_splits={only_splits}, only_non_splits={only_non_splits}) ...")
 
-    hits = 0
     with open(summary_csv_file, newline='') as csvfile:
         reader = csv.DictReader(csvfile, fieldnames=None)
         for row in reader:
@@ -185,12 +183,13 @@ def summary_csv_row_gen(summary_csv_file, string_trade_sizes=False, only_splits=
             totle_split_price, totle_split_pct_savings = float(row['totle_split_price']), float(row['totle_split_pct_savings'])
             cost_error_pct, tokens_error_pct = float(row['cost_error_pct']), float(row['tokens_error_pct'])
 
-            print(f"hits={hits}")
             # Discard rows where calculations are off because price data is incomplete/different
             if cost_error_pct < max_cost_error_pct and tokens_error_pct < max_tokens_error_pct:
-                hits += 1
                 yield time, action, trade_size, token, agg, agg_price, agg_split, no_split_totle_used, no_split_totle_price, no_split_pct_savings, totle_split, totle_split_price, totle_split_pct_savings
+            else:
+                print(f"discarding {token} {trade_size} {agg}: {agg_split} Totle: {totle_split} pct_savings={totle_split_pct_savings:.2f}")
 
+            yield time, action, trade_size, token, agg, agg_price, agg_split, no_split_totle_used, no_split_totle_price, no_split_pct_savings, totle_split, totle_split_price, totle_split_pct_savings
 
 def get_per_token_savings(summary_csv_file):
     per_token_splits_only_savings = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
@@ -273,6 +272,20 @@ def print_split_vs_non_split_savings_summary_table_csv(csv_summary_file):
 
         print(row)
 
+def print_dex_used_pcts(summary_csv_file, include_non_splits=False):
+    rows_used, agg_dex_count = 0, defaultdict(lambda: defaultdict(int))
+    rows = summary_csv_row_gen(summary_csv_file, max_cost_error_pct=MAX_COST_ERROR_PCT, max_tokens_error_pct=MAX_TOKENS_ERROR_PCT)
+    for time, _, trade_size, token, agg, _, agg_split, _, _, no_split_pct_savings, totle_split, _, totle_split_pct_savings in rows:
+        for dex in agg_split:
+            if len(agg_split) > 1 or include_non_splits:
+                rows_used += 1
+                agg_dex_count[agg][dex] += 1
+    print(f"Based on {rows_used} samples")
+    for agg, dex_count in agg_dex_count.items():
+        n_samples = sum(dex_count.values())
+        dex_count_pct = {dex: round(100 * (count / n_samples), 1) for dex, count in dex_count.items()}
+        print(f"{agg}: {dex_count_pct}")
+
 def compute_mean(savings_list):
     if not savings_list: return None
     sum_savings, n_samples = sum(savings_list), len(savings_list)
@@ -287,10 +300,14 @@ def main():
         print(f"no CSVs given")
         exit(1)
 
+    # print_dex_used_pcts('outputs/summarized_totle_split_savings_2019-11-23_13:30:47.csv', include_non_splits=True)
+    # exit(0)
+
     summarize = True
 
     if summarize:
-        summary_csv_file = sys.argv[1] if len(sys.argv) > 1 else 'outputs/summarized_totle_split_savings_2019-11-23_13:30:47.csv'
+        summary_csv_file = sys.argv[1] if len(sys.argv) > 1 else 'outputs/summarized_totle_split_savings_2019-11-24_13:00:39.csv'
+        # summary_csv_file = sys.argv[1] if len(sys.argv) > 1 else 'outputs/summarized_totle_split_savings_2019-11-23_13:30:47.csv'
         print_split_vs_non_split_savings_summary_table_csv(summary_csv_file)
     else:
         csv_files = tuple(sys.argv[1:])
