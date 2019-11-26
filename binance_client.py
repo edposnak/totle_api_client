@@ -30,7 +30,8 @@ def get_pairs(quote='ETH'):
     return [ (s['baseAsset'], s['quoteAsset']) for s in j['symbols'] if s['quoteAsset'] == quote ]
 
 def get_overlap_pairs(totle_tokens, quote='ETH'):
-    return [ (b,q) for b,q in get_pairs() if q == quote and b in totle_tokens ]
+    return [ (b,q) for b,q in get_pairs(quote) if b in totle_tokens ]
+
 
 
 DEPTH_LEVELS = [5, 10, 20, 50, 100, 500, 1000, 5000]

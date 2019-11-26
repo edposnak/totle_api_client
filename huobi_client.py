@@ -37,6 +37,10 @@ def get_pairs(quote='ETH'):
     else:
         raise HuobiAPIException(f"get_pairs({vars()}) raised {j}")
 
+def get_overlap_pairs(totle_tokens, quote='ETH'):
+    return [ (b,q) for b,q in get_pairs(quote) if b in totle_tokens ]
+
+
 def get_depth(base, quote, level=0):
     """returns a dict of price to quantity available at that price"""
     # e.g. symbol=btcusdt&type=step1

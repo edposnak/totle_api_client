@@ -51,10 +51,8 @@ def get_pairs(quote='ETH'):
         r = j['result']
         return [ (translate_from_kraken(s['base']), translate_from_kraken(s['quote'])) for _, s in r.items() if s['quote'] == k_quote_sym ]
 
-
-
 def get_overlap_pairs(totle_tokens, quote='ETH'):
-    return [ (b,q) for b,q in get_pairs() if q == quote and b in totle_tokens ]
+    return [ (b,q) for b,q in get_pairs(quote) if b in totle_tokens ]
 
 
 DEPTH_LEVELS = [5, 10, 20, 50, 100, 150, 200, 250] # arbitrary translation from level to count
