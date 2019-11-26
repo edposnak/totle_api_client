@@ -29,11 +29,11 @@ def savings_data(order_type, trade_size, token, exchange, pct_savings, totle_use
 # DEX functions to compute and print price differences
 #
 
-def compare_dex_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, params=None, verbose=True, debug=False):
+def compare_dex_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, order_type, params=None, verbose=True, debug=False):
     """Returns a dict of dex: savings_data for Totle and other DEXs"""
 
     kw_params = { k:v for k,v in vars().items() if k in ['params', 'verbose', 'debug'] }
-    order_type, trade_size = params['orderType'], params['tradeSize']
+    trade_size = params['orderType'], params['tradeSize']
     savings = {}
     from_token, to_token, bidask = ('ETH', token, 'ask') if order_type == 'buy' else (token, 'ETH', 'bid')
     totle_ex = v2_client.name()
@@ -147,26 +147,6 @@ def get_from_to(order_type, base, quote):
     from_token, to_token = (quote, base) if order_type == 'buy' else (base, quote)
     return from_token, to_token
 
-def compare_to_totle(base, quote, order_type, trade_size, exchange, ex_price, splits=None):
-    """Returns a savings_data dict comparing price (in *spent* token) to totle's price"""
-    from_token, to_token = get_from_to(order_type, base, quote)
-    params = {'orderType': order_type, 'tradeSize': trade_size}
-
-    totle_sd = v2_client.try_swap(v2_client.name(), from_token, to_token, params=params, verbose=False)
-    if totle_sd:
-        totle_price = totle_sd['price']
-        totle_used = totle_sd['totleUsed']
-        pct_savings = get_pct_savings(totle_price, ex_price)
-
-        trade_info = f"trade size={trade_size} ETH (Totle price={totle_price:.5g} {exchange} price={ex_price:.5g})"
-        if splits: trade_info += f"splits={splits}"
-        print(f"Totle saved {pct_savings:.2f} percent vs {exchange} {order_type}ing {base} on {','.join(totle_used)} {trade_info}")
-
-        return savings_data(order_type, trade_size, base, exchange, pct_savings, totle_used, totle_price, ex_price, splits)
-
-    else:
-        print(f"Compare {order_type} {base}/{quote} tradeSize={trade_size} got no result from Totle")
-
 
 def get_cex_savings(cex_client, order_type, pairs, trade_sizes, redirect=True):
     """Returns a dict of token: { trade_size: savings } for various tokens and trade_sizes"""
@@ -189,6 +169,26 @@ def get_cex_savings(cex_client, order_type, pairs, trade_sizes, redirect=True):
                 print(f"Compare {base}/{quote} raised {e}")
 
     return all_savings
+
+def compare_to_totle(base, quote, order_type, trade_size, exchange, ex_price, splits=None):
+    """Returns a savings_data dict comparing price (in *spent* token) to totle's price"""
+    from_token, to_token = get_from_to(order_type, base, quote)
+    totle_sd = v2_client.try_swap(v2_client.name(), from_token, to_token, params={'tradeSize': trade_size}, verbose=False)
+    if totle_sd:
+        return get_savings(exchange, ex_price, totle_sd, base, trade_size, order_type, splits)
+    else:
+        print(f"Compare {order_type} {base}/{quote} tradeSize={trade_size} got no result from Totle")
+
+
+def get_savings(exchange, exchange_price, totle_sd, token, trade_size, order_type, splits=None, ex_prices=None, print_savings=True):
+    totle_price = totle_sd['price']
+    totle_used = totle_sd['totleUsed']
+    pct_savings = get_pct_savings(totle_price, exchange_price)
+    if print_savings:
+        trade_info = f"trade size={trade_size} ETH (Totle price={totle_price:.5g} {exchange} price={exchange_price:.5g})"
+        if splits: trade_info += f"splits={splits}"
+        print(f"Totle saved {pct_savings:.2f} percent vs {exchange} {order_type}ing {token} on {','.join(totle_used)} {trade_info}")
+    return savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price, splits, ex_prices)
 
 
 def print_savings(order_type, savings, trade_sizes, title="Savings"):

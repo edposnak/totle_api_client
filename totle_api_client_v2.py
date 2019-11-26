@@ -75,7 +75,7 @@ with SavingsCSV(filename) as csv_writer:
         for token in liquid_tokens:
             print(f"\n----------------------------------------")
             print(f"\n{order_type} {token} trade size = {trade_size} ETH")
-            savings = compare_dex_prices(token, all_supported_pairs[trade_size], non_liquid_tokens, liquid_dexs, params, debug=False)
+            savings = compare_dex_prices(token, all_supported_pairs[trade_size], non_liquid_tokens, liquid_dexs, order_type=order_type, params=params, debug=False)
             if savings:
                 all_savings[trade_size][token] = savings
                 for exchange in savings:

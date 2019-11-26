@@ -7,18 +7,14 @@ import exchange_utils
 import oneinch_client
 import paraswap_client
 import v2_client
-from v2_compare_prices import savings_data, get_pct_savings, print_savings, get_filename_base, SavingsCSV
+from v2_compare_prices import get_savings, print_savings, get_filename_base, SavingsCSV
 
 def compare_totle_and_aggs(agg_clients, base, quote, trade_size, order_type='buy'):
     agg_savings = {}
     from_token, to_token = quote, base
     # this hardcodes sourceAmount=trade_size because from_token (AKA quote) is ETH
-    params = {'orderType': order_type, 'tradeSize': trade_size}
-    totle_sd = v2_client.try_swap(v2_client.name(), from_token, to_token, params=params, verbose=False)
+    totle_sd = v2_client.try_swap(v2_client.name(), from_token, to_token, params={'tradeSize': trade_size}, verbose=False)
     if totle_sd:
-        totle_price = totle_sd['price']
-        totle_used = totle_sd['totleUsed']
-
         futures_agg = {}
         with concurrent.futures.ThreadPoolExecutor() as executor:
             for agg_client in agg_clients:
@@ -28,18 +24,10 @@ def compare_totle_and_aggs(agg_clients, base, quote, trade_size, order_type='buy
         for f in concurrent.futures.as_completed(futures_agg):
             agg_name = futures_agg[f]
             pq = f.result()
-            # print(f"{agg_name}: {pq}")
             if pq:
-                agg_price = pq['price']
-                pct_savings = get_pct_savings(totle_price, agg_price)
                 splits = exchange_utils.canonical_keys(pq['exchanges_parts'])
-                savings = savings_data(order_type, trade_size, base, agg_name, pct_savings, totle_used, totle_price, agg_price, splits)
-                savings['ex_prices'] = pq.get('exchanges_prices') and exchange_utils.canonical_and_splittable(pq['exchanges_prices'])
-                agg_savings[agg_name] = savings
-                trade_info = f"trade size={trade_size} ETH (Totle price={totle_price:.5g} {agg_name} price={agg_price:.5g})"
-                if splits: trade_info += f"splits={splits}"
-                print(f"Totle saved {pct_savings:.2f} percent vs {agg_name} {order_type}ing {base} on {','.join(totle_used)} {trade_info}")
-
+                ex_prices = pq.get('exchanges_prices') and exchange_utils.canonical_and_splittable(pq['exchanges_prices'])
+                agg_savings[agg_name] = get_savings(agg_name, pq['price'], totle_sd, base, trade_size, order_type, splits=splits, ex_prices=ex_prices)
             else:
                 print(f"{agg_name} had no price quote for {order_type} {base} / {trade_size} {quote}")
     return agg_savings
