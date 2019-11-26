@@ -28,7 +28,7 @@ def unique_exchanges(per_token_savings):
 
 def print_savings_with_num_samples(savings_by_trade_size):
     print(f"\n\nOverall average price savings by trade size are shown below.")
-    for trade_size in sorted_trade_sizes(savings_by_trade_size):
+    for trade_size in sorted_trade_sizes(savings_by_trade_size, string_trade_sizes=True):
         print(f"\nAverage Savings trade size = {trade_size} ETH vs")
         for exchange, pct_savings in savings_by_trade_size[trade_size].items():
             print(f"   {exchange}: {compute_mean(pct_savings):.2f}% ({len(pct_savings)} samples)")
@@ -69,7 +69,7 @@ def print_savings_summary_table(per_trade_size_savings, all_exchanges):
     headers = ''.join(list(map(lambda e: f"{e:<18}", all_exchanges)))
     print(f"{'Trade Size':<18}{headers}")
     # for trade_size, savings in savings_by_trade_size.items():
-    for trade_size in sorted_trade_sizes(per_trade_size_savings):
+    for trade_size in sorted_trade_sizes(per_trade_size_savings, string_trade_sizes=True):
         savings = per_trade_size_savings[trade_size]
         row = f"{trade_size:<6} ETH        "
         for exchange in all_exchanges:
@@ -81,7 +81,7 @@ def print_savings_summary_table(per_trade_size_savings, all_exchanges):
 
 def print_savings_summary_table_csv(per_trade_size_savings, all_exchanges):
     print(f"Trade Size,{','.join(all_exchanges)}")
-    for trade_size in sorted_trade_sizes(per_trade_size_savings):
+    for trade_size in sorted_trade_sizes(per_trade_size_savings, string_trade_sizes=True):
         savings = per_trade_size_savings[trade_size]
         row = f"{trade_size}"
         for exchange in all_exchanges:
@@ -106,7 +106,7 @@ def print_pmm_savings_table_csv(slip_price_splits, tokens):
                     if 'PMM' in split:
                         ts_tok_savings[trade_size][token].append(-100 * price_diff)
 
-    for trade_size in sorted_trade_sizes(ts_tok_savings):
+    for trade_size in sorted_trade_sizes(ts_tok_savings, string_trade_sizes=True):
         per_token_savings = ts_tok_savings[trade_size]
         row = f"{trade_size}"
         for token in sorted_tokens:
@@ -118,7 +118,7 @@ def print_pmm_savings_table_csv(slip_price_splits, tokens):
 
 def print_split_vs_non_split_savings_summary_table_csv(per_trade_size_splits_only, per_trade_size_non_splits_only, aggs):
     print(f"Trade Size,{','.join(map(lambda x: f'{x} (non-split),{x} (splits-only)', aggs))}")
-    for trade_size in sorted_trade_sizes(per_trade_size_splits_only, per_trade_size_non_splits_only):
+    for trade_size in sorted_trade_sizes(per_trade_size_splits_only, per_trade_size_non_splits_only, string_trade_sizes=True):
         non_splits = per_trade_size_non_splits_only.get(trade_size)
         splits_only = per_trade_size_splits_only.get(trade_size)
         row = f"{trade_size}"
@@ -184,65 +184,65 @@ basis_points = lambda x: x * 10000
 # def sorted_trade_sizes(savings_by_trade_size):
 #     return map(str, sorted(map(float, savings_by_trade_size.keys())))
 
-def sorted_trade_sizes(*dicts):
+def sorted_trade_sizes(*dicts, string_trade_sizes=False):
+    """Finds and sorts all trade sizes in the given dicts, which should be of the form {trade_size: stuff}"""
     all_trade_sizes = set(sum([ list(d.keys()) for d in dicts ], []))
-    return map(str, sorted(map(float, all_trade_sizes)))
+    sorted_float_trade_sizes = sorted(map(float, all_trade_sizes))
+    if string_trade_sizes:
+        return list(map(str, sorted_float_trade_sizes))
+    else:
+        return sorted_float_trade_sizes
 
 
 ########################################################################################################################
-# main
 
-csv_files = tuple(sys.argv[1:])
-if len(csv_files) < 1:
-    print("no CSV files provided")
-    exit(1)
-else:
-    print(f"processing {len(csv_files)} CSV files ...")
+def main():
+    csv_files = tuple(sys.argv[1:])
+    if len(csv_files) < 1:
+        print("no CSV files provided")
+        exit(1)
+    else:
+        print(f"processing {len(csv_files)} CSV files ...")
+    per_token_savings, slip_price_splits = data_import.parse_csv_files(csv_files, string_trade_sizes=True)
+    per_trade_size_savings = aggregated_savings(per_token_savings)
+    per_token_splits_only_savings, _ = data_import.parse_csv_files(csv_files, string_trade_sizes=True, only_splits=True)
+    per_token_non_splits_only_savings, non_splits_only_slip_price_splits = data_import.parse_csv_files(csv_files, string_trade_sizes=True, only_non_splits=True)
+    per_trade_size_splits_only = aggregated_savings(per_token_splits_only_savings)
+    per_trade_size_non_splits = aggregated_savings(per_token_non_splits_only_savings)
+    # print slippage vs splits
+    # print_slippage_split_pct_csvs(slip_price_splits)
+    # print negative savings vs exchanges
+    # print_neg_savings_stats(per_token_savings)
+    # print average savings by trade_size, exchange with num samples
+    # print("\n\nAll tokens savings by trade size with num samples")
+    # print_savings_with_num_samples(per_trade_size_savings)
+    # print average savings summary table
+    aggs = exchanges = unique_exchanges(per_token_savings)
+    # print splits vs non-splits summary CSV
+    # print("\n\nAll tokens savings by trade size (non-splits)")
+    # print_savings_summary_table(per_trade_size_non_splits, exchanges)
+    # print("\n\nAll tokens savings by trade size (only splits)")
+    # print_savings_summary_table_csv(per_trade_size_splits_only, exchanges)
+    #
+    # print("\n\nAll tokens savings by trade size splits vs non-splits")
+    print_split_vs_non_split_savings_summary_table_csv(per_trade_size_splits_only, per_trade_size_non_splits, aggs)
+    # TODO EJP csv where each row is it's own curve. See how MKR/ETH on Uniswap changes over time
+    # print_pmm_savings_table_csv(non_splits_only_slip_price_splits, 'USDT USDC PAX TUSD WBTC DAI'.split())
+    # print average savings by token
+    # print("\n\nSavings for each token by trade size (all)")
+    # print_per_token_savings_summary_tables(per_token_savings, exchanges)
+    # print("\n\nSavings for each token by trade size (non-splits)")
+    # print_per_token_savings_summary_tables(per_token_non_splits_only_savings, exchanges)
+    # print("\n\nSavings for each token by trade size (only splits)")
+    # print_per_token_savings_summary_tables(per_token_splits_only_savings, exchanges)
+    # for token in ['ENJ','BAT','MKR','DAI']:
+    #     print(f"\n{token}")
+    #     print_savings_summary_table_csv(per_token_splits_only_savings[token], exchanges)
+    #
+    # # print outlier data
+    # print_outliers(per_token_savings)
+    # print_big_savings(per_token_savings, lower_bound_pct=-7.0)
 
-per_token_savings, slip_price_splits = data_import.parse_csv_files(csv_files, string_trade_sizes=True)
-per_trade_size_savings = aggregated_savings(per_token_savings)
-per_token_splits_only_savings, _ = data_import.parse_csv_files(csv_files, string_trade_sizes=True, only_splits=True)
-per_token_non_splits_only_savings, non_splits_only_slip_price_splits = data_import.parse_csv_files(csv_files, string_trade_sizes=True, only_non_splits=True)
-per_trade_size_splits_only = aggregated_savings(per_token_splits_only_savings)
-per_trade_size_non_splits = aggregated_savings(per_token_non_splits_only_savings)
 
-# print slippage vs splits
-# print_slippage_split_pct_csvs(slip_price_splits)
-
-# print negative savings vs exchanges
-# print_neg_savings_stats(per_token_savings)
-
-# print average savings by trade_size, exchange with num samples
-# print("\n\nAll tokens savings by trade size with num samples")
-# print_savings_with_num_samples(per_trade_size_savings)
-
-# print average savings summary table
-aggs = exchanges = unique_exchanges(per_token_savings)
-
-# print splits vs non-splits summary CSV
-# print("\n\nAll tokens savings by trade size (non-splits)")
-# print_savings_summary_table(per_trade_size_non_splits, exchanges)
-# print("\n\nAll tokens savings by trade size (only splits)")
-# print_savings_summary_table_csv(per_trade_size_splits_only, exchanges)
-#
-# print("\n\nAll tokens savings by trade size splits vs non-splits")
-print_split_vs_non_split_savings_summary_table_csv(per_trade_size_splits_only, per_trade_size_non_splits, aggs)
-
-# TODO EJP csv where each row is it's own curve. See how MKR/ETH on Uniswap changes over time
-# print_pmm_savings_table_csv(non_splits_only_slip_price_splits, 'USDT USDC PAX TUSD WBTC DAI'.split())
-
-# print average savings by token
-# print("\n\nSavings for each token by trade size (all)")
-# print_per_token_savings_summary_tables(per_token_savings, exchanges)
-# print("\n\nSavings for each token by trade size (non-splits)")
-# print_per_token_savings_summary_tables(per_token_non_splits_only_savings, exchanges)
-# print("\n\nSavings for each token by trade size (only splits)")
-# print_per_token_savings_summary_tables(per_token_splits_only_savings, exchanges)
-# for token in ['ENJ','BAT','MKR','DAI']:
-#     print(f"\n{token}")
-#     print_savings_summary_table_csv(per_token_splits_only_savings[token], exchanges)
-#
-# # print outlier data
-# print_outliers(per_token_savings)
-# print_big_savings(per_token_savings, lower_bound_pct=-7.0)
-
+if __name__ == "__main__":
+    main()
