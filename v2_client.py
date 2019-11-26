@@ -94,6 +94,8 @@ def calc_exchange_fees(trade):
     non_zero_fee_orders = [ o for o in orders if int(o['fee']['amount']) != 0 ] # ignore orders with no exchange fees
 
     non_zero_fee_tokens = [ o['fee']['asset']['symbol'] for o in non_zero_fee_orders ]
+    if len(set(non_zero_fee_tokens)) == 0:
+        return None, 0
     if len(set(non_zero_fee_tokens)) != 1:
         raise ValueError(f"different exchange fee tokens in same trade {non_zero_fee_tokens}")
         
@@ -150,7 +152,7 @@ def sum_amounts(trade, src_dest, summary_token):
         
     return total_amount
 
-HACK_UNTIL_SUMMARY_FIXED=False
+HACK_UNTIL_SUMMARY_FIXED=True
 
 def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
     """adjust source and destination amounts so price reflects paying totle fee"""
