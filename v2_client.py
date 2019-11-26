@@ -91,13 +91,15 @@ def get_summary_data(response):
 
 def calc_exchange_fees(trade):
     orders = trade['orders']
-    fee_tokens = [ o['fee']['asset']['symbol'] for o in orders ]
-    if len(set(fee_tokens)) != 1:
-        raise ValueError(f"different exchange fee tokens in same trade {fee_tokens}")
+    non_zero_fee_orders = [ o for o in orders if int(o['fee']['amount']) != 0 ] # ignore orders with no exchange fees
+
+    non_zero_fee_tokens = [ o['fee']['asset']['symbol'] for o in non_zero_fee_orders ]
+    if len(set(non_zero_fee_tokens)) != 1:
+        raise ValueError(f"different exchange fee tokens in same trade {non_zero_fee_tokens}")
         
-    exchange_fee_token = fee_tokens[0]
-    exchange_fee_div = 10**int(orders[0]['fee']['asset']['decimals'])
-    exchange_fee = sum([ int(o['fee']['amount']) for o in orders ]) / exchange_fee_div
+    exchange_fee_token = non_zero_fee_tokens[0]
+    exchange_fee_div = 10**int(non_zero_fee_orders[0]['fee']['asset']['decimals'])
+    exchange_fee = sum([ int(o['fee']['amount']) for o in non_zero_fee_orders ]) / exchange_fee_div
 
     return exchange_fee_token, exchange_fee
 
@@ -233,7 +235,7 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
     return source_amount, destination_amount
         
 
-def swap_data(response, is_totle):
+def swap_data(response, is_totle, request={}):
     """Extracts relevant data from a swap API endpoint response"""
 
     try:
@@ -280,7 +282,7 @@ def swap_data(response, is_totle):
             "partnerFeeToken": partner_fee_token,
         }
     except ValueError as e:
-        raise ValueError(e.args[0], {}, response)
+        raise ValueError(e.args[0], request, response)
 
 
 ##############################################################################################
@@ -403,7 +405,7 @@ def try_swap(label, from_token, to_token, exchange=None, params={}, verbose=True
         elif not j['success']:
             raise TotleAPIException(None, inputs, j)
         else:
-            sd = swap_data(j['response'], is_totle)
+            sd = swap_data(j['response'], is_totle, request=inputs)
 
         if sd and verbose:
             if is_totle:
