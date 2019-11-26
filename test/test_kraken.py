@@ -1,16 +1,17 @@
-from kraken_client import translate_from_kraken, translate_to_kraken, get_pairs
+import binance_client
+import huobi_client
+import kraken_client
 
 
-print(f"translate_to_kraken('ETH') = {translate_to_kraken('ETH')}")
-print(f"translate_from_kraken('XETH') = {translate_from_kraken('XETH')}")
-print(f"translate_to_kraken('ZEUR') = {translate_to_kraken('ZEUR')}")
-print(f"translate_from_kraken('ZEUR') = {translate_from_kraken('ZEUR')}")
-print(f"translate_to_kraken('USDT') = {translate_to_kraken('USDT')}")
-print(f"translate_from_kraken('USDT') = {translate_from_kraken('USDT')}")
+def test_translate_to_from_kraken():
+    print(f"kraken_client.kraken_client.translate_to_kraken('ETH') = {kraken_client.translate_to_kraken('ETH')}")
+    print(f"kraken_client.translate_from_kraken('XETH') = {kraken_client.translate_from_kraken('XETH')}")
+    print(f"kraken_client.translate_to_kraken('ZEUR') = {kraken_client.translate_to_kraken('ZEUR')}")
+    print(f"kraken_client.translate_from_kraken('ZEUR') = {kraken_client.translate_from_kraken('ZEUR')}")
+    print(f"kraken_client.translate_to_kraken('USDT') = {kraken_client.translate_to_kraken('USDT')}")
+    print(f"kraken_client.translate_from_kraken('USDT') = {kraken_client.translate_from_kraken('USDT')}")
 
-p = get_pairs()
-for b,q in p: print(b,q)
+#######################################################################################################################
 
-
-
+test_translate_to_from_kraken()
 

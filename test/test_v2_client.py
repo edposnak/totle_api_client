@@ -9,10 +9,13 @@ def test_basics():
     print(v2_client.enabled_exchanges())
     print(v2_client.data_exchanges())
 
-def test_summary_bug_2(token_to_buy='SHP'):
-    inputs = v2_client.swap_inputs('ETH', token_to_buy, params={'tradeSize':0.1})
-    j = v2_client.post_with_retries(v2_client.SWAP_ENDPOINT, inputs, debug=True)
-    # j = json.load(open('test_data/buy_shp.json'))
+def test_summary_bug_2(token_to_buy='SHP', json_response_file=None):
+    if json_response_file:
+        j = json.load(open(json_response_file))
+    else:
+        inputs = v2_client.swap_inputs('ETH', token_to_buy, params={'tradeSize':0.1})
+        j = v2_client.post_with_retries(v2_client.SWAP_ENDPOINT, inputs, debug=True)
+
     summary_src_amount, summary_dest_amount, trades0_src_amount, trades0_dest_amount, orders00_src_amount, orders00_dest_amount, \
         trades1_src_amount, trades1_dest_amount, orders10_src_amount, orders10_dest_amount, totle_fee = parse_swap_response2(j)
     print(f"summary_src_amount={summary_src_amount} summary_dest_amount={summary_dest_amount}")
@@ -95,10 +98,12 @@ def test_which_tokens_supported(tradable_tokens, trade_size=0.1, dex='0xMesh', f
 
 #######################################################################################################################
 
+tradable_tokens = token_utils.tradable_tokens()
+
 # test_summary_bug_2(token_to_buy='SHP')
+test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug2_plus_fee.json')
 # test_summary_bug_3(token_to_buy='MKR', dex='Oasis')
 
-tradable_tokens = token_utils.tradable_tokens()
 # # tradable_tokens = ['BAT', 'CVC', 'ZIL']
 # test_get_quote(tradable_tokens)
 # test_what_tokens_supported(tradable_tokens, dex='0xMesh')
@@ -106,4 +111,4 @@ tradable_tokens = token_utils.tradable_tokens()
 # test_what_tokens_supported(tradable_tokens, dex='Stablecoinswap')
 # test_what_tokens_supported(tradable_tokens, dex='Fulcrum')
 
-test_get_quote(['CETH'], dex='Fulcrum')
+# test_get_quote(['CETH'], dex='Fulcrum')
