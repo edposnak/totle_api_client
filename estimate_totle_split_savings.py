@@ -183,13 +183,16 @@ def summary_csv_row_gen(summary_csv_file, string_trade_sizes=False, only_splits=
             totle_split_price, totle_split_pct_savings = float(row['totle_split_price']), float(row['totle_split_pct_savings'])
             cost_error_pct, tokens_error_pct = float(row['cost_error_pct']), float(row['tokens_error_pct'])
 
+
             # Discard rows where calculations are off because price data is incomplete/different
             if cost_error_pct < max_cost_error_pct and tokens_error_pct < max_tokens_error_pct:
+                if token == 'RDN' and trade_size == 10.0 and agg == '1-Inch':
+                    print(f"HIYALL {token} {trade_size} {agg}: {agg_split} Totle: {totle_split} pct_savings={totle_split_pct_savings:.2f} cost_error_pct={cost_error_pct} tokens_error_pct={tokens_error_pct}")
                 yield time, action, trade_size, token, agg, agg_price, agg_split, no_split_totle_used, no_split_totle_price, no_split_pct_savings, totle_split, totle_split_price, totle_split_pct_savings
             else:
-                print(f"discarding {token} {trade_size} {agg}: {agg_split} Totle: {totle_split} pct_savings={totle_split_pct_savings:.2f}")
+                pass
+                # print(f"discarding {token} {trade_size} {agg}: {agg_split} Totle: {totle_split} pct_savings={totle_split_pct_savings:.2f} cost_error_pct={cost_error_pct} {tokens_error_pct}")
 
-            yield time, action, trade_size, token, agg, agg_price, agg_split, no_split_totle_used, no_split_totle_price, no_split_pct_savings, totle_split, totle_split_price, totle_split_pct_savings
 
 def get_per_token_savings(summary_csv_file):
     per_token_splits_only_savings = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
@@ -306,8 +309,7 @@ def main():
     summarize = True
 
     if summarize:
-        summary_csv_file = sys.argv[1] if len(sys.argv) > 1 else 'outputs/summarized_totle_split_savings_2019-11-24_13:00:39.csv'
-        # summary_csv_file = sys.argv[1] if len(sys.argv) > 1 else 'outputs/summarized_totle_split_savings_2019-11-23_13:30:47.csv'
+        summary_csv_file = sys.argv[1] if len(sys.argv) > 1 else 'outputs/summarized_totle_split_savings_2019-11-24_13:30:22.csv'
         print_split_vs_non_split_savings_summary_table_csv(summary_csv_file)
     else:
         csv_files = tuple(sys.argv[1:])
