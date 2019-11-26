@@ -45,7 +45,7 @@ def name():
 
 # get exchanges
 DEX_NAME_MAP = { '0xMesh': '0xMesh', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Ether Delta': 'EtherDelta', 'Fulcrum': 'Fulcrum',
-                 'Kyber': 'Kyber', 'Oasis': 'Eth2dai', 'StableCoinSwap': 'Stablecoinswap', 'Uniswap': 'Uniswap', }
+                 'Kyber': 'Kyber', 'Oasis': 'Oasis', 'StableCoinSwap': 'Stablecoinswap', 'Uniswap': 'Uniswap', }
 
 @functools.lru_cache(1)
 def exchanges():
@@ -148,7 +148,7 @@ def sum_amounts(trade, src_dest, summary_token):
         
     return total_amount
 
-HACK_UNTIL_SUMMARY_FIXED=True
+HACK_UNTIL_SUMMARY_FIXED=False
 
 def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
     """adjust source and destination amounts so price reflects paying totle fee"""
