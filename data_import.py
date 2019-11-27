@@ -24,7 +24,6 @@ def csv_row_gen(file, string_trade_sizes=False, only_splits=False, only_non_spli
         reader = csv.DictReader(csvfile, fieldnames=None)
 
         for row in reader:
-            if not row.get('splits'): print(f"WARNING no splits for row in {file}")
             splits = exchange_utils.canonical_keys(eval(row.get('splits') or '{}'))
             if only_splits and len(splits) < 2: continue
             if only_non_splits and len(splits) > 1: continue

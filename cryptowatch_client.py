@@ -1,12 +1,11 @@
 import requests
 
-API_BASE = 'https://staging-api.service.cryptowat.ch/markets/totle'
+API_BASE = 'https://api.cryptowat.ch'
 
-TRADES_ENDPOINT = API_BASE + '/daieth/trades'
+STAGING_API_BASE = 'https://staging-api.service.cryptowat.ch'
+TOTLE_API_BASE = STAGING_API_BASE + '/markets/totle'
 
-EXCHANGE_INFO_ENDPOINT = API_BASE + '/exchangeInfo'
-DEPTH_ENDPOINT = API_BASE + '/depth'
-
+MARKETS_API_BASE = API_BASE + '/markets'
 
 class CryptowatchAPIException(Exception):
     pass
@@ -15,13 +14,15 @@ def name():
     return 'Cryptowatch'
 
 def trades_endpoint(base, quote):
-    return API_BASE + f"/{base + quote}/trades"
+    return TOTLE_API_BASE + f"/{base + quote}/trades"
+
+def orderbook_endpoint(cex_name, base, quote):
+    return MARKETS_API_BASE + f"/{cex_name.lower()}/{base.lower()}{quote.lower()}" + '/orderbook'
 
 ##############################################################################################
 #
 # API calls
 #
-
 
 def get_trades(base, quote):
     """returns an array of dicts, which include timestamp, price, and amount for each trade"""
@@ -34,4 +35,15 @@ def get_trades(base, quote):
         result.append({'timestamp': timestamp, 'price': price, 'amount': amount})
 
     return result
+
+def get_books(cex_name, base, quote='ETH'):
+    """gets the bids and asks on the given CEX for the given pair"""
+    # supported CEXs include: bitflyer bittrex gemini luno gate.io bitfinex kraken cexio bisq bitmex okex cryptofacilities
+    #   liquid quoine bitbay hitbtc binance binance-us huobi poloniex coinbase-pro bitstamp bit-z bithumb coinone dex okcoin
+    # https://api.cryptowat.ch/markets/binance/omgeth/orderbook
+    url = orderbook_endpoint(cex_name, base, quote)
+    j = requests.get(orderbook_endpoint(cex_name, base, quote)).json()
+    r = j['result']
+    return r['asks'], r['bids']
+
 

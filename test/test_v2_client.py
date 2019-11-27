@@ -101,8 +101,8 @@ def test_which_tokens_supported(tradable_tokens, trade_size=0.1, dex='0xMesh', f
 tradable_tokens = token_utils.tradable_tokens()
 
 # test_summary_bug_2(token_to_buy='SHP')
-test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug2_plus_fee.json')
-# test_summary_bug_3(token_to_buy='MKR', dex='Oasis')
+# test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug2_plus_fee.json')
+test_summary_bug_3(token_to_buy='MKR', dex='Oasis')
 
 # # tradable_tokens = ['BAT', 'CVC', 'ZIL']
 # test_get_quote(tradable_tokens)
