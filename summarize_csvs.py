@@ -241,11 +241,11 @@ def main():
     print("\n\nAll tokens savings by trade size with num samples")
     print_savings_with_num_samples(per_trade_size_savings)
 
-    print_per_token_savings_summary_table_csvs(per_token_savings, aggs_or_exchanges)
+    # print_per_token_savings_summary_table_csvs(per_token_savings, aggs_or_exchanges)
 
     # print average savings by token
     print("\n\nSavings for each token by trade size (all)")
-    print_per_token_savings_summary_tables(per_token_savings, aggs_or_exchanges)
+    # print_per_token_savings_summary_tables(per_token_savings, aggs_or_exchanges)
 
     print_savings_summary_table_csv(per_trade_size_savings, aggs_or_exchanges)
 
