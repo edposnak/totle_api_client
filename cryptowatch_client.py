@@ -44,6 +44,6 @@ def get_books(cex_name, base, quote='ETH'):
     url = orderbook_endpoint(cex_name, base, quote)
     j = requests.get(orderbook_endpoint(cex_name, base, quote)).json()
     r = j['result']
-    return r['asks'], r['bids']
+    return r['bids'], r['asks']
 
 
