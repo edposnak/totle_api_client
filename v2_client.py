@@ -331,12 +331,6 @@ DEFAULT_CONFIG = {
 def swap_inputs(from_token, to_token, exchange=None, params={}):
     """returns a dict of the swap API endpoint with the given token pair and whitelisting exchange, if given."""
     # the swap_data dict is defined by the return statement in swap_data method above
-
-    if from_token == 'ETH' and to_token == 'ETH':
-        raise ValueError('from_token and to_token cannot both be ETH')
-    if from_token != 'ETH' and to_token != 'ETH':
-        raise ValueError('either from_token or to_token must be ETH')
-
     params = dict(params) # defensive copy, params should not be modified
 
     base_inputs = {
@@ -371,14 +365,18 @@ def swap_inputs(from_token, to_token, exchange=None, params={}):
     }
 
     # add sourceAmount or destinationAmount
-    trade_size = params.get('tradeSize') or DEFAULT_TRADE_SIZE
-    eth_amount = token_utils.int_amount(trade_size, 'ETH')
-    if from_token == 'ETH':
-        swap_inputs["swap"]["sourceAmount"] = eth_amount
-    elif to_token == 'ETH':
-        swap_inputs["swap"]["destinationAmount"] = eth_amount
-    else:
-        raise ValueError('either from_token or to_token must be ETH')
+    if 'fromAmount' in params:
+        swap_inputs["swap"]["sourceAmount"] = token_utils.int_amount(params.get('from_amount'), from_token)
+    elif 'toAmount' in params:
+        swap_inputs["swap"]["destinationAmount"] = token_utils.int_amount(params.get('to_amount'), to_token)
+    else: # implied behavior based on params['trade_size'] and which token is 'ETH'
+        eth_amount = token_utils.int_amount(params.get('tradeSize') or DEFAULT_TRADE_SIZE, 'ETH')
+        if from_token == 'ETH':
+            swap_inputs["swap"]["sourceAmount"] = eth_amount
+        elif to_token == 'ETH':
+            swap_inputs["swap"]["destinationAmount"] = eth_amount
+        else:
+            raise ValueError('when tradeSize is specified, either from_token or to_token must be ETH')
         
     return {**swap_inputs, **base_inputs}
 
