@@ -49,16 +49,30 @@ def print_neg_savings_stats(per_token_savings):
     neg_pct = 100.0 * neg_samples / total_samples
 
     print(f"\n\nOut of {total_samples} data points, Totle's fees exceeded the price savings {neg_samples} times, resulting in negative price savings {neg_pct:.1f}% of the time.")
-    header = "\t".join(['NPS %'] + exchanges)
+    header = ''.join([ f"{s:<14}" for s in ['NPS %'] + exchanges ])
     print(f"\n{header}")
-    row = ["buys?"]
+    row = [f"{'trades':<10}"]
     for exchange in exchanges:
         if exchange in neg_savings:
             pct_neg_savings = 100 * neg_savings[exchange] / (neg_savings[exchange] + pos_savings[exchange])
             row.append(f"{pct_neg_savings:.2f}%")
         else:
             row.append("")
-    print("\t".join(row))
+
+    print(''.join([ f"{s:<14}" for s in row ]))
+
+def print_avg_savings_per_token(per_token_savings, only_trade_size=None):
+    token_savings = defaultdict(list)
+    for token, trade_size, exchange, pct_savings in data_import.pct_savings_gen(per_token_savings):
+        if only_trade_size and trade_size != only_trade_size: continue
+        token_savings[token] += pct_savings
+
+    print(f"token_savings.keys()={', '.join(token_savings.keys())}")
+
+    print(f"Token\tMean Pct. Savings")
+    for token, savings in token_savings.items():
+        print(f"{token}\t{compute_mean(savings):.2f}")
+
 
 def print_per_token_savings_summary_tables(per_token_savings, exchanges):
     for token, tss in per_token_savings.items():
@@ -84,12 +98,12 @@ def print_per_token_savings_summary_table_csvs(per_token_savings, exchanges):
         print(f"\n\n{token}")
         print_savings_summary_table_csv(tss, exchanges)
 
-def print_savings_summary_table_csv(per_trade_size_savings, all_exchanges):
-    print(f"Trade Size,{','.join(all_exchanges)}")
+def print_savings_summary_table_csv(per_trade_size_savings, only_exchanges):
+    print(f"Trade Size,{','.join(only_exchanges)}")
     for trade_size in sorted_trade_sizes(per_trade_size_savings, string_trade_sizes=True):
         savings = per_trade_size_savings[trade_size]
         row = f"{trade_size}"
-        for exchange in all_exchanges:
+        for exchange in only_exchanges:
             if exchange in savings:
                 row += f",{compute_mean(savings[exchange]) :.2f}"
             else:
@@ -178,8 +192,8 @@ def print_slippage_split_pct_csvs(slip_price_splits):
 def compute_mean(savings_list):
     if not savings_list: return None
     sum_savings, n_samples = sum(savings_list), len(savings_list)
-    pct_savings = sum_savings / n_samples
-    return pct_savings
+    mean_pct_savings = sum_savings / n_samples
+    return mean_pct_savings
 
 
 basis_points = lambda x: x * 10000
@@ -230,6 +244,7 @@ def main():
         print(f"processing {len(csv_files)} CSV files ...")
     per_token_savings, slip_price_splits = data_import.parse_csv_files(csv_files, string_trade_sizes=True)
     aggs_or_exchanges = unique_exchanges(per_token_savings)
+    print(f"aggs_or_exchanges={aggs_or_exchanges}")
 
     per_trade_size_savings = aggregated_savings(per_token_savings)
 
@@ -238,16 +253,22 @@ def main():
     # print negative savings vs exchanges
     print_neg_savings_stats(per_token_savings)
     # print average savings by trade_size, exchange with num samples
-    print("\n\nAll tokens savings by trade size with num samples")
-    print_savings_with_num_samples(per_trade_size_savings)
+    # print("\n\nAll tokens savings by trade size with num samples")
+    # print_savings_with_num_samples(per_trade_size_savings)
 
     # print_per_token_savings_summary_table_csvs(per_token_savings, aggs_or_exchanges)
 
     # print average savings by token
-    print("\n\nSavings for each token by trade size (all)")
+    # print("\n\nSavings for each token by trade size (all)")
     # print_per_token_savings_summary_tables(per_token_savings, aggs_or_exchanges)
 
-    print_savings_summary_table_csv(per_trade_size_savings, aggs_or_exchanges)
+    # print_savings_summary_table_csv(per_trade_size_savings, ['Binance', 'BinanceC', 'Huobi', 'HuobiC', 'Kraken', 'KrakenC'])
+    print_savings_summary_table_csv(per_trade_size_savings, sorted(set(aggs_or_exchanges) - {'BinanceC', 'HuobiC', 'KrakenC'}))
+    # print_savings_summary_table_csv(per_trade_size_savings, aggs_or_exchanges)
+
+    for trade_size in [0.1]:
+        print(f"Savings for trade size {trade_size}")
+        print_avg_savings_per_token(per_token_savings, str(trade_size))  # <--- TODO: get rid of string trade sizes
 
     # do_splits_vs_non_splits(csv_files, aggs_or_exchanges)
 
