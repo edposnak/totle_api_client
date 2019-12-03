@@ -4,11 +4,13 @@ import requests
 
 
 def test_basics():
-    print("\n", token_utils.tokens_json())
-    print("\n", token_utils.tokens())
-    print("\n", token_utils.token_decimals())
-    print("\n", token_utils.select_tokens())
-    print("\n", token_utils.tradable_tokens())
+    print("\ntokens_json():", token_utils.tokens_json())
+    print("\ntokens():", token_utils.tokens())
+    print("\ntokens_decimals():", token_utils.token_decimals())
+    print("\nselect_tokens():", token_utils.select_tokens())
+    print("\ntradable_tokens():", token_utils.tradable_tokens())
+    print("\nTradable Tokens:", sorted(token_utils.tradable_tokens().keys()))
+    print("\bUSD Tokens:", [t for t in token_utils.tradable_tokens().keys() if t.find('USD') >= 0 ])
 
 def test_token_functions(token='ETH'):
     print("\n", token_utils.ten_to_the_decimals(token))
@@ -149,12 +151,12 @@ def compare_totle_to_oneinch(verbose=False):
     print(f"Out of {len(tu_tokens_json)} tokens listed in token_utils and {len(cmp_tokens_json)} tokens listed by {oneinch_client.name()}, {overlap_cnt} are listed by both")
     print(f"duplicate symbols: {set([s for s in overlap if overlap.count(s) > 1])}")
 
-# test_basics()
+test_basics()
 # test_token_functions('ETH')
 # test_int_amount_on_range_of_floats()
 # compare_totle_to_oneinch()
 
 # test_find_duplicates()
-test_missing()
+# test_missing()
 
 
