@@ -3,48 +3,90 @@ import json
 import token_utils
 import v2_client
 
+class FoundBugException(Exception):
+    pass
+
 def test_basics():
     print(v2_client.name())
     print(v2_client.exchanges())
     print(v2_client.enabled_exchanges())
     print(v2_client.data_exchanges())
 
-def test_summary_bug_2(token_to_buy='SHP', json_response_file=None):
+# BUG 1. partial fills not reflected in the summary
+def test_summary_bug_1(token_to_buy='ZRX', endpoint=v2_client.SWAP_ENDPOINT, debug=False):
+    inputs = v2_client.swap_inputs('ETH', token_to_buy, params={'tradeSize': 0.1})
+    j = v2_client.post_with_retries(endpoint, inputs, debug=debug)
+    summary_src_amount, summary_dest_amount, trades0_src_amount, trades0_dest_amount, orders00_src_amount, orders00_dest_amount, totle_fee_amount, totle_used = parse_swap_response1(j)
+
+    print(f"summary_src_amount={summary_src_amount} summary_dest_amount={summary_dest_amount}")
+    print(f"totle_fee={totle_fee_amount}")
+    print(f"    trades0_src_amount={trades0_src_amount} trades0_dest_amount={trades0_dest_amount}")
+    print(f"        orders00_src_amount={orders00_src_amount} orders00_dest_amount={orders00_dest_amount}")
+
+    if summary_dest_amount != orders00_dest_amount + totle_fee_amount:
+        raise FoundBugException(f"BUG 1: buying {token_to_buy} on {totle_used} summary_dest_amount={summary_dest_amount} but orders00_dest_amount + totle_fee_amount = {orders00_dest_amount + totle_fee_amount}")
+    else:
+        print(f"BUG1 buying {token_to_buy} on {totle_used} checks out")
+
+
+
+# BUG 2. fees not accounted for when baseAsset is used (e.g. buying SHP with ETH)
+def test_summary_bug_2(token_to_buy='SHP', json_response_file=None, endpoint=v2_client.SWAP_ENDPOINT):
     if json_response_file:
         j = json.load(open(json_response_file))
     else:
         inputs = v2_client.swap_inputs('ETH', token_to_buy, params={'tradeSize':0.1})
-        j = v2_client.post_with_retries(v2_client.SWAP_ENDPOINT, inputs, debug=True)
+        print(f"Using endpoint {endpoint}")
+        j = v2_client.post_with_retries(endpoint, inputs, debug=True)
 
     summary_src_amount, summary_dest_amount, trades0_src_amount, trades0_dest_amount, orders00_src_amount, orders00_dest_amount, \
-        trades1_src_amount, trades1_dest_amount, orders10_src_amount, orders10_dest_amount, totle_fee = parse_swap_response2(j)
+        trades1_src_amount, trades1_dest_amount, orders10_src_amount, orders10_dest_amount, totle_fee_amount = parse_swap_response2(j)
     print(f"summary_src_amount={summary_src_amount} summary_dest_amount={summary_dest_amount}")
-    print(f"totle_fee={totle_fee}")
+    print(f"totle_fee={totle_fee_amount}")
     print(f"    trades0_src_amount={trades0_src_amount} trades0_dest_amount={trades0_dest_amount}")
     print(f"        orders00_src_amount={orders00_src_amount} orders00_dest_amount={orders00_dest_amount}")
     print(f"    trades1_src_amount={trades1_src_amount} trades1_dest_amount={trades1_dest_amount}")
     print(f"        orders10_src_amount={orders10_src_amount} orders10_dest_amount={orders10_dest_amount}")
 
     # bug 2 checks
-    if totle_fee != (orders00_dest_amount - trades0_dest_amount):
-        print(f"BUG: totle_fee={totle_fee} but orders00_dest_amount - trades0_dest_amount={orders00_dest_amount - trades0_dest_amount} diff={totle_fee - (orders00_dest_amount - trades0_dest_amount)}")
+    bug_msg = ''
+    if totle_fee_amount != (orders00_dest_amount - trades0_dest_amount):
+        bug_msg += f"\nBUG 2: totle_fee={totle_fee_amount} but orders00_dest_amount - trades0_dest_amount={orders00_dest_amount - trades0_dest_amount} diff={totle_fee_amount - (orders00_dest_amount - trades0_dest_amount)}"
     if trades1_src_amount != trades0_dest_amount and trades1_src_amount == orders00_dest_amount:
-        print(f"BUG: trades1_src_amount should have been equal to trades0_dest_amount, but it was equal to orders00_dest_amount, and thus did not account for the fee being taken out")
+        bug_msg += f"\nBUG 2: trades1_src_amount should have been equal to trades0_dest_amount, but it was equal to orders00_dest_amount, and thus did not account for the fee being taken out"
 
     if orders10_src_amount != trades0_dest_amount and orders10_src_amount == orders00_dest_amount:
-        print(f"BUG:orders10_src_amount should have been equal to trades0_dest_amount, but it was equal to orders00_dest_amount, and thus did not account for the fee being taken out")
+        bug_msg += f"\nBUG 2:orders10_src_amount should have been equal to trades0_dest_amount, but it was equal to orders00_dest_amount, and thus did not account for the fee being taken out"
+
+    if bug_msg: raise FoundBugException(bug_msg)
+
+# BUG 3. liquidity appears infinite based on single small trade (e.g. buy 283 MKR for 100 ETH)
+def test_summary_bug_3(token_to_buy='MKR', dex='Eth2dai'):
+    # buy ~283 MKR for 100 ETH,
+    # pq = v2_client.get_quote('ETH', token_to_buy, from_amount=100.0, dex=dex, debug=True, verbose=True)
+    inputs = v2_client.swap_inputs('ETH', token_to_buy, exchange=dex, params={'tradeSize':100.0})
+    j = v2_client.post_with_retries(v2_client.SWAP_ENDPOINT, inputs, debug=True)
+    summary_src_amount, summary_dest_amount, trades0_src_amount, trades0_dest_amount, orders00_src_amount, orders00_dest_amount, totle_fee_amount, totle_used = parse_swap_response1(j)
+
+    # bug 3 checks
+    if summary_dest_amount > orders00_dest_amount:
+        raise FoundBugException(f"BUG 3: summary_dest_amount > orders00_dest_amount should not be possible. summary_dest_amount={summary_dest_amount} orders00_dest_amount={orders00_dest_amount}")
+
 
 def parse_swap_response1(j):
     r = j['response']
     summary = r['summary'][0]
     summary_src_amount, summary_dest_amount = int(summary['sourceAmount']), int(summary['destinationAmount'])
+    if len(summary['trades']) > 1:
+        raise ValueError(f"Expected summary to only contain 1 trade, but it had {len(summary['trades'])}")
     trades0 = summary['trades'][0]
     trades0_src_amount, trades0_dest_amount = int(trades0['sourceAmount']), int(trades0['destinationAmount'])
     orders00 = trades0['orders'][0]
     orders00_src_amount, orders00_dest_amount = int(orders00['sourceAmount']), int(orders00['destinationAmount'])
-    totle_fee = int(summary['totleFee']['amount'])
+    totle_fee_amount = int(summary['totleFee']['amount'])
+    totle_used = orders00['exchange']['name']
 
-    return summary_src_amount, summary_dest_amount, trades0_src_amount, trades0_dest_amount, orders00_src_amount, orders00_dest_amount, totle_fee
+    return summary_src_amount, summary_dest_amount, trades0_src_amount, trades0_dest_amount, orders00_src_amount, orders00_dest_amount, totle_fee_amount, totle_used
 
 def parse_swap_response2(j):
     r = j['response']
@@ -61,18 +103,6 @@ def parse_swap_response2(j):
     totle_fee = int(summary['totleFee']['amount'])
 
     return summary_src_amount, summary_dest_amount, trades0_src_amount, trades0_dest_amount, orders00_src_amount, orders00_dest_amount, trades1_src_amount, trades1_dest_amount, orders10_src_amount, orders10_dest_amount, totle_fee
-
-
-def test_summary_bug_3(token_to_buy='MKR', dex='Eth2dai'):
-    # buy ~283 MKR for 100 ETH,
-    # pq = v2_client.get_quote('ETH', token_to_buy, from_amount=100.0, dex=dex, debug=True, verbose=True)
-    inputs = v2_client.swap_inputs('ETH', token_to_buy, exchange=dex, params={'tradeSize':100.0})
-    j = v2_client.post_with_retries(v2_client.SWAP_ENDPOINT, inputs, debug=True)
-    summary_src_amount, summary_dest_amount, trades0_src_amount, trades0_dest_amount, orders00_src_amount, orders00_dest_amount, totle_fee = parse_swap_response1(j)
-
-    # bug 3 checks
-    if summary_dest_amount > orders00_dest_amount:
-        print(f"BUG: summary_dest_amount > orders00_dest_amount should not be possible. summary_dest_amount={summary_dest_amount} orders00_dest_amount={orders00_dest_amount}")
 
 
 def test_get_quote(tradable_tokens, trade_size=0.1, dex=None, from_token='ETH', debug=False, verbose=False):
@@ -100,9 +130,15 @@ def test_which_tokens_supported(tradable_tokens, trade_size=0.1, dex='0xMesh', f
 
 tradable_tokens = token_utils.tradable_tokens()
 
-# test_summary_bug_2(token_to_buy='SHP')
-# test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug2_plus_fee.json')
-test_summary_bug_3(token_to_buy='MKR', dex='Oasis')
+try:
+    for token in token_utils.tradable_tokens():
+        test_summary_bug_1(token)
+
+    # test_summary_bug_2(token_to_buy='SHP', endpoint='https://services.totlenext.com/suggester/optimized/swap')
+    # test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug2_plus_fee.json')
+    # test_summary_bug_3(token_to_buy='MKR', dex='Oasis')
+except FoundBugException as e:
+    print(e)
 
 # # tradable_tokens = ['BAT', 'CVC', 'ZIL']
 # test_get_quote(tradable_tokens)

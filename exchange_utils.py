@@ -24,6 +24,7 @@ SYM_TO_NAME = {
    'fulcrum': 'Fulcrum',
    'idex': 'IDEX',
    'kyber': 'Kyber',
+   'makerdao': 'MakerDAO',
    'oasis': 'Oasis',
    'oasisdex': 'Oasis',
    'paradex': 'Paradex',

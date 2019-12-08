@@ -8,12 +8,14 @@ def run_test(name, trade_size=0.1, from_token='ETH', to_token='BAT', whitelist_e
     with open(f"{TEST_DATA_DIR}/{name}.json") as json_file:
         j = json.load(json_file)
         if j['success']:
+            inputs = v2_client.swap_inputs(from_token, to_token, params={'tradeSize': trade_size})
+
             response = j['response']
-            sd = v2_client.swap_data(response, True)
+            sd = v2_client.swap_data(response, True, request=inputs)
             print(f"\n{json.dumps(sd, indent=3)}")
 
             if whitelist_exchange:
-                sd = v2_client.swap_data(response, False)
+                sd = v2_client.swap_data(response, False, request=inputs)
                 print(f"\n{json.dumps(sd, indent=3)}")
 
         else:

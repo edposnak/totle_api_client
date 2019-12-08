@@ -41,7 +41,7 @@ DEX_NAME_MAP = { '0xMesh': '0x', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Fu
 @functools.lru_cache()
 def exchanges():
     # there is no exchanges endpoint yet so we are just using the ones from an ETH/DAI price query
-    dex_names = ['0x', 'Bancor', 'Compound', 'Fulcrum', 'Kyber', 'Oasis', 'Uniswap'] # Also 'MakerDAO'
+    dex_names = ['0x', 'Bancor', 'Compound', 'Fulcrum', 'Kyber', 'MakerDAO', 'Oasis', 'Uniswap']
 
     # Paraswap does not have exchange ids, but to keep the same interface we put in 0's for id
     id = 0
@@ -50,7 +50,7 @@ def exchanges():
 
 @functools.lru_cache()
 def get_pairs(quote='ETH'):
-    # DEX.AG doesn't have a pairs endpoint, so we just use its tokens endpoint to get tokens, which are assumed to pair with quote
+    # Paraswap doesn't have a pairs endpoint, so we just use its tokens endpoint to get tokens, which are assumed to pair with quote
     tokens_json = requests.get(TOKENS_ENDPOINT).json()
 
     # use only the tokens that are listed in token_utils.tokens() and use the canonical name

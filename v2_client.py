@@ -161,6 +161,7 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
     summary_destination_token = summary['destinationAsset']['symbol']
 
     totle_fee_token = summary['totleFee']['asset']['symbol']
+    totle_fee_amount = int(summary['totleFee']['amount'])
     totle_fee_pct = float(summary['totleFee']['percentage'])
 
     # Until the summary is fixed we can just assume summary amounts correctly include Totle fees in
@@ -171,10 +172,12 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
         if is_totle:
             return summary_source_amount, summary_destination_amount
         else: # subtract out Totle fee
-            if buying_tokens_with_eth: # user could have gotten more destination tokens
-                # return summary_source_amount, summary_destination_amount / (1 - (totle_fee_pct / 100))
-                return summary_source_amount, summary_destination_amount + int(summary['totleFee']['amount'])
-            else: # for sells, user could have paid less than source_amount
+            if buying_tokens_with_eth: # for buys, summary_destination_amount is lower than it would be without fee
+                if totle_fee_token == summary_destination_token:
+                    return summary_source_amount, summary_destination_amount + totle_fee_amount
+                else: # fee was taken in baseAsset so just estimate it
+                    return summary_source_amount, summary_destination_amount / (1 - (totle_fee_pct / 100))
+            else: # for sells, summary_source_amount is higher than it would be without fee
                 return summary_source_amount * (1 - (totle_fee_pct / 100)), summary_destination_amount
 
     ##### HACK_UNTIL_SUMMARY_FIXED == False #####
@@ -224,7 +227,7 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
                 # than the sum or order source_amounts, i.e. the fee is accounted for in the summary. If the bug
                 # is fixed as expected, by sending 99.75% of the first trade's proceeds to the second trade, then
                 # the summary likely won't account for Totle's fees like it does for sells and the fee will have
-                # to be subtracted (see not is_totle case above)
+                # to be subtracted (see not buying_tokens_with_eth case above)
 
         # Summary amounts should now add up in the is_totle case 
         # Suggester bugs? and conversions from floating point to decimal mean things don't always add up exactly
@@ -239,7 +242,6 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
 
 def swap_data(response, is_totle, request={}):
     """Extracts relevant data from a swap API endpoint response"""
-
     try:
         summary, base_token, source_token, source_div, destination_token, destination_div = get_summary_data(response)
 
@@ -263,7 +265,11 @@ def swap_data(response, is_totle, request={}):
         source_amount = source_amount / source_div
         destination_amount = destination_amount / destination_div
 
-        trade_size = source_amount if source_token == 'ETH' else destination_amount
+        if request.get('swap'):
+            trade_size = source_amount if 'sourceAmount' in request['swap'] else destination_amount
+        else: # hack to infer from JSON response assuming the specified amount ends with 0000's (not used in production)
+            trade_size = source_amount if summary['sourceAmount'].endswith('0000') else destination_amount
+
         price = source_amount / destination_amount
 
         return {
@@ -293,7 +299,7 @@ def swap_data(response, is_totle, request={}):
 #
 
 def post_with_retries(endpoint, inputs, num_retries=3, debug=False, timer=False):
-    if debug: print(f"REQUEST to {SWAP_ENDPOINT}:\n{pp(inputs)}\n\n")
+    if debug: print(f"REQUEST to {endpoint}:\n{pp(inputs)}\n\n")
 
     timer_start = time.time()
     for attempt in range(num_retries):
@@ -303,8 +309,8 @@ def post_with_retries(endpoint, inputs, num_retries=3, debug=False, timer=False)
             j = r.json()
 
             timer_end = time.time()
-            if timer: print(f"call to {SWAP_ENDPOINT} {pp(inputs)} took {timer_end - timer_start:.1f} seconds")
-            if debug: print(f"RESPONSE from {SWAP_ENDPOINT}:\n{pp(j)}\n\n")
+            if timer: print(f"call to {endpoint} {pp(inputs)} took {timer_end - timer_start:.1f} seconds")
+            if debug: print(f"RESPONSE from {endpoint}:\n{pp(j)}\n\n")
             return j
         except:
             print(f"failed to extract JSON, retrying ...")
@@ -366,15 +372,15 @@ def swap_inputs(from_token, to_token, exchange=None, params={}):
 
     # add sourceAmount or destinationAmount
     if 'fromAmount' in params:
-        swap_inputs["swap"]["sourceAmount"] = token_utils.int_amount(params['fromAmount'], from_token)
+        swap_inputs['swap']['sourceAmount'] = token_utils.int_amount(params['fromAmount'], from_token)
     elif 'toAmount' in params:
-        swap_inputs["swap"]["destinationAmount"] = token_utils.int_amount(params['toAmount'], to_token)
+        swap_inputs['swap']['destinationAmount'] = token_utils.int_amount(params['toAmount'], to_token)
     else: # implied behavior based on params['trade_size'] and which token is 'ETH'
         eth_amount = token_utils.int_amount(params.get('tradeSize') or DEFAULT_TRADE_SIZE, 'ETH')
         if from_token == 'ETH':
-            swap_inputs["swap"]["sourceAmount"] = eth_amount
+            swap_inputs['swap']['sourceAmount'] = eth_amount
         elif to_token == 'ETH':
-            swap_inputs["swap"]["destinationAmount"] = eth_amount
+            swap_inputs['swap']['destinationAmount'] = eth_amount
         else:
             raise ValueError('when tradeSize is specified, either from_token or to_token must be ETH')
         
@@ -383,10 +389,12 @@ def swap_inputs(from_token, to_token, exchange=None, params={}):
 def handle_swap_exception(e, dex, from_token, to_token, params, verbose=True):
     has_args1, has_args2 = len(e.args) > 1 and bool(e.args[1]), len(e.args) > 2 and bool(e.args[2])
     normal_exceptions = ["NotEnoughVolumeError", "MarketSlippageTooHighError"]
-
+    normal_messages = ['Endpoint request timed out'] # this response does not come with error code or name, just a message
     # Check for normal exceptions, maybe print them
-    if has_args2 and type(e.args[2]) == dict and 'name' in e.args[2] and e.args[2]['name'] in normal_exceptions:
-        if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} trade size={params.get('tradeSize')} ETH due to {e.args[2]['name']}")
+    if has_args2 and type(e.args[2]) == dict and e.args[2].get('name') in normal_exceptions:
+        if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} due to {e.args[2]['name']}")
+    elif has_args2 and type(e.args[2]) == dict and e.args[2].get('message') in normal_messages:
+        if verbose: print(f"{dex}: Suggester timed out for {from_token}->{to_token}")
 
     else: # print req/resp for uncommon failures
         print(f"{dex}: swap raised {type(e).__name__}: {e.args[0]}")
@@ -424,10 +432,12 @@ def try_swap(label, from_token, to_token, exchange=None, params={}, verbose=True
 
 # get quote
 def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, params={}, verbose=False, debug=False):
-    # TODO: Allow from_amount and to_amount to pass through to the request, regardless of whether from_token or to_token is ETH.
-    #  swap_inputs() is currently hardcoded to set sourceAmount to params['tradeSize'] if from_token is ETH or
-    #  destinationAmount to tradeSize if to_token is ETH.
-    params['tradeSize'] = float(from_amount or to_amount)
+    if from_amount:
+        params['fromAmount'] = from_amount
+    elif to_amount:
+        params['toAmount'] = to_amount
+    else:
+        raise ValueError(f"{name()} only accepts either from_amount or to_amount, not both")
 
     sd = try_swap(dex or name(), from_token, to_token, exchange=dex, params=params, verbose=verbose, debug=debug)
 
