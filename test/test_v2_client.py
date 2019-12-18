@@ -39,16 +39,40 @@ def test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH', json_response_fi
         print(f"Using endpoint {endpoint}")
         j = v2_client.post_with_retries(endpoint, inputs, debug=True)
 
-    summary_src_amount, summary_dest_amount, trades0_src_amount, trades0_dest_amount, orders00_src_amount, orders00_dest_amount, \
-        trades1_src_amount, trades1_dest_amount, orders10_src_amount, orders10_dest_amount, totle_fee_amount,\
-        totle_fee_token, totle_fee_in_base_token, source_to_base_rate, source_token, base_token = parse_swap_response2(j)
+    # parse the response
+    r = j['response']
+    summary = r['summary'][0]
+    summary_src_amount, summary_dest_amount = int(summary['sourceAmount']), int(summary['destinationAmount'])
+    trades0 = summary['trades'][0]
+    trades0_src_amount, trades0_dest_amount = int(trades0['sourceAmount']), int(trades0['destinationAmount'])
+    orders00 = trades0['orders'][0]
+    orders00_src_amount, orders00_dest_amount = int(orders00['sourceAmount']), int(orders00['destinationAmount'])
+    trades1 = summary['trades'][1]
+    trades1_src_amount, trades1_dest_amount = int(trades1['sourceAmount']), int(trades1['destinationAmount'])
+    orders10 = trades1['orders'][0]
+    orders10_src_amount, orders10_dest_amount = int(orders10['sourceAmount']), int(orders10['destinationAmount'])
+    totle_fee_amount = int(summary['totleFee']['amount'])
+
+    # compute totle_fee_in_base_token - it may already be denominated in base_token, or in source_token (if source_token is a valid base, e.g. 'ETH')
+    base_token = summary['baseAsset']['symbol']
+    source_token = summary['sourceAsset']['symbol']
+    totle_fee_token = summary['totleFee']['asset']['symbol']
+
+    source_to_base_rate = None
+    if totle_fee_token == base_token:
+        totle_fee_in_base_token = totle_fee_amount  # totle_fee is already denominated in base token
+    elif totle_fee_token == source_token: # convert totle_fee to an amount in base token
+        source_to_base_rate = token_utils.real_amount(orders00_dest_amount, orders00['destinationAsset']['symbol']) / token_utils.real_amount(orders00_src_amount, orders00['sourceAsset']['symbol'])
+        totle_fee_in_base_token = totle_fee_amount * source_to_base_rate
+    else:
+        raise ValueError(f"totle_feee_token({totle_fee_token}) is neither base_token({base_token}) nor source_token({source_token})")
+
     print(f"summary_src_amount={summary_src_amount} summary_dest_amount={summary_dest_amount}")
     print(f"totle_fee={totle_fee_amount} {totle_fee_token}")
     print(f"    trades0_src_amount={trades0_src_amount} trades0_dest_amount={trades0_dest_amount}")
     print(f"        orders00_src_amount={orders00_src_amount} orders00_dest_amount={orders00_dest_amount}")
     print(f"    trades1_src_amount={trades1_src_amount} trades1_dest_amount={trades1_dest_amount}")
     print(f"        orders10_src_amount={orders10_src_amount} orders10_dest_amount={orders10_dest_amount}")
-
 
     # bug 2 checks
     bug_msg = ''
@@ -94,37 +118,6 @@ def parse_swap_response1(j):
     totle_used = orders00['exchange']['name']
 
     return summary_src_amount, summary_dest_amount, trades0_src_amount, trades0_dest_amount, orders00_src_amount, orders00_dest_amount, totle_fee_amount, totle_used
-
-def parse_swap_response2(j):
-    r = j['response']
-    summary = r['summary'][0]
-    summary_src_amount, summary_dest_amount = int(summary['sourceAmount']), int(summary['destinationAmount'])
-    trades0 = summary['trades'][0]
-    trades0_src_amount, trades0_dest_amount = int(trades0['sourceAmount']), int(trades0['destinationAmount'])
-    orders00 = trades0['orders'][0]
-    orders00_src_amount, orders00_dest_amount = int(orders00['sourceAmount']), int(orders00['destinationAmount'])
-    trades1 = summary['trades'][1]
-    trades1_src_amount, trades1_dest_amount = int(trades1['sourceAmount']), int(trades1['destinationAmount'])
-    orders10 = trades1['orders'][0]
-    orders10_src_amount, orders10_dest_amount = int(orders10['sourceAmount']), int(orders10['destinationAmount'])
-    totle_fee = int(summary['totleFee']['amount'])
-
-    base_token = summary['baseAsset']['symbol']
-    source_token = summary['sourceAsset']['symbol']
-    destination_token = summary['destinationAsset']['symbol']
-    totle_fee_token = summary['totleFee']['asset']['symbol']
-
-    source_to_base_rate = None
-    if totle_fee_token == base_token:
-        totle_fee_in_base_token = totle_fee  # totle_fee is already denominated in base token
-    elif totle_fee_token == source_token: # convert totle_fee to an amount in base token
-        source_to_base_rate = token_utils.real_amount(orders00_dest_amount, orders00['destinationAsset']['symbol']) / token_utils.real_amount(orders00_src_amount, orders00['sourceAsset']['symbol'])
-        totle_fee_in_base_token = totle_fee * source_to_base_rate
-    else:
-        raise ValueError(f"totle_feee_token({totle_fee_token}) is neither base_token({base_token}) nor source_token({source_token})")
-
-    return summary_src_amount, summary_dest_amount, trades0_src_amount, trades0_dest_amount, orders00_src_amount, orders00_dest_amount, trades1_src_amount, trades1_dest_amount, orders10_src_amount, orders10_dest_amount, totle_fee, totle_fee_token, totle_fee_in_base_token, source_to_base_rate, source_token, base_token
-
 
 def test_get_quote(tradable_tokens, trade_size=0.1, dex=None, from_token='ETH', debug=False, verbose=False):
     for to_token in tradable_tokens:
