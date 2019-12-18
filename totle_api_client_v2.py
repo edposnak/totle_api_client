@@ -2,8 +2,9 @@ import sys
 import argparse
 from collections import defaultdict
 
+import token_utils
 import v2_client
-from v2_compare_prices import compare_prices, print_average_savings, get_filename_base, SavingsCSV, redirect_stdout
+from v2_compare_prices import compare_dex_prices, print_average_savings, get_filename_base, SavingsCSV, redirect_stdout
 
 ##############################################################################################
 #
@@ -50,16 +51,16 @@ parser.add_argument('apiKey', nargs='?', help='API key')
 
 params = vars(parser.parse_args())
 
-filename = get_filename_base(params['orderType'])
+filename = get_filename_base(suffix=params['orderType'])
 redirect_stdout(filename)
 
 TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0]
 
 # don't waste time on non-liquid dexes
 non_liquid_dexs = [ 'Compound' ]
-liquid_dexs = tuple(filter(lambda e: e not in non_liquid_dexs, v2_client.enabled_exchanges))
+liquid_dexs = tuple(filter(lambda e: e not in non_liquid_dexs, v2_client.enabled_exchanges()))
 
-liquid_tokens = [t for t in v2_client.tokens if t != 'ETH'] # start with all tradable tokens
+liquid_tokens = [ t for t in token_utils.tokens() if t != 'ETH' ] # start with all tradable tokens
 
 all_savings, all_supported_pairs = {}, {}
 order_type = params['orderType']
@@ -74,7 +75,7 @@ with SavingsCSV(filename) as csv_writer:
         for token in liquid_tokens:
             print(f"\n----------------------------------------")
             print(f"\n{order_type} {token} trade size = {trade_size} ETH")
-            savings = compare_prices(token, all_supported_pairs[trade_size], non_liquid_tokens, liquid_dexs, params, debug=False)
+            savings = compare_dex_prices(token, all_supported_pairs[trade_size], non_liquid_tokens, liquid_dexs, order_type=order_type, params=params, debug=False)
             if savings:
                 all_savings[trade_size][token] = savings
                 for exchange in savings:

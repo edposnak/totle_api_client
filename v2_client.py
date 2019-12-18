@@ -1,7 +1,9 @@
 import sys
+import time
+import functools
 import json
 import requests
-import time
+import token_utils
 
 ##############################################################################################
 #
@@ -31,41 +33,42 @@ class TotleAPIException(Exception):
         if not message and response:
             # JSON may be either a response or a response container
             if 'response' in response: response = response['response']
-            message = f"{response['name']} ({response['code']}): {response['message']}"
+            if response.get('name') and response.get('code') and response.get('message'):
+                message = f"{response['name']} ({response['code']}): {response['message']}"
+            else:
+                message = str(response)
 
         super().__init__(message, request, response)
 
-            
+def name():
+    return 'Totle' # 'Totle' is used for comparison with other exchanges
 
 # get exchanges
-r = requests.get(EXCHANGES_ENDPOINT).json()
-exchanges = { e['name']: e['id'] for e in r['exchanges'] }
-enabled_exchanges = [ e['name'] for e in r['exchanges'] if e['enabled'] ]
+DEX_NAME_MAP = { '0xMesh': '0xMesh', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Ether Delta': 'EtherDelta', 'Fulcrum': 'Fulcrum',
+                 'Kyber': 'Kyber', 'Oasis': 'Oasis', 'StableCoinSwap': 'Stablecoinswap', 'Uniswap': 'Uniswap', }
 
-r = requests.get(DATA_EXCHANGES_ENDPOINT).json()
-data_exchanges = { e['name']: e['id'] for e in r['exchanges'] }
-data_exchanges_by_id = { v:k for k,v in data_exchanges.items() } 
+@functools.lru_cache(1)
+def exchanges():
+    return { e['name']: e['id'] for e in exchanges_json() }
 
-TOTLE_EX = 'Totle' # 'Totle' is used for comparison with other exchanges
+@functools.lru_cache(1)
+def enabled_exchanges():
+    return [ e['name'] for e in exchanges_json() if e['enabled'] ]
 
-# get tokens
-r = requests.get(TOKENS_ENDPOINT).json()
-tokens = { t['symbol']: t['address'] for t in r['tokens'] if t['tradable']}
-token_decimals = { t['symbol']: t['decimals'] for t in r['tokens'] if t['tradable']}
+@functools.lru_cache(1)
+def exchanges_json():
+    r = requests.get(EXCHANGES_ENDPOINT).json()
+    return r['exchanges']
 
-data_tokens_by_addr = { t['address']: t['symbol'] for t in r['tokens'] } 
+@functools.lru_cache(1)
+def data_exchanges():
+    r = requests.get(DATA_EXCHANGES_ENDPOINT).json()
+    return { e['name']: e['id'] for e in r['exchanges'] }
 
-def addr(token):
-    """Returns the string address that identifies the token"""
-    return tokens[token]
+@functools.lru_cache(1)
+def data_exchanges_by_id():
+    return { v:k for k,v in data_exchanges.items() }
 
-def int_amount(float_amount, token):
-    """Returns the integer amount of token units for the given float_amount and token"""
-    return int(float(float_amount) * (10**token_decimals[token]))
-
-def real_amount(int_amount, token):
-    """Returns the decimal number of tokens for the given integer amount and token"""
-    return int(int_amount) / (10**token_decimals[token])
 
 ##############################################################################################
 #
@@ -88,13 +91,17 @@ def get_summary_data(response):
 
 def calc_exchange_fees(trade):
     orders = trade['orders']
-    fee_tokens = [ o['fee']['asset']['symbol'] for o in orders ]
-    if len(set(fee_tokens)) != 1:
-        raise ValueError(f"different exchange fee tokens in same trade {fee_tokens}", {}, response)
+    non_zero_fee_orders = [ o for o in orders if int(o['fee']['amount']) != 0 ] # ignore orders with no exchange fees
+
+    non_zero_fee_tokens = [ o['fee']['asset']['symbol'] for o in non_zero_fee_orders ]
+    if len(set(non_zero_fee_tokens)) == 0:
+        return None, 0
+    if len(set(non_zero_fee_tokens)) != 1:
+        raise ValueError(f"different exchange fee tokens in same trade {non_zero_fee_tokens}")
         
-    exchange_fee_token = fee_tokens[0]
-    exchange_fee_div = 10**int(orders[0]['fee']['asset']['decimals'])
-    exchange_fee = sum([ int(o['fee']['amount']) for o in orders ]) / exchange_fee_div
+    exchange_fee_token = non_zero_fee_tokens[0]
+    exchange_fee_div = 10**int(non_zero_fee_orders[0]['fee']['asset']['decimals'])
+    exchange_fee = sum([ int(o['fee']['amount']) for o in non_zero_fee_orders ]) / exchange_fee_div
 
     return exchange_fee_token, exchange_fee
 
@@ -150,11 +157,11 @@ HACK_UNTIL_SUMMARY_FIXED=True
 def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
     """adjust source and destination amounts so price reflects paying totle fee"""
     # Assumes source_amount and destination amount are sums of order amounts
-
     buying_tokens_with_eth = summary['sourceAsset']['symbol'] == 'ETH'
     summary_destination_token = summary['destinationAsset']['symbol']
 
     totle_fee_token = summary['totleFee']['asset']['symbol']
+    totle_fee_amount = int(summary['totleFee']['amount'])
     totle_fee_pct = float(summary['totleFee']['percentage'])
 
     # Until the summary is fixed we can just assume summary amounts correctly include Totle fees in
@@ -165,13 +172,16 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
         if is_totle:
             return summary_source_amount, summary_destination_amount
         else: # subtract out Totle fee
-            source_amount, destination_amount = summary_source_amount, summary_destination_amount
-            if buying_tokens_with_eth: # user could have gotten more destination tokens
-                destination_amount = summary_destination_amount / (1 - (totle_fee_pct / 100))
-            else: # for sells, user could have paid less than source_amount 
-                source_amount = summary_source_amount * (1 - (totle_fee_pct / 100))
-            return source_amount, destination_amount
-    
+            if buying_tokens_with_eth: # for buys, summary_destination_amount is lower than it would be without fee
+                if totle_fee_token == summary_destination_token:
+                    return summary_source_amount, summary_destination_amount + totle_fee_amount
+                else: # fee was taken in baseAsset so just estimate it
+                    return summary_source_amount, summary_destination_amount / (1 - (totle_fee_pct / 100))
+            else: # for sells, summary_source_amount is higher than it would be without fee
+                return summary_source_amount * (1 - (totle_fee_pct / 100)), summary_destination_amount
+
+    ##### HACK_UNTIL_SUMMARY_FIXED == False #####
+    # Below is code to use individual orders (when summary is fixed)
 
     if not is_totle: # subtract fees
         # Only subtract fees for buys where Totle takes fees in the intermediate token. For buys without
@@ -217,10 +227,11 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
                 # than the sum or order source_amounts, i.e. the fee is accounted for in the summary. If the bug
                 # is fixed as expected, by sending 99.75% of the first trade's proceeds to the second trade, then
                 # the summary likely won't account for Totle's fees like it does for sells and the fee will have
-                # to be subtracted (see not is_totle case above)
+                # to be subtracted (see not buying_tokens_with_eth case above)
 
         # Summary amounts should now add up in the is_totle case 
-        # Suggester bugs (floating point to decimal?) mean things don't always add up exactly
+        # Suggester bugs? and conversions from floating point to decimal mean things don't always add up exactly
+        # e.g. Totle: swap raised ValueError: adjusted orders destination_amount=605285284 different from summary destination_amount=605285283
         if source_amount != summary_source_amount:
             raise ValueError(f"adjusted orders source_amount={source_amount} different from summary source_amount={summary_source_amount}")
 
@@ -229,9 +240,8 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
     return source_amount, destination_amount
         
 
-def swap_data(response, is_totle):
-    """Extracts relevant data from a swap/rebalance API endpoint response"""
-
+def swap_data(response, is_totle, request={}):
+    """Extracts relevant data from a swap API endpoint response"""
     try:
         summary, base_token, source_token, source_div, destination_token, destination_div = get_summary_data(response)
 
@@ -254,8 +264,12 @@ def swap_data(response, is_totle):
         source_amount, destination_amount = adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary)
         source_amount = source_amount / source_div
         destination_amount = destination_amount / destination_div
-        
-        trade_size = source_amount if source_token == 'ETH' else destination_amount
+
+        if request.get('swap'):
+            trade_size = source_amount if 'sourceAmount' in request['swap'] else destination_amount
+        else: # hack to infer from JSON response assuming the specified amount ends with 0000's (not used in production)
+            trade_size = source_amount if summary['sourceAmount'].endswith('0000') else destination_amount
+
         price = source_amount / destination_amount
 
         return {
@@ -276,7 +290,7 @@ def swap_data(response, is_totle):
             "partnerFeeToken": partner_fee_token,
         }
     except ValueError as e:
-        raise ValueError(e.args[0], {}, response)
+        raise ValueError(e.args[0], request, response)
 
 
 ##############################################################################################
@@ -284,31 +298,34 @@ def swap_data(response, is_totle):
 # functions to call swap with retries
 #
 
-def post_with_retries(endpoint, inputs, num_retries=3, debug=False):
-    if debug: print(f"REQUEST to {SWAP_ENDPOINT}:\n{pp(inputs)}\n\n")
+def post_with_retries(endpoint, inputs, num_retries=3, debug=False, timer=False):
+    if debug: print(f"REQUEST to {endpoint}:\n{pp(inputs)}\n\n")
 
+    timer_start = time.time()
     for attempt in range(num_retries):
         try:
             # weirdly, inputs has to be converted to a string input to work with Totle
             r = requests.post(endpoint, data=json.dumps(inputs))
             j = r.json()
-            if debug: print(f"RESPONSE from {SWAP_ENDPOINT}:\n{pp(j)}\n\n")
+
+            timer_end = time.time()
+            if timer: print(f"call to {endpoint} {pp(inputs)} took {timer_end - timer_start:.1f} seconds")
+            if debug: print(f"RESPONSE from {endpoint}:\n{pp(j)}\n\n")
             return j
         except:
             print(f"failed to extract JSON, retrying ...")
             time.sleep(1)
-        else:
-            break
-    else: # all attempts failed
-        time.sleep(60)  # wait for servers to reboot, as we've probably killed them all
-        raise TotleAPIException(f"Failed to extract JSON response after {num_retries} retries.", inputs, {})
+
+    # all attempts failed
+    time.sleep(60)  # wait for servers to reboot, as we've probably killed them all
+    raise TotleAPIException(f"Failed to extract JSON response after {num_retries} retries.", inputs, {})
 
 
     
 # Default parameters for swap. These can be overridden by passing params
 DEFAULT_WALLET_ADDRESS = "0xD18CEC4907b50f4eDa4a197a50b619741E921B4D"
 DEFAULT_TRADE_SIZE = 1.0 # the amount of ETH to spend or acquire, used to calculate amount
-DEFAULT_MAX_SLIPPAGE_PERCENT = 10
+DEFAULT_MAX_SLIPPAGE_PERCENT = 50
 DEFAULT_MIN_FILL_PERCENT = 80
 DEFAULT_CONFIG = {
     "transactions": False, # just get the prices
@@ -320,12 +337,6 @@ DEFAULT_CONFIG = {
 def swap_inputs(from_token, to_token, exchange=None, params={}):
     """returns a dict of the swap API endpoint with the given token pair and whitelisting exchange, if given."""
     # the swap_data dict is defined by the return statement in swap_data method above
-
-    if from_token == 'ETH' and to_token == 'ETH':
-        raise ValueError('from_token and to_token cannot both be ETH')
-    if from_token != 'ETH' and to_token != 'ETH':
-        raise ValueError('either from_token or to_token must be ETH')
-
     params = dict(params) # defensive copy, params should not be modified
 
     base_inputs = {
@@ -334,15 +345,15 @@ def swap_inputs(from_token, to_token, exchange=None, params={}):
     }
 
     if exchange: # whitelist the given exchange
-        base_inputs["config"]["exchanges"] = { "list": [ exchanges[exchange] ], "type": "white" }
+        base_inputs["config"]["exchanges"] = { "list": [ exchanges()[exchange] ], "type": "white" }
 
     base_inputs['apiKey'] = params.get('apiKey') or TOTLE_API_KEY
 
     if params.get('partnerContract'):
         base_inputs['partnerContract'] = params['partnerContract']
 
-    from_token_addr = addr(from_token)
-    to_token_addr = addr(to_token)
+    from_token_addr = token_utils.addr(from_token)
+    to_token_addr = token_utils.addr(to_token)
     max_mkt_slip = params.get('maxMarketSlippagePercent') or DEFAULT_MAX_SLIPPAGE_PERCENT
     max_exe_slip = params.get('maxExecutionSlippagePercent') or DEFAULT_MAX_SLIPPAGE_PERCENT
     min_fill = params.get('minFillPercent') or DEFAULT_MIN_FILL_PERCENT
@@ -352,6 +363,7 @@ def swap_inputs(from_token, to_token, exchange=None, params={}):
             "sourceAsset": from_token_addr,
             "destinationAsset": to_token_addr,
             "minFillPercent": min_fill,
+            "highExecutionSlippage": True,
             "maxMarketSlippagePercent": max_mkt_slip,
             "maxExecutionSlippagePercent": max_exe_slip,
             "isOptional": False,
@@ -359,35 +371,40 @@ def swap_inputs(from_token, to_token, exchange=None, params={}):
     }
 
     # add sourceAmount or destinationAmount
-    trade_size = params.get('tradeSize') or DEFAULT_TRADE_SIZE
-    eth_amount = int_amount(trade_size, 'ETH')
-    if from_token == 'ETH':
-        swap_inputs["swap"]["sourceAmount"] = eth_amount
-    elif to_token == 'ETH':
-        swap_inputs["swap"]["destinationAmount"] = eth_amount
-    else:
-        raise ValueError('either from_token or to_token must be ETH')
+    if 'fromAmount' in params:
+        swap_inputs['swap']['sourceAmount'] = token_utils.int_amount(params['fromAmount'], from_token)
+    elif 'toAmount' in params:
+        swap_inputs['swap']['destinationAmount'] = token_utils.int_amount(params['toAmount'], to_token)
+    else: # implied behavior based on params['trade_size'] and which token is 'ETH'
+        eth_amount = token_utils.int_amount(params.get('tradeSize') or DEFAULT_TRADE_SIZE, 'ETH')
+        if from_token == 'ETH':
+            swap_inputs['swap']['sourceAmount'] = eth_amount
+        elif to_token == 'ETH':
+            swap_inputs['swap']['destinationAmount'] = eth_amount
+        else:
+            raise ValueError('when tradeSize is specified, either from_token or to_token must be ETH')
         
     return {**swap_inputs, **base_inputs}
 
 def handle_swap_exception(e, dex, from_token, to_token, params, verbose=True):
     has_args1, has_args2 = len(e.args) > 1 and bool(e.args[1]), len(e.args) > 2 and bool(e.args[2])
     normal_exceptions = ["NotEnoughVolumeError", "MarketSlippageTooHighError"]
-
+    normal_messages = ['Endpoint request timed out'] # this response does not come with error code or name, just a message
     # Check for normal exceptions, maybe print them
-    if has_args2 and type(e.args[2]) == dict and 'name' in e.args[2] and e.args[2]['name'] in normal_exceptions:
-        if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} trade size={params['tradeSize']} ETH due to {e.args[2]['name']}")
+    if has_args2 and type(e.args[2]) == dict and e.args[2].get('name') in normal_exceptions:
+        if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} due to {e.args[2]['name']}")
+    elif has_args2 and type(e.args[2]) == dict and e.args[2].get('message') in normal_messages:
+        if verbose: print(f"{dex}: Suggester timed out for {from_token}->{to_token}")
 
     else: # print req/resp for uncommon failures
         print(f"{dex}: swap raised {type(e).__name__}: {e.args[0]}")
-        if verbose:
-            if has_args1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
-            if has_args2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
+        if has_args1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
+        if has_args2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
 
-def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, debug=False):
+def try_swap(label, from_token, to_token, exchange=None, params={}, verbose=True, debug=False):
     """calls swap endpoint Returns the result as a swap_data dict, {} if the call failed"""
     try:
-        is_totle = dex == TOTLE_EX
+        is_totle = label == name()
         inputs = swap_inputs(from_token, to_token, exchange, params)
         j = post_with_retries(SWAP_ENDPOINT, inputs, debug=debug)
 
@@ -396,7 +413,7 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, 
         elif not j['success']:
             raise TotleAPIException(None, inputs, j)
         else:
-            sd = swap_data(j['response'], is_totle)
+            sd = swap_data(j['response'], is_totle, request=inputs)
 
         if sd and verbose:
             if is_totle:
@@ -410,8 +427,43 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, 
         return sd
 
     except Exception as e:
-        handle_swap_exception(e, dex, from_token, to_token, params, verbose=verbose)
+        handle_swap_exception(e, label, from_token, to_token, params, verbose=verbose)
         return {}
+
+# get quote
+def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, params={}, verbose=False, debug=False):
+    if from_amount:
+        params['fromAmount'] = from_amount
+    elif to_amount:
+        params['toAmount'] = to_amount
+    else:
+        raise ValueError(f"{name()} only accepts either from_amount or to_amount, not both")
+
+    sd = try_swap(dex or name(), from_token, to_token, exchange=dex, params=params, verbose=verbose, debug=debug)
+
+    if sd:
+        # keep consistent with exchanges_parts from other aggregators
+        # TODO, this is not an order split, it is a multi-hop route
+        exchanges_parts = {dex: -1} if dex else {tu: -1 for tu in sd['totleUsed']}
+        return {
+            'source_token': sd['sourceToken'],
+            'source_amount': sd['sourceAmount'],
+            'destination_token': sd['destinationToken'],
+            'destination_amount': sd['destinationAmount'],
+            'price': sd['price'],
+            'exchanges_parts': exchanges_parts,
+        }
+    else:
+        return {}
+
+def get_pairs(quote='ETH'):
+    # Totle's trade/pairs endpoint returns only select pairs used for the data API, so we just use its tokens
+    # endpoint to get tokens, which, if tradable=true, are assumed to pair with quote
+    tokens_json = requests.get(TOKENS_ENDPOINT).json()
+
+    # use only the tokens that are listed in token_utils.tokens() and use the canonical name
+    canonical_symbols = [ token_utils.canonical_symbol(t['symbol']) for t in tokens_json['tokens'] if t['tradable'] ]
+    return [(t, quote) for t in canonical_symbols if t]
 
 
 ##############################################################################################
@@ -419,14 +471,16 @@ def try_swap(dex, from_token, to_token, exchange=None, params={}, verbose=True, 
 # functions to call data APIs
 #
 
-# get token pairs
-r = requests.get(PAIRS_ENDPOINT).json()
-if r['success']:
-    supported_pairs = r['response']
-else: # some uncommon error we should look into
-    raise TotleAPIException(None, None, r)
+@functools.lru_cache(1)
+def get_trades_pairs():
+    """Returns the set of trade pairs which can be passed to get_trades"""
+    r = requests.get(PAIRS_ENDPOINT).json()
+    if r['success']:
+        return r['response']
+    else:  # some uncommon error we should look into
+        raise TotleAPIException(None, None, r)
 
-# get token pairs
+
 def get_trades(base_asset, quote_asset, limit=None, page=None, begin=None, end=None):
     """Returns the latest trades on all exchanges for the given base/quote assets"""
     if limit or page or begin or end:
@@ -435,11 +489,18 @@ def get_trades(base_asset, quote_asset, limit=None, page=None, begin=None, end=N
         query = {}
 
     url = TRADES_ENDPOINT + f"/{base_asset}/{quote_asset}"
+    timer_start = time.time()
+    try:
+        r = requests.get(url, params=query)
+        j = r.json()
+    except ValueError as e:
+        print(f"get_trades raised {type(e).__name__}: {e.args[0]}\nresponse was: {r}")
 
-    j = requests.get(url, params=query).json()
+    timer_end = time.time()
+    print(f"get_trades {base_asset}/{quote_asset} {query} took {timer_end - timer_start:.1f} seconds")
 
-    if j['success']:
+    if j.get('success'):
         return j['response']
     else: # some uncommon error we should look into
-        raise TotleAPIException(None, locals(), j)
+        raise TotleAPIException(None, vars(), j)
 
