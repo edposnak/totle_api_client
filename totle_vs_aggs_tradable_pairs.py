@@ -59,7 +59,6 @@ def do_summary():
     # agg_pairs = summarize_csv('outputs/totle_vs_agg_supported_tokens_2019-12-07_11:06:53.csv')
     # print(f"agg_pairs['Totle'] ({len(agg_pairs['Totle'])} pairs) = {agg_pairs['Totle']}")
     # exit(0)
-
     csv_files = ['totle_vs_agg_supported_tokens_2019-12-05_18:47:50.csv', 'totle_vs_agg_supported_tokens_2019-12-06_11:25:17.csv', 'totle_vs_agg_supported_tokens_2019-12-06_17:55:13.csv', 'totle_vs_agg_supported_tokens_2019-12-07_13:04:21.csv', 'totle_vs_agg_supported_tokens_2019-12-07_11:06:53.csv', 'totle_vs_agg_supported_tokens_2019-12-07_17:09:20.csv', 'totle_vs_agg_supported_tokens_2019-12-07_17:54:29.csv']
 
     agg_pairs = defaultdict(set)
@@ -130,11 +129,18 @@ def do_summary():
         if all([ o_pair in pairs for _, pairs in agg_pairs.items() ]):
             overlap_pairs.append(o_pair)
     print(f"there are {len(overlap_pairs)} pairs supported by Totle and all competitors")
+    print(f"OVERLAP_PAIRS={overlap_pairs}")
 
-
-    print(f"\n\nAppendix A: Pairs supported by other aggregators but not Totle")
+    # print(f"\n\nAppendix A: Pairs supported by other aggregators but not Totle")
     # base_pairstr_map = defaultdict(list)
     # for pair in sorted(all_other_agg_exc_pairs):
+    #     base_pairstr_map[pair[0]].append(f"{pair[0]}/{pair[1]}")
+    # for _, pair_str in base_pairstr_map.items():
+    #     print(', '.join(pair_str))
+
+    # print(f"Appendix B: Totle exclusive pairs ({len(totle_exc_pairs)} pairs)")
+    # base_pairstr_map = defaultdict(list)
+    # for pair in sorted(totle_exc_pairs):
     #     base_pairstr_map[pair[0]].append(f"{pair[0]}/{pair[1]}")
     # for _, pair_str in base_pairstr_map.items():
     #     print(', '.join(pair_str))
