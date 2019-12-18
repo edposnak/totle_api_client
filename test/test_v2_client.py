@@ -57,7 +57,7 @@ def test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH', json_response_fi
         if source_to_base_rate:
             calc_totle_fee = token_utils.real_amount(totle_fee_in_base_token, base_token)
             actual_totle_fee = token_utils.real_amount(orders00_dest_amount - trades0_dest_amount, base_token)
-            bug_msg += f"\nBUG 2: Based on fee of {totle_fee_amount} {totle_fee_token} and a rate of source_to_base_rate of {source_to_base_rate:.2f} {base_token}/{source_token} the difference should have been {calc_totle_fee:.2f} {base_token} but it was {actual_totle_fee}"
+            bug_msg += f"\nBUG 2: Based on fee of {totle_fee_amount} {totle_fee_token} and a rate of {source_to_base_rate:.4f} {base_token}/{source_token} the difference should have been {calc_totle_fee:.5f} {base_token} but it was {actual_totle_fee:.5f}"
 
     if trades1_src_amount != trades0_dest_amount and trades1_src_amount == orders00_dest_amount:
         bug_msg += f"\nBUG 2: trades1_src_amount should have been equal to trades0_dest_amount, but it was equal to orders00_dest_amount, and thus did not account for the fee being taken out"
