@@ -31,11 +31,11 @@ def test_summary_bug_1(token_to_buy='ZRX', endpoint=v2_client.SWAP_ENDPOINT, deb
 
 
 # BUG 2. fees not accounted for when baseAsset is used (e.g. buying SHP with ETH)
-def test_summary_bug_2(token_to_buy='SHP', json_response_file=None, endpoint=v2_client.SWAP_ENDPOINT):
+def test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH', json_response_file=None, endpoint=v2_client.SWAP_ENDPOINT):
     if json_response_file:
         j = json.load(open(json_response_file))
     else:
-        inputs = v2_client.swap_inputs('ETH', token_to_buy, params={'tradeSize':0.1})
+        inputs = v2_client.swap_inputs(token_to_sell, token_to_buy, params={'tradeSize':0.1})
         print(f"Using endpoint {endpoint}")
         j = v2_client.post_with_retries(endpoint, inputs, debug=True)
 
@@ -155,10 +155,10 @@ try:
     # for token in token_utils.tradable_tokens():
     #     test_summary_bug_1(token)
 
-    # test_summary_bug_2(token_to_buy='SHP')
+    test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH')
     # test_summary_bug_2(token_to_buy='SHP', endpoint='https://services.totlenext.com/suggester/optimized/swap')
     # test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug2_plus_fee.json')
-    test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug_2_fee_in_source_asset.json')
+    # test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug_2_fee_in_source_asset.json')
 
     # test_summary_bug_3(token_to_buy='MKR', dex='Oasis')
 except FoundBugException as e:
