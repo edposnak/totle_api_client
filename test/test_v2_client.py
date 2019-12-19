@@ -35,7 +35,7 @@ def test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH', json_response_fi
     if json_response_file:
         j = json.load(open(json_response_file))
     else:
-        inputs = v2_client.swap_inputs(token_to_sell, token_to_buy, params={'tradeSize':0.1})
+        inputs = v2_client.swap_inputs(token_to_sell, token_to_buy, params={'fromAmount': 10})
         print(f"Using endpoint {endpoint}")
         j = v2_client.post_with_retries(endpoint, inputs, debug=True)
 
@@ -53,19 +53,9 @@ def test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH', json_response_fi
     orders10_src_amount, orders10_dest_amount = int(orders10['sourceAmount']), int(orders10['destinationAmount'])
     totle_fee_amount = int(summary['totleFee']['amount'])
 
-    # compute totle_fee_in_base_token - it may already be denominated in base_token, or in source_token (if source_token is a valid base, e.g. 'ETH')
     base_token = summary['baseAsset']['symbol']
     source_token = summary['sourceAsset']['symbol']
     totle_fee_token = summary['totleFee']['asset']['symbol']
-
-    source_to_base_rate = None
-    if totle_fee_token == base_token:
-        totle_fee_in_base_token = totle_fee_amount  # totle_fee is already denominated in base token
-    elif totle_fee_token == source_token: # convert totle_fee to an amount in base token
-        source_to_base_rate = token_utils.real_amount(orders00_dest_amount, orders00['destinationAsset']['symbol']) / token_utils.real_amount(orders00_src_amount, orders00['sourceAsset']['symbol'])
-        totle_fee_in_base_token = totle_fee_amount * source_to_base_rate
-    else:
-        raise ValueError(f"totle_feee_token({totle_fee_token}) is neither base_token({base_token}) nor source_token({source_token})")
 
     print(f"summary_src_amount={summary_src_amount} summary_dest_amount={summary_dest_amount}")
     print(f"totle_fee={totle_fee_amount} {totle_fee_token}")
@@ -74,20 +64,26 @@ def test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH', json_response_fi
     print(f"    trades1_src_amount={trades1_src_amount} trades1_dest_amount={trades1_dest_amount}")
     print(f"        orders10_src_amount={orders10_src_amount} orders10_dest_amount={orders10_dest_amount}")
 
+
     # bug 2 checks
     bug_msg = ''
-    if totle_fee_in_base_token != (orders00_dest_amount - trades0_dest_amount):
-        bug_msg += f"\nBUG 2: totle_fee={totle_fee_in_base_token} but orders00_dest_amount - trades0_dest_amount={orders00_dest_amount - trades0_dest_amount} diff={totle_fee_in_base_token - (orders00_dest_amount - trades0_dest_amount)}"
-        if source_to_base_rate:
-            calc_totle_fee = token_utils.real_amount(totle_fee_in_base_token, base_token)
-            actual_totle_fee = token_utils.real_amount(orders00_dest_amount - trades0_dest_amount, base_token)
-            bug_msg += f"\nBUG 2: Based on fee of {totle_fee_amount} {totle_fee_token} and a rate of {source_to_base_rate:.4f} {base_token}/{source_token} the difference should have been {calc_totle_fee:.5f} {base_token} but it was {actual_totle_fee:.5f}"
+    if totle_fee_token == source_token:
+        if totle_fee_amount != (summary_src_amount - orders00_src_amount):
+            bug_msg += f"\nBUG 2: totle_fee={totle_fee_amount} {totle_fee_token} but summary_src_amount - orders00_src_amount={summary_src_amount - orders00_src_amount} diff={summary_src_amount - (summary_src_amount - orders00_src_amount)}"
+        if orders00_dest_amount != orders10_src_amount:
+            bug_msg += f"\nBUG 2: totle_fee was taken in source asset but orders00_dest_amount != orders10_src_amount orders00_dest_amount={orders00_dest_amount} orders10_src_amount={orders10_src_amount}"
+    elif totle_fee_token == base_token:
+        if totle_fee_amount != (orders00_dest_amount - trades0_dest_amount):
+            bug_msg += f"\nBUG 2: totle_fee={totle_fee_amount} but orders00_dest_amount - trades0_dest_amount={orders00_dest_amount - trades0_dest_amount} diff={totle_fee_amount - (orders00_dest_amount - trades0_dest_amount)}"
 
-    if trades1_src_amount != trades0_dest_amount and trades1_src_amount == orders00_dest_amount:
-        bug_msg += f"\nBUG 2: trades1_src_amount should have been equal to trades0_dest_amount, but it was equal to orders00_dest_amount, and thus did not account for the fee being taken out"
+        if trades1_src_amount != trades0_dest_amount and trades1_src_amount == orders00_dest_amount:
+            bug_msg += f"\nBUG 2: trades1_src_amount should have been equal to trades0_dest_amount, but it was equal to orders00_dest_amount, and thus did not account for the fee being taken out"
 
-    if orders10_src_amount != trades0_dest_amount and orders10_src_amount == orders00_dest_amount:
-        bug_msg += f"\nBUG 2:orders10_src_amount should have been equal to trades0_dest_amount, but it was equal to orders00_dest_amount, and thus did not account for the fee being taken out"
+        if orders10_src_amount != trades0_dest_amount and orders10_src_amount == orders00_dest_amount:
+            bug_msg += f"\nBUG 2:orders10_src_amount should have been equal to trades0_dest_amount, but it was equal to orders00_dest_amount, and thus did not account for the fee being taken out"
+
+    else:
+        raise ValueError(f"totle_feee_token({totle_fee_token}) is neither base_token({base_token}) nor source_token({source_token})")
 
     if bug_msg: raise FoundBugException(bug_msg)
 
@@ -148,8 +144,10 @@ try:
     # for token in token_utils.tradable_tokens():
     #     test_summary_bug_1(token)
 
-    test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH')
-    # test_summary_bug_2(token_to_buy='SHP', endpoint='https://services.totlenext.com/suggester/optimized/swap')
+    # test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH')
+    # test_summary_bug_2(token_to_buy='CDAI', token_to_sell='BAT', endpoint='https://services.totlenext.com/suggester/fix-amounts')
+    test_summary_bug_2(token_to_buy='CDAI', token_to_sell='ETH', endpoint='https://services.totlenext.com/suggester/fix-amounts')
+    # test_summary_bug_2(token_to_buy='DAI', token_to_sell='BAT', endpoint='https://services.totlenext.com/suggester/fix-amounts')
     # test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug2_plus_fee.json')
     # test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug_2_fee_in_source_asset.json')
 
