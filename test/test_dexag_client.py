@@ -6,21 +6,25 @@ import exchange_utils
 import token_utils
 
 
-def test_get_quote(to_token, trade_sizes, dex=dexag_client.AG_DEX, from_token='ETH', to_amount=None, verbose=True, debug=True, client=dexag_client):
-    n_quotes = 0
-    if to_amount:
-        pq = client.get_quote(from_token, to_token, to_amount=to_amount, dex=dex, verbose=verbose, debug=debug)
+def test_get_quote(to_token, from_token='ETH', from_amount=None, to_amount=None, dex=dexag_client.AG_DEX, verbose=True, debug=True, client=dexag_client):
+    kw_params = dict(dex=dex, verbose=verbose, debug=debug)
+
+    if from_amount:
+        kw_params['from_amount'] = from_amount
+    elif to_amount:
+        kw_params['to_amount'] = to_amount
     else:
-        for trade_size in trade_sizes:
-            pq = client.get_quote(from_token, to_token, from_amount=trade_size, dex=dex, verbose=verbose, debug=debug)
-    if not pq:
-        print(f"{dex} did not have {from_token} to {to_token} at trade size={trade_size}")
-    else:
-        n_quotes += 1
-        # print(f"price={pq['price']} from {from_token} to {to_token}\nexchanges_prices={pq['exchanges_prices']}")
-        print(pq)
-    print(f"{to_token}: {n_quotes}")
-    return n_quotes
+        raise ValueError(f"either from_amount or to_amount must be specified")
+
+    try:
+        pq = client.get_quote(from_token, to_token, **kw_params)
+        if not pq:
+            print(f"{dex} did not have {from_token} to {to_token} from_amount={from_amount} to_amount={to_amount}")
+        else:
+            # print(f"price={pq['price']} from {from_token} to {to_token} from_amount={from_amount} to_amount={to_amount}\nexchanges_prices={pq['exchanges_prices']}")
+            print(pq)
+    except (dexag_client.DexAGAPIException, ValueError) as e:
+        print(e)
 
 
 def test_print_dex_names():
@@ -40,23 +44,33 @@ def test_which_tokens_supported(tradable_tokens, trade_size=0.1, dex=None, from_
         # time.sleep(0.2)
     print(f"{len(supported_tokens)}/{len(tradable_tokens)} tokens supported by Radar Relay: {supported_tokens}")
 
+def test_supported_tokens():
+    supported_tokens = dexag_client.supp_toks()
+    print(f"supported_tokens={supported_tokens}")
+
+
 #######################################################################################################################
 
-test_get_quote('MKR', [1.0], dex='all')
+# Buying CVC for 993.5942467706458 PAX
+test_get_quote('CVC', from_token='PAX', from_amount=994)
+exit(0)
 
-test_get_quote('ETHOS', [1.0])
-test_get_quote('ETHOS', [1], to_amount=200.0)
+
+test_get_quote('MKR', from_amount=1.0, dex='all')
+
+test_get_quote('ETHOS', from_amount=1.0)
+test_get_quote('ETHOS', from_amount=1, to_amount=200.0)
 
 
-test_get_quote('OMG', [1.0])
-test_get_quote('OMG', [1], to_amount=200.0)
+test_get_quote('OMG', from_amount=1.0)
+test_get_quote('OMG', to_amount=200.0)
 
-test_get_quote('ETH', [1.0], from_token='OMG')
-test_get_quote('ETH', [1], from_token='OMG', to_amount=200.0)
+test_get_quote('ETH', from_token='OMG', from_amount=1.0)
+test_get_quote('ETH', from_token='OMG', to_amount=200.0)
 
-test_get_quote('BAT', [100.0], dex='all', debug=True)
+test_get_quote('BAT', from_amount=100.0, dex='all', debug=True)
 
 test_print_dex_names()
 
-test_which_tokens_supported(tokens = token_utils.tokens(), dex='0xMesh')
+test_which_tokens_supported(token_utils.tokens(), dex='0xMesh')
 

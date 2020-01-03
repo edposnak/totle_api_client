@@ -18,8 +18,8 @@ import exchange_utils
 CSV_DATA_DIR = f"{os.path.dirname(os.path.abspath(__file__))}/outputs"
 
 # don't lru_cache() a generator, the second time it will not produce any data
-def csv_row_gen(file, string_trade_sizes=False, only_splits=False, only_non_splits=False):
-    print(f"\n\ncsv_row_gen doing {file} string_trade_sizes={string_trade_sizes}, only_splits={only_splits}, only_non_splits={only_non_splits}) ...")
+def csv_row_gen(file, only_splits=False, only_non_splits=False):
+    print(f"\n\ncsv_row_gen doing {file}, only_splits={only_splits}, only_non_splits={only_non_splits}) ...")
     with open(file, newline='') as csvfile:
         reader = csv.DictReader(csvfile, fieldnames=None)
 
@@ -29,28 +29,11 @@ def csv_row_gen(file, string_trade_sizes=False, only_splits=False, only_non_spli
             if only_non_splits and len(splits) > 1: continue
 
             time, action = row['time'], row['action'] # datetime.fromisoformat(row['time']).isoformat(' ', 'seconds')
-            trade_size, token = row['trade_size'], row['token']
-            if not string_trade_sizes:
-                trade_size = float(trade_size)
+            trade_size, token = float(row['trade_size']), row['token']
             exchange, exchange_price = row['exchange'], float(row['exchange_price'])
             totle_used, totle_price, pct_savings = row['totle_used'], float(row['totle_price']), float(row['pct_savings']),
             # Some older CSVs have the non-splittable dexs in the ex_prices column
             ex_prices = exchange_utils.canonical_and_splittable(eval(row.get('ex_prices') or '{}'))
-
-            # Exclude suspicious data
-            # if (exchange, token) in  [('DEX.AG', 'ETHOS')]:
-            #     # print(f"Excluding data for {token} on {exchange}")
-            #     print(f"Excluding {row}")
-            #     continue
-            # if trade_size in ['0.1', '0.5'] and token == 'ZRX' and exchange == '1-Inch':
-            if exchange == '1-Inch' and token == 'ZRX' and trade_size in ['0.1', '0.5'] and pct_savings < -1.0:
-                # print(f"{time} {token} {trade_size} {pct_savings:.2f}% savings: {exchange} price={exchange_price} using {splits} Totle price={totle_price} using {totle_used} ")
-                continue
-
-            if pct_savings > 10.0 or (len(splits) < 1 and pct_savings < -5.0) or (
-                    float(trade_size) < 1 and pct_savings < -5.0):
-                # print(f"{time} {token} {trade_size} {pct_savings:.2f}% savings: {exchange} price={exchange_price} using {splits} Totle price={totle_price} using {totle_used} ")
-                continue
 
             yield time, action, trade_size, token, exchange, exchange_price, totle_used, totle_price, pct_savings, splits, ex_prices
 
@@ -108,7 +91,7 @@ def read_slippage_csvs(csv_files=None):
 # generator
 def pct_savings_gen(per_token_savings):
     """Generates a sequence of (token, trade_size, agg/exchange, [pct_savings]) for all leaves in the given dict"""
-    for token, ts_ex_savings in per_token_savings.items():
+    for token, ts_ex_savings in sorted(per_token_savings.items()):
         for trade_size, ex_savings in ts_ex_savings.items():
             for exchange, pct_savings in ex_savings.items():
                 yield token, trade_size, exchange, pct_savings

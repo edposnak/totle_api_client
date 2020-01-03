@@ -201,8 +201,8 @@ def print_savings(order_type, savings, trade_sizes, title="Savings"):
         str_vals = [pf(v['pct_savings']) if v else ph('-') for v in vals]
         print(f"{base:<8}", ''.join(str_vals))
 
-def get_pct_savings(p1, p2):
-    return 100 - (100.0 * p1 / p2)
+def get_pct_savings(base_price, competitor_price):
+    return 100 - (100.0 * base_price / competitor_price)
 
 ##############################################################################################
 #

@@ -31,7 +31,7 @@ for file in csv_files:
     with open(file, newline='') as csvfile:
         reader = csv.DictReader(csvfile, fieldnames=None)
         for row in reader:
-            trade_size = row['trade_size']
+            trade_size = float(row['trade_size'])
             trade_size_savings = all_savings[trade_size]
 
             dex = row['exchange']
