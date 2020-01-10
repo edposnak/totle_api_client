@@ -13,6 +13,7 @@ TOTLE_EX = v2_client.name()
 
 QUOTE = 'ETH'
 TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0]
+TOKENS = ['BAT','DAI','REP']
 COMPOUND_TOKENS = ['CBAT','CDAI','CETH','CREP','CUSDC','CWBTC','CZRX']
 TOTLE_EXCHANGES = integrated_exchanges = list(v2_client.exchanges().keys())
 
