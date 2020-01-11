@@ -93,8 +93,8 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
     req_url = f"{PRICES_ENDPOINT}/{from_addr}/{to_addr}/{token_utils.int_amount(from_amount, from_token)}"
     if debug: print(f"REQUEST to {req_url}: (from_token={from_token}, to_token={to_token} from_amount={from_amount})\n\n")
 
-    r = requests.get(req_url)
     try:
+        r = requests.get(req_url)
         j = r.json()
         if debug: print(f"RESPONSE from {PRICES_ENDPOINT}:\n{json.dumps(j, indent=3)}\n\n")
 
@@ -148,8 +148,9 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
             }
 
 
-    except ValueError as e:
-        print(f"{name()} {req_url} raised {e}: {r}: {r.text[:128]}")
+
+    except (ValueError, requests.exceptions.RequestException) as e:
+        print(f"{name()} {req_url} raised {e}: {r.text[:128] if r else 'no JSON returned'}")
         return {}
 
 def int_conv(s):
