@@ -198,9 +198,10 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
             if totle_fee_token == summary_source_token:
                 # When Totle takes fees in the source token we can just add the totle_fee
                 # and the source_amount should end up equal to the summary_source_amount
-                print(f"source_amount={source_amount} totle_fee_amount={totle_fee_amount}")
-                print(f"summary_source_amount={summary_source_amount} source_amount+totle_fee_amount={source_amount+totle_fee_amount}")
-                print(f"summary_source_amount == source_amount+totle_fee_amount={summary_source_amount == source_amount+totle_fee_amount}")
+                if summary_source_amount != source_amount+totle_fee_amount:
+                    print(f"summary_source_amount == source_amount+totle_fee_amount={summary_source_amount == source_amount+totle_fee_amount}")
+                    print(f"    source_amount={source_amount} totle_fee_amount={totle_fee_amount}")
+                    print(f"    summary_source_amount={summary_source_amount} source_amount+totle_fee_amount={source_amount + totle_fee_amount}")
                 source_amount += totle_fee_amount
             else: # fee is in destination or base token
                 # source_amount always equals summary_source_amount
@@ -234,12 +235,10 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
         # Suggester bugs? and conversions from floating point to decimal mean things don't always add up exactly
         # e.g. Totle: swap raised ValueError: adjusted orders destination_amount=605285284 different from summary destination_amount=605285283
         if source_amount != summary_source_amount:
-            raise ValueError(
-                f"adjusted orders source_amount={source_amount} different from summary source_amount={summary_source_amount}")
+            raise ValueError(f"adjusted orders source_amount={source_amount} different from summary source_amount={summary_source_amount}")
 
         if destination_amount != summary_destination_amount:
-            raise ValueError(
-                f"adjusted orders destination_amount={destination_amount} different from summary destination_amount={summary_destination_amount}")
+            raise ValueError(f"adjusted orders destination_amount={destination_amount} different from summary destination_amount={summary_destination_amount}")
 
     else: # getting DEX price from Totle by whitelisting
         # Only subtract fees for buys where Totle takes fees in the intermediate token.
