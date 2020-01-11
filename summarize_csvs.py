@@ -100,7 +100,7 @@ def print_per_token_savings_summary_tables(per_token_savings, exchanges):
         print_savings_summary_table(tss, exchanges)
 
 def print_savings_summary_table(per_trade_size_savings, all_exchanges, label=''):
-    print("\n\n{label}")
+    print(f"\n{label}")
     headers = ''.join(list(map(lambda e: f"{e:<18}", all_exchanges)))
     print(f"{'Trade Size':<18}{headers}")
     # for trade_size, savings in savings_by_trade_size.items():
@@ -155,6 +155,7 @@ def print_pmm_savings_table_csv(slip_price_splits, tokens):
         print(row)
 
 def print_split_vs_non_split_savings_summary_table_csv(per_trade_size_splits_only, per_trade_size_non_splits_only, aggs):
+    print(f"\nSplit vs Non-Split Savings Summary")
     print(f"Trade Size,{','.join(map(lambda x: f'{x} (non-split),{x} (splits-only)', aggs))}")
     for trade_size in sorted_trade_sizes(per_trade_size_splits_only, per_trade_size_non_splits_only):
         non_splits = per_trade_size_non_splits_only.get(trade_size)
@@ -241,11 +242,11 @@ def do_splits_vs_non_splits(csv_files, aggs):
     # print("\n\nAll tokens savings by trade size splits vs non-splits")
     print_split_vs_non_split_savings_summary_table_csv(per_trade_size_splits_only, per_trade_size_non_splits, aggs)
     # TODO EJP csv where each row is it's own curve. See how MKR/ETH on Uniswap changes over time
-    print_pmm_savings_table_csv(non_splits_only_slip_price_splits, 'USDT USDC PAX TUSD WBTC DAI'.split())
-    print("\n\nSavings for each token by trade size (non-splits)")
-    print_per_token_savings_summary_tables(per_token_non_splits_only_savings, aggs)
-    print("\n\nSavings for each token by trade size (only splits)")
-    print_per_token_savings_summary_tables(per_token_splits_only_savings, aggs)
+    # print_pmm_savings_table_csv(non_splits_only_slip_price_splits, 'USDT USDC PAX TUSD WBTC DAI'.split())
+    # print("\n\nSavings for each token by trade size (non-splits)")
+    # print_per_token_savings_summary_tables(per_token_non_splits_only_savings, aggs)
+    # print("\n\nSavings for each token by trade size (only splits)")
+    # print_per_token_savings_summary_tables(per_token_splits_only_savings, aggs)
     for token in ['ENJ', 'BAT', 'MKR', 'DAI']:
         print_savings_summary_table_csv(per_token_splits_only_savings[token], aggs, label=f"{token}")
 
