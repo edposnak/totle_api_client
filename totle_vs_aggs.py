@@ -13,17 +13,17 @@ import dexag_client
 import exchange_utils
 import oneinch_client
 import paraswap_client
-import v2_client
+import totle_client
 from v2_compare_prices import get_savings, print_savings, get_filename_base, SavingsCSV
 from summarize_csvs import aggregated_savings, print_savings_summary_table_csv, print_neg_savings_stats, print_savings_summary_table, compute_mean, sorted_trade_sizes
 
 AGG_CLIENTS = [dexag_client, oneinch_client, paraswap_client]
-CSV_FIELDS = "time action trade_size token quote exchange exchange_price totle_used totle_price pct_savings splits ex_prices".split()
+CSV_FIELDS = "time action trade_size token quote exchange exchange_price totle_used totle_price totle_splits pct_savings splits ex_prices".split()
 
 def compare_totle_and_aggs(from_token, to_token, from_amount, usd_trade_size=None):
     agg_savings = {}
 
-    totle_sd = v2_client.try_swap(v2_client.name(), from_token, to_token, params={'fromAmount': from_amount}, verbose=False, debug=False)
+    totle_sd = totle_client.try_swap(totle_client.name(), from_token, to_token, params={'fromAmount': from_amount}, verbose=False, debug=False)
     if totle_sd:
         for agg_client in AGG_CLIENTS:
             pq = agg_client.get_quote(from_token, to_token, from_amount=from_amount)
@@ -45,7 +45,7 @@ def compare_totle_and_aggs(from_token, to_token, from_amount, usd_trade_size=Non
 def compare_totle_and_aggs_parallel(from_token, to_token, from_amount, usd_trade_size=None):
     agg_savings = {}
 
-    totle_sd = v2_client.try_swap(v2_client.name(), from_token, to_token, params={'fromAmount': from_amount}, verbose=False, debug=False)
+    totle_sd = totle_client.try_swap(totle_client.name(), from_token, to_token, params={'fromAmount': from_amount}, verbose=False, debug=False)
     if totle_sd:
         futures_agg = {}
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -80,7 +80,7 @@ def get_token_prices(tokens):
         if missing_token == 'CETH':
             usd_prices[missing_token] = 2.83
         else:
-            totle_sd = v2_client.try_swap(v2_client.name(), 'USDC', missing_token, params={'toAmount': 0.1}, verbose=False, debug=False)
+            totle_sd = totle_client.try_swap(totle_client.name(), 'USDC', missing_token, params={'toAmount': 0.1}, verbose=False, debug=False)
 
             if totle_sd:  # set the from_amount so it's roughly the same across all swaps
                 usd_prices[missing_token] = totle_sd['price']
@@ -164,22 +164,35 @@ def do_overlap_pairs():
 
 TOTLE_39 = ['ANT','AST','BAT','BNT','CDT','CND','CVC','DAI','ENG','ENJ','ETHOS','GNO','KNC','LINK','MANA','MCO','MKR','OMG','PAX','PAY','POE','POLY','POWR','RCN','RDN','REN','REP','REQ','RLC','RPL','SNT','SNX','STORJ','TKN','TUSD','USDC','USDT','WBTC','ZRX']
 HI_SPLIT_TOKENS = ['BAT', 'ENJ', 'GNO', 'KNC', 'MANA', 'OMG', 'POE', 'POWR', 'RCN', 'RDN', 'REN', 'REP', 'REQ', 'RLC', 'SNT']
+TOTLE_74 = ['DNT','CZRX','ONG','CSAI','CUSDC','BNTY','XDCE','QSP','ANT','MKR','ASTRO','BNT','FLIXX','OMG','DATA','REP','WLK','USDS','REAL','STORM','STORJ','MLN','MTL','DRT','DALC','ZRX','TKN','TRST','PRG','SHP','DRGN','VIB','ABYSS','PAX','LEV','RHOC','ENJ','SCL','WBTC','POLY','LRC','ZIL','RCN','ERC20','USDC','ISAI','KNC','NEXO','STX','REN','ELEC','SUSD','WABI','CBAT','CETH','NPXS','VERI','BAT','TUSD','ENG','RPL','ART','PAY','CND','WINGS','REQ','MCO','CDAI','LINK','KIN','PLR','BNB','DAI','SWT']
+
+
 STABLECOINS = ['DAI', 'PAX', 'SAI', 'TUSD', 'USDC', 'USDT']
 UNSUPPORTED_STABLECOINS = ['CSAI', 'IDAI']
-TOKENS = HI_SPLIT_TOKENS
-TRADE_SIZES  = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0]
-# TOKENS, TRADE_SIZES = ['CVC', 'DAI', 'LINK'], [0.5, 5.0]
+# TOKENS = HI_SPLIT_TOKENS
+# TRADE_SIZES  = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0]
+TOKENS, TRADE_SIZES = TOTLE_39, [1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0]
+
 def do_eth_pairs():
     all_buy_savings = defaultdict(lambda: defaultdict(lambda: defaultdict(dict))) # extra lambda prevents KeyError in print_savings
     order_type, quote = 'buy', 'ETH'
     filename = get_filename_base(prefix='totle_vs_agg_eth_pairs', suffix=order_type)
     with SavingsCSV(filename, fieldnames=CSV_FIELDS) as csv_writer:
+        todo = []
+
         for base in TOKENS:
             for trade_size in TRADE_SIZES:
-                print(f"Doing {base} for {trade_size} {quote}")
-                # set the from_amount so it's roughly the same ($10 USD) across all swaps
-                print(f"\n\nBuying {base} for {trade_size} {quote}")
-                agg_savings = compare_totle_and_aggs_parallel(quote, base, trade_size) # TODO, parallelize here and remove the _parallel version
+                todo.append((compare_totle_and_aggs_parallel, quote, base, trade_size))
+
+
+        MAX_THREADS = 16
+        print(f"Queueing up {len(todo)} todos for execution on {MAX_THREADS} workers")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
+            futures_p = {executor.submit(*p): p for p in todo}
+
+            for f in concurrent.futures.as_completed(futures_p):
+                _, from_token, to_token, from_amount = futures_p[f]
+                agg_savings = f.result()
                 for agg_name, savings in agg_savings.items():
                     all_buy_savings[agg_name][quote][trade_size] = savings
                     csv_writer.append(savings)
@@ -188,7 +201,7 @@ def do_eth_pairs():
 
     # Prints a savings dict, token => trade_size => savings values
     for agg_name in all_buy_savings:
-        print_savings(order_type, all_buy_savings[agg_name], USD_TRADE_SIZES, title=f"Savings vs. {agg_name}")
+        print_savings(order_type, all_buy_savings[agg_name], TRADE_SIZES, title=f"Savings vs. {agg_name}")
 
 ########################################################################################################################
 # CSV processing
@@ -258,7 +271,7 @@ def print_split_counts_table(split_count_by_agg, non_split_count_by_agg, agg_nam
             csv_row += f",{100 * splits / (splits + non_splits)}"
         print(csv_row)
 
-def print_savings_summary_by_pair_csv(per_pair_savings, only_trade_size, agg_names, min_stablecoins=0, label="Average Savings"):
+def print_savings_summary_by_pair_csv(per_pair_savings, only_trade_size, agg_names, only_token=None, min_stablecoins=0, label="Average Savings"):
     print(f"\n{label}")
 
     pair_agg_savings = defaultdict(lambda: defaultdict(list))
@@ -266,6 +279,9 @@ def print_savings_summary_by_pair_csv(per_pair_savings, only_trade_size, agg_nam
 
     for pair, trade_size, agg, pct_savings_list in data_import.pct_savings_gen(per_pair_savings):
         if trade_size != only_trade_size: continue
+        # if only_token and only_token not in pair: continue
+        # if only_token and pair[0] != only_token: continue
+        if only_token and pair[1] != only_token: continue
         if min_stablecoins == 1 and not has_stablecoin(pair): continue
         if min_stablecoins == 2 and not both_stablecoins(pair): continue
 
@@ -415,9 +431,7 @@ def print_stablecoin_stablecoin_price_table(stablecoin_stablecoin_prices, agg_na
                 row += f","
         print(row)
 
-
-
-def do_summary(csv_files):
+def do_summary_erc20(csv_files):
     """Returns a dict containing pct savings token: { trade_size:  {exchange: [sample, sample, ...], ...}"""
     per_pair_savings = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
     inlier_pair_savings = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
@@ -439,23 +453,20 @@ def do_summary(csv_files):
                 totle_used = row['totle_used']
                 splits = exchange_utils.canonical_keys(eval(row.get('splits') or '{}'))
 
-                if both_stablecoins(pair):
-                    if agg_price > 4: continue # remove (most) outliers PAX on Uniswap
-                    if 'PAX' in pair and 'Uniswap' in splits:
-                        continue
-                        # print(f"PAX/UNI: {agg} split {pair} at ${trade_size} between {splits} for price {agg_price} and savings of {pct_savings}% totle_used={totle_used}")
+                # if 'PAX' in pair and 'Uniswap' in splits:
+                #     # print(f"PAX/UNI: {agg} split {pair} at ${trade_size} between {splits} for price {agg_price} and savings of {pct_savings}% totle_used={totle_used}")
+                #     continue
 
+                if both_stablecoins(pair):
                     # if trade_size == 1.0 and agg == '1-Inch' and agg_price < 0.6:
                     #     if 'PMM' not in splits or splits['PMM'] != 10:
                     #         print(f"1-Inch: {agg} split {pair} at ${trade_size} between {splits} for price {agg_price} and savings of {pct_savings}% totle_used={totle_used}")
-
-
                     stablecoin_stablecoin_prices[trade_size][agg].append(agg_price)
-
                     if len(splits) < 2:
                         ss_non_split_count_by_agg[agg][trade_size] += 1
                     else:
                         ss_split_count_by_agg[agg][trade_size] += 1
+
 
                 per_pair_savings[pair][trade_size][agg].append(pct_savings)
                 if abs(pct_savings) > 10:
@@ -469,57 +480,94 @@ def do_summary(csv_files):
     agg_names = sorted([a.name() for a in AGG_CLIENTS])
     trade_sizes = sorted_trade_sizes(*inlier_pair_savings.values())
 
-    print_stablecoin_pairs(per_pair_savings, trade_sizes)
-    # print_stablecoin_pcts(inlier_pair_savings)
-    # print_stablecoin_pcts(outlier_pair_savings)
-
     # print_neg_savings_table(inlier_pair_savings, trade_sizes)
     # if outlier_pair_savings: print_neg_savings_table(outlier_pair_savings, trade_sizes)
 
-    print_savings_summary_table_csv(aggregated_savings(per_pair_savings, filter=both_stablecoins), agg_names, label="Stablecoin/Stablecoin Savings (all samples)")
-    print_savings_summary_table_csv(aggregated_savings(inlier_pair_savings, filter=both_stablecoins), agg_names, label="Stablecoin/Stablecoin Savings (inlier samples)")
-    print_savings_summary_table_csv(aggregated_savings(outlier_pair_savings, filter=both_stablecoins), agg_names, label="Stablecoin/Stablecoin Savings (outlier samples)")
-
-    print_stablecoin_stablecoin_price_table(stablecoin_stablecoin_prices, agg_names, trade_sizes)
-
-    print_avg_savings_per_pair_by_agg(per_pair_savings, 10.0, print_threshold=0, samples=True, min_stablecoins=2)
-
-    # print_savings_summary_by_pair_csv(per_pair_savings, 10.0, agg_names, min_stablecoins=2, label="Average stablecoin/stablecoin Savings at trade size 10.0")
-    # print_savings_summary_by_pair_csv(per_pair_savings, 100.0, agg_names, min_stablecoins=2, label="Average stablecoin/stablecoin Savings at trade size 100.0")
-    # print_savings_summary_by_pair_csv(per_pair_savings, 1000.0, agg_names, min_stablecoins=2, label="Average stablecoin/stablecoin Savings at trade size 1000.0")
-
-    # print_split_counts_table(ss_split_count_by_agg, ss_non_split_count_by_agg, agg_names, trade_sizes)
-
-    # print(f"\n\n-----\n\n")
-    # print_largest_absolute_savings_samples(inlier_pair_savings)
-    # print_largest_absolute_savings_samples(outlier_pair_savings)
-
-    # if outlier_pair_savings:
-    #     print_top_ten_pairs_savings(outlier_pair_savings)
-    #     print_top_ten_savings_by_token(outlier_pair_savings)
-    #
-    #     print("\n\n")
-    #
-    #     for trade_size in trade_sizes:
-    #         print_top_ten_pairs_savings(outlier_pair_savings, trade_size)
-    #         print_top_ten_savings_by_token(outlier_pair_savings, trade_size)
+    print_savings_summary_table_csv(aggregated_savings(per_pair_savings), agg_names, label="Average Savings (all samples)")
 
 
-    # for trade_size in trade_sizes:
-    #     print_avg_savings_per_pair_by_agg(outlier_pair_savings, trade_size, print_threshold=10, samples=False)
-    #
-    # check_overlap(inlier_pair_savings)
 
-    # per_trade_size_savings = aggregated_savings(inlier_pair_savings)
-    # print_savings_summary_table(per_trade_size_savings, agg_names)
-    # print_savings_summary_table_csv(per_trade_size_savings, agg_names, label="Inlier Pair Average Savings")
-    #
+    # Stablecoin savings
+    # print_stablecoin_pairs(per_pair_savings, trade_sizes)
+    # print_stablecoin_pcts(per_pair_savings)
+    # print_stablecoin_pcts(inlier_pair_savings)
+    # print_stablecoin_pcts(outlier_pair_savings)
+    # print_savings_summary_table_csv(aggregated_savings(per_pair_savings, filter=both_stablecoins), agg_names, label="Stablecoin/Stablecoin Savings (all samples)")
+    # print_savings_summary_table_csv(aggregated_savings(inlier_pair_savings, filter=both_stablecoins), agg_names, label="Stablecoin/Stablecoin Savings (inlier samples)")
+    # print_savings_summary_table_csv(aggregated_savings(outlier_pair_savings, filter=both_stablecoins), agg_names, label="Stablecoin/Stablecoin Savings (outlier samples)")
+    # print_stablecoin_stablecoin_price_table(stablecoin_stablecoin_prices, agg_names, trade_sizes)
 
+    # print_avg_savings_per_pair_by_agg(per_pair_savings, 10.0, print_threshold=0, samples=True, min_stablecoins=2)
     # for trade_size in USD_TRADE_SIZES[0:-1]:
     #     print_avg_savings_per_pair_by_agg(per_pair_savings, trade_size, filtered=True, samples=True)
 
-    # print_top_ten_pairs_savings(inlier_pair_savings)
     print_top_ten_pairs_savings(per_pair_savings)
+    print_top_ten_savings_by_token(per_pair_savings)
+    print("\n\n---\n\n")
+
+    for trade_size in trade_sizes:
+        # print_savings_summary_by_pair_csv(per_pair_savings, trade_size, agg_names, only_token='ENJ', label=f"Average Savings at trade size {trade_size}")
+        # print_savings_summary_by_pair_csv(per_pair_savings, trade_size, agg_names, only_token='POWR', label=f"Average Savings at trade size {trade_size}")
+        # print_savings_summary_by_pair_csv(per_pair_savings, trade_size, agg_names, only_token='ANT', label=f"Average Savings at trade size {trade_size}")
+        # print_savings_summary_by_pair_csv(per_pair_savings, trade_size, agg_names, only_token='RCN', label=f"Average Savings at trade size {trade_size}")
+        # print_savings_summary_by_pair_csv(per_pair_savings, trade_size, agg_names, only_token='TUSD', label=f"Average Savings at trade size {trade_size}")
+        print_savings_summary_by_pair_csv(per_pair_savings, trade_size, agg_names, only_token='USDT', label=f"Average Savings at trade size {trade_size}")
+        print_savings_summary_by_pair_csv(per_pair_savings, trade_size, agg_names, only_token='CVC', label=f"Average Savings at trade size {trade_size}")
+    exit(0)
+
+
+def do_summary(csv_files):
+    """Returns a dict containing pct savings token: { trade_size:  {exchange: [sample, sample, ...], ...}"""
+    per_pair_savings = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+
+    split_count_by_agg, non_split_count_by_agg = defaultdict(lambda: defaultdict(int)), defaultdict(lambda: defaultdict(int))
+
+    for filename in csv_files:
+        with open(filename, newline='') as csvfile:
+            reader = csv.DictReader(csvfile, fieldnames=None)
+            for row in reader:
+                from_token, to_token = row['quote'], row['token']
+                pair = (from_token, to_token)
+                trade_size, pct_savings = float(row['trade_size']), float(row['pct_savings'])
+                agg = row['exchange']
+                agg_price = float(row['exchange_price'])
+                totle_used = row['totle_used']
+                splits = exchange_utils.canonical_keys(eval(row.get('splits') or '{}'))
+                if len(splits) < 2:
+                    non_split_count_by_agg[agg][trade_size] += 1
+                else:
+                    split_count_by_agg[agg][trade_size] += 1
+
+                print(f"{to_token}/{from_token} trade_size={trade_size} {from_token} totle_used={totle_used} agg_used={splits} savings={pct_savings}")
+
+                per_pair_savings[pair][trade_size][agg].append(pct_savings)
+
+    agg_names = sorted([a.name() for a in AGG_CLIENTS])
+    trade_sizes = sorted_trade_sizes(*per_pair_savings.values())
+
+    print_neg_savings_table(per_pair_savings, trade_sizes)
+
+    print_savings_summary_table_csv(aggregated_savings(per_pair_savings), agg_names, label="Average Savings (all samples)")
+
+    # Which are the most often split pairs by Totle
+
+    # what is the savings when both Totle and Agg have split
+
+    # print_avg_savings_per_pair_by_agg(per_pair_savings, 10.0, print_threshold=0, samples=True, min_stablecoins=2)
+    for trade_size in trade_sizes:
+        print_avg_savings_per_pair_by_agg(per_pair_savings, trade_size, samples=True)
+
+    print("\n\n---\n\n")
+
+    print_split_counts_table(split_count_by_agg, non_split_count_by_agg, agg_names, trade_sizes)
+
+    for trade_size in trade_sizes:
+        print_avg_savings_per_pair_by_agg(per_pair_savings, trade_size, print_threshold=10, samples=False)
+
+    per_trade_size_savings = aggregated_savings(per_pair_savings)
+    print_savings_summary_table(per_trade_size_savings, agg_names)
+    print_savings_summary_table_csv(per_trade_size_savings, agg_names, label="Per Pair Average Savings")
+
 
     # print_avg_savings_per_pair_by_trade_size(per_pair_savings, trade_sizes)
 
@@ -532,14 +580,17 @@ def main():
     working_dir = os.path.dirname(__file__)
     if working_dir: os.chdir(working_dir)
 
-    do_summary(glob.glob(f'outputs/totle_vs_agg_overlap_*'))
-    # do_summary(glob.glob(f'outputs/totle_vs_agg_overlap_pairs_*'))
-    # do_summary(glob.glob(f'outputs/totle_vs_agg_overlap_reversed_pairs_*'))
-    exit(0)
+    # do_summary_erc20(glob.glob(f'outputs/totle_vs_agg_overlap_*'))
+    # do_summary_erc20(glob.glob(f'outputs/totle_vs_agg_overlap_pairs_*'))
+    # do_summary_erc20(glob.glob(f'outputs/totle_vs_agg_overlap_reversed_pairs_*'))
+    # exit(0)
 
 
-    do_overlap_pairs()
-    # do_eth_pairs()
+    # do_summary(glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020*'))
+    # exit(0)
+
+    # do_overlap_pairs()
+    do_eth_pairs()
 
 if __name__ == "__main__":
     main()
