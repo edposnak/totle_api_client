@@ -1,7 +1,7 @@
-import v2_client
+import totle_client
 
 
-def test_get_quote(base, trade_sizes, quote='ETH', dex=None, verbose=True, debug=True, client=v2_client):
+def test_get_quote(base, trade_sizes, quote='ETH', dex=None, verbose=True, debug=True, client=totle_client):
     n_quotes = 0
     for trade_size in trade_sizes:
         pq = client.get_quote(quote, base, from_amount=trade_size, dex=dex, verbose=verbose, debug=debug)
@@ -14,7 +14,7 @@ def test_get_quote(base, trade_sizes, quote='ETH', dex=None, verbose=True, debug
 
 
 # test_get_quote('MKR', [0.1, 0.5, 1.0, 5.0], dex='Kyber')
-# test_get_quote('MKR', [0.1, 1000.0], dex=(v2_client.DEX_NAME_MAP.get('Oasis')))
+# test_get_quote('MKR', [0.1, 1000.0], dex=(totle_client.DEX_NAME_MAP.get('Oasis')))
 #
 # test_get_quote('MKR', [1.0, 2.0, 10.0], dex='0xMesh')
 # test_get_quote('ZRX', [1.0, 2.0, 10.0], dex='0xMesh')

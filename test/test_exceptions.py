@@ -1,10 +1,10 @@
-import v2_client
+import totle_client
 import datetime
 from v2_compare_prices import compare_dex_prices
 
 ###############################################################3
 non_liquid_dexs = [ 'Compound' ]
-liquid_dexs = [ e for e in v2_client.enabled_exchanges() if e not in non_liquid_dexs ]
+liquid_dexs = [ e for e in totle_client.enabled_exchanges() if e not in non_liquid_dexs ]
 
 non_liquid_tokens = []
 

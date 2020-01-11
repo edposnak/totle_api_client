@@ -1,7 +1,6 @@
 import binance_client
 import huobi_client
 import kraken_client
-import v2_client
 
 import token_utils
 
