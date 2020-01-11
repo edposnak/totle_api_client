@@ -99,8 +99,8 @@ def print_per_token_savings_summary_tables(per_token_savings, exchanges):
         print(f"\n\n{token}")
         print_savings_summary_table(tss, exchanges)
 
-def print_savings_summary_table(per_trade_size_savings, all_exchanges):
-    print("\n\n")
+def print_savings_summary_table(per_trade_size_savings, all_exchanges, label=''):
+    print("\n\n{label}")
     headers = ''.join(list(map(lambda e: f"{e:<18}", all_exchanges)))
     print(f"{'Trade Size':<18}{headers}")
     # for trade_size, savings in savings_by_trade_size.items():
