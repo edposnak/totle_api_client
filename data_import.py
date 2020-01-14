@@ -14,19 +14,24 @@ import paraswap_client
 import v2_client
 
 import exchange_utils
+from v2_compare_prices import canonicalize_totle_splits
 
 CSV_DATA_DIR = f"{os.path.dirname(os.path.abspath(__file__))}/outputs"
 
 # don't lru_cache() a generator, the second time it will not produce any data
-def csv_row_gen(file, only_splits=False, only_non_splits=False):
-    print(f"\n\ncsv_row_gen doing {file}, only_splits={only_splits}, only_non_splits={only_non_splits}) ...")
+def csv_row_gen(file, only_splits=False, only_non_splits=False, only_totle_splits=False, only_totle_non_splits=False):
+    # print(f"csv_row_gen doing {file}, only_splits={only_splits}, only_non_splits={only_non_splits}) ...")
     with open(file, newline='') as csvfile:
         reader = csv.DictReader(csvfile, fieldnames=None)
 
         for row in reader:
             splits = exchange_utils.canonical_keys(eval(row.get('splits') or '{}'))
+            totle_splits = canonicalize_totle_splits(eval(row['totle_splits'])) if 'totle_splits' in row else {}
+
             if only_splits and len(splits) < 2: continue
+            if only_totle_splits and len(totle_splits) < 2: continue
             if only_non_splits and len(splits) > 1: continue
+            if only_totle_non_splits and len(totle_splits) > 1: continue
 
             time, action = row['time'], row['action'] # datetime.fromisoformat(row['time']).isoformat(' ', 'seconds')
             trade_size, token = float(row['trade_size']), row['token']

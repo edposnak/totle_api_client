@@ -230,14 +230,27 @@ def sorted_trade_sizes(*dicts):
 
 
 ########################################################################################################################
+def do_totle_splits_vs_non_splits(csv_files, aggs):
+    # print average savings summary table
+    per_token_splits_only_savings, _ = data_import.parse_csv_files(csv_files, only_totle_splits=True)
+    per_token_non_splits_only_savings, non_splits_only_slip_price_splits = data_import.parse_csv_files(csv_files, only_totle_non_splits=True)
+    per_trade_size_splits_only = aggregated_savings(per_token_splits_only_savings)
+    per_trade_size_non_splits = aggregated_savings(per_token_non_splits_only_savings)
+    # print splits vs non-splits summary CSV
+    print_savings_summary_table_csv(per_trade_size_non_splits, aggs, label="All tokens savings by trade size (non-splits)")
+    print_savings_summary_table_csv(per_trade_size_splits_only, aggs, label="All tokens savings by trade size (only splits)")
+
+
+
 def do_splits_vs_non_splits(csv_files, aggs):
     # print average savings summary table
     per_token_splits_only_savings, _ = data_import.parse_csv_files(csv_files, only_splits=True)
     per_token_non_splits_only_savings, non_splits_only_slip_price_splits = data_import.parse_csv_files(csv_files, only_non_splits=True)
     per_trade_size_splits_only = aggregated_savings(per_token_splits_only_savings)
     per_trade_size_non_splits = aggregated_savings(per_token_non_splits_only_savings)
+
     # print splits vs non-splits summary CSV
-    print_savings_summary_table(per_trade_size_non_splits, aggs, label="All tokens savings by trade size (non-splits)")
+    print_savings_summary_table_csv(per_trade_size_non_splits, aggs, label="All tokens savings by trade size (non-splits)")
     print_savings_summary_table_csv(per_trade_size_splits_only, aggs, label="All tokens savings by trade size (only splits)")
     # print("\n\nAll tokens savings by trade size splits vs non-splits")
     print_split_vs_non_split_savings_summary_table_csv(per_trade_size_splits_only, per_trade_size_non_splits, aggs)
@@ -247,8 +260,8 @@ def do_splits_vs_non_splits(csv_files, aggs):
     # print_per_token_savings_summary_tables(per_token_non_splits_only_savings, aggs)
     # print("\n\nSavings for each token by trade size (only splits)")
     # print_per_token_savings_summary_tables(per_token_splits_only_savings, aggs)
-    for token in ['ENJ', 'BAT', 'MKR', 'DAI']:
-        print_savings_summary_table_csv(per_token_splits_only_savings[token], aggs, label=f"{token}")
+    # for token in ['ENJ', 'BAT', 'MKR', 'DAI']:
+    #     print_savings_summary_table_csv(per_token_splits_only_savings[token], aggs, label=f"{token}")
 
 def main():
     csv_files = tuple(sys.argv[1:])
