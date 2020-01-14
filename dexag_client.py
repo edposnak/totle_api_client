@@ -84,6 +84,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='all',
         raise ValueError(f"{name()} only accepts either from_amount or to_amount, not both")
 
     if debug: print(f"REQUEST to {PRICE_ENDPOINT}:\n{json.dumps(query, indent=3)}\n\n")
+    r = None
     try:
         r = requests.get(PRICE_ENDPOINT, params=query)
         j = r.json()

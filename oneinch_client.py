@@ -75,6 +75,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
     # https://api.1inch.exchange/v1.1/quote?fromTokenSymbol=ETH&toTokenSymbol=DAI&amount=100000000000000000000&disabledExchangesList=Bancor
     query = {'fromTokenSymbol': from_token, 'toTokenSymbol': to_token, 'amount': token_utils.int_amount(from_amount, from_token)}
     if debug: print(f"REQUEST to {QUOTE_ENDPOINT}:\n{json.dumps(query, indent=3)}\n\n")
+    r = None
     try:
         r = requests.get(QUOTE_ENDPOINT, params=query)
         j = r.json()

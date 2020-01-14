@@ -93,6 +93,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
     req_url = f"{PRICES_ENDPOINT}/{from_addr}/{to_addr}/{token_utils.int_amount(from_amount, from_token)}"
     if debug: print(f"REQUEST to {req_url}: (from_token={from_token}, to_token={to_token} from_amount={from_amount})\n\n")
 
+    r = None
     try:
         r = requests.get(req_url)
         j = r.json()
