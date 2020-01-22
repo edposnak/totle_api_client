@@ -37,9 +37,11 @@ def fee_pct():
 # API calls
 #
 
-# get exchanges
-DEX_NAME_MAP = { '0xMesh': '0x Relays', 'AirSwap': 'AirSwap', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Fulcrum': 'Fulcrum',
-                 'Kyber': 'Kyber', 'Oasis': 'Oasis', 'PMM': 'PMM', 'StableCoinSwap': 'StableCoinSwap', 'Uniswap': 'Uniswap', 'WETH': 'WETH', }
+# map from canonical name to 1-Inch name
+DEX_NAME_MAP = {'0xMesh': '0x Relays', 'Aave': 'Aave', 'AirSwap': 'AirSwap', 'Bancor': 'Bancor', 'Chai': 'Chai',
+                'Compound': 'Compound', 'Curve.fi': 'Curve.fi', 'Fulcrum': 'Fulcrum', 'Kyber': 'Kyber',
+                'MultiUniswap': 'MultiUniswap', 'Oasis': 'Oasis', 'PMM': 'PMM', 'StableCoinSwap': 'StableCoinSwap',
+                'Synth Depot': 'Synth Depot', 'Synthetix': 'Synthetix', 'Uniswap': 'Uniswap', 'WETH': 'WETH', 'dForce': 'dForce'}
 
 @functools.lru_cache(1)
 def exchanges():
