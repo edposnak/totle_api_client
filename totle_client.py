@@ -352,9 +352,6 @@ def post_with_retries(endpoint, inputs, num_retries=3, debug=False, timer=False)
         try:
             # for production inputs has to be converted to a string input to work
             r = requests.post(endpoint, data=json.dumps(inputs))
-
-            # this is another way that generates "Request parameter 'SWAP' is not recognized."
-            # r = requests.post(endpoint, data=inputs)
             j = r.json()
 
             timer_end = time.time()
