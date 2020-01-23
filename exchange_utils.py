@@ -34,7 +34,7 @@ SYM_TO_NAME = {
     'oasisdex': 'Oasis',
     'paradex': 'Paradex',
     'pmm': 'PMM',
-    'paraswappool' : 'ParaSwapPool',
+    'paraswappool' : 'PMM',
     'radar-relay': 'Radar Relay',
     'radarrelay': 'Radar Relay',
     'radar relay': 'Radar Relay',
