@@ -36,12 +36,12 @@ def fee_pct():
 #
 
 # get exchanges
-DEX_NAME_MAP = { '0xMesh': '0x', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Fulcrum': 'Fulcrum', 'Kyber': 'Kyber', 'Oasis': 'Oasis', 'Uniswap': 'Uniswap' }
+DEX_NAME_MAP = { '0xMesh': '0x', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Fulcrum': 'Fulcrum', 'Kyber': 'Kyber', 'MakerDAO': 'MakerDAO', 'Oasis': 'Oasis', 'PMM': 'ParaSwapPool', 'Uniswap': 'Uniswap' }
 
 @functools.lru_cache()
 def exchanges():
     # there is no exchanges endpoint yet so we are just using the ones from an ETH/DAI price query
-    dex_names = ['0x', 'Bancor', 'Compound', 'Fulcrum', 'Kyber', 'MakerDAO', 'Oasis', 'Uniswap']
+    dex_names = ['0x', 'Bancor', 'Compound', 'Fulcrum', 'Kyber', 'MakerDAO', 'Oasis', 'ParaSwapPool', 'Uniswap']
 
     # Paraswap does not have exchange ids, but to keep the same interface we put in 0's for id
     id = 0
@@ -56,6 +56,25 @@ def get_pairs(quote='ETH'):
     # use only the tokens that are listed in token_utils.tokens() and use the canonical name
     canonical_symbols = [token_utils.canonical_symbol(t) for t in tokens_json]  # may contain None values
     return [(t, quote) for t in canonical_symbols if t]
+
+
+def supported_tokens():
+    """Returns a (short) list of tokens provided by the tokens endpoint"""
+    return list(map(lambda t: t['symbol'], tokens_json()))
+
+
+@functools.lru_cache(128)
+def paraswap_addr(token):
+    """Returns Paraswap's case-sensitive address for the given token symbol"""
+    # Fortunately (for now) all of Paraswap's token symbols are canonical so we don't have to worry about mapping them too
+    j = next(filter(lambda t: t['symbol'] == token, tokens_json()), None)
+    return j and j['address']
+
+
+@functools.lru_cache()
+def tokens_json():
+    return requests.get(TOKENS_ENDPOINT).json()['tokens']
+
 
 # get quote
 def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, verbose=False, debug=False):
@@ -74,8 +93,9 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
     req_url = f"{PRICES_ENDPOINT}/{from_addr}/{to_addr}/{token_utils.int_amount(from_amount, from_token)}"
     if debug: print(f"REQUEST to {req_url}: (from_token={from_token}, to_token={to_token} from_amount={from_amount})\n\n")
 
-    r = requests.get(req_url)
+    r = None
     try:
+        r = requests.get(req_url)
         j = r.json()
         if debug: print(f"RESPONSE from {PRICES_ENDPOINT}:\n{json.dumps(j, indent=3)}\n\n")
 
@@ -103,8 +123,10 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
                 return {}
 
             price = source_amount / destination_amount
-            for dd in price_route['bestRoute']:
-                dex, pct, src_amt, dest_amt = dd['exchange'], int(dd['percent']), int(dd['srcAmount']), int(dd['amount'])
+            for dex_alloc in price_route['bestRoute']:
+                # We use custom int_conv because sometimes Paraswap splits produce amounts expressed as strings with
+                # decimal points causing int(s) to raise "invalid literal for int() with base 10"
+                dex, pct, src_amt, dest_amt = dex_alloc['exchange'], int(dex_alloc['percent']), int_conv(dex_alloc['srcAmount']), int_conv(dex_alloc['amount'])
                 if pct > 0:
                     exchanges_parts[dex] = pct
 
@@ -127,23 +149,15 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
             }
 
 
-    except ValueError as e:
-        print(f"{name()} {req_url} raised {r}: {r.text[:128]}")
+
+    except (ValueError, requests.exceptions.RequestException) as e:
+        print(f"{name()} {req_url} raised {e}: {r.text[:128] if r else 'no JSON returned'}")
         return {}
 
-
-def supported_tokens():
-    """Returns a (short) list of tokens provided by the tokens endpoint"""
-    return list(map(lambda t: t['symbol'], tokens_json()))
-
-
-@functools.lru_cache(128)
-def paraswap_addr(token):
-    """Returns Paraswap's case-sensitive address for the given token symbol"""
-    # Fortunately (for now) all of Paraswap's token symbols are canonical so we don't have to worry about mapping them too
-    j = next(filter(lambda t: t['symbol'] == token, tokens_json()), None)
-    return j and j['address']
-
-@functools.lru_cache()
-def tokens_json():
-    return requests.get(TOKENS_ENDPOINT).json()['tokens']
+def int_conv(s):
+    """Converts a string, which may have a decimal point, to an integer"""
+    if s.find('.') < 0:
+        return int(s)
+    else: # split into integer and fraction parts and round
+        integer, fraction = s.split('.')
+        return int(integer) + round(int(fraction) / 10**len(fraction))

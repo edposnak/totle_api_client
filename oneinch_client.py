@@ -37,9 +37,11 @@ def fee_pct():
 # API calls
 #
 
-# get exchanges
-DEX_NAME_MAP = { '0xMesh': '0x Relays', 'AirSwap': 'AirSwap', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Fulcrum': 'Fulcrum',
-                 'Kyber': 'Kyber', 'Oasis': 'Oasis', 'PMM': 'PMM', 'StableCoinSwap': 'StableCoinSwap', 'Uniswap': 'Uniswap', 'WETH': 'WETH', }
+# map from canonical name to 1-Inch name
+DEX_NAME_MAP = {'0xMesh': '0x Relays', 'Aave': 'Aave', 'AirSwap': 'AirSwap', 'Bancor': 'Bancor', 'Chai': 'Chai',
+                'Compound': 'Compound', 'Curve.fi': 'Curve.fi', 'Fulcrum': 'Fulcrum', 'Kyber': 'Kyber',
+                'MultiUniswap': 'MultiUniswap', 'Oasis': 'Oasis', 'PMM': 'PMM', 'StableCoinSwap': 'StableCoinSwap',
+                'Synth Depot': 'Synth Depot', 'Synthetix': 'Synthetix', 'Uniswap': 'Uniswap', 'WETH': 'WETH', 'dForce': 'dForce'}
 
 @functools.lru_cache(1)
 def exchanges():
@@ -75,8 +77,9 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
     # https://api.1inch.exchange/v1.1/quote?fromTokenSymbol=ETH&toTokenSymbol=DAI&amount=100000000000000000000&disabledExchangesList=Bancor
     query = {'fromTokenSymbol': from_token, 'toTokenSymbol': to_token, 'amount': token_utils.int_amount(from_amount, from_token)}
     if debug: print(f"REQUEST to {QUOTE_ENDPOINT}:\n{json.dumps(query, indent=3)}\n\n")
-    r = requests.get(QUOTE_ENDPOINT, params=query)
+    r = None
     try:
+        r = requests.get(QUOTE_ENDPOINT, params=query)
         j = r.json()
         if debug: print(f"RESPONSE from {QUOTE_ENDPOINT}:\n{json.dumps(j, indent=3)}\n\n")
 
@@ -106,7 +109,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
                 'exchanges_parts': exchanges_parts,
             }
 
-    except ValueError as e:
-        print(f"{name()} {query} raised {r}: {r.text[:128]}")
+    except (ValueError, requests.exceptions.RequestException) as e:
+        print(f"{name()} {query} raised {e}: {r.text[:128] if r else 'no JSON returned'}")
         return {}
 

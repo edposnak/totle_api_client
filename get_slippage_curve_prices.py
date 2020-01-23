@@ -5,7 +5,7 @@ import concurrent.futures
 from datetime import datetime
 from collections import defaultdict
 
-import v2_client
+import totle_client
 from v2_compare_prices import savings_data, print_savings, get_filename_base, SavingsCSV
 
 #####################################################################
@@ -195,9 +195,9 @@ def get_max_trade_sizes_and_dexs(tokens, from_token='ETH'):
     max_trade_sizes = defaultdict(lambda: defaultdict(float))
     for to_token in tokens:
         for dex in TOTLE_DEXS:
-            dex_name = v2_client.DEX_NAME_MAP.get(dex)
+            dex_name = totle_client.DEX_NAME_MAP.get(dex)
             for trade_size in TRADE_SIZES:
-                pq = v2_client.get_quote(from_token, to_token, from_amount=trade_size, dex=dex_name)
+                pq = totle_client.get_quote(from_token, to_token, from_amount=trade_size, dex=dex_name)
                 if pq:
                     max_trade_sizes[to_token][dex] = max(trade_size, max_trade_sizes[to_token][dex])
 
@@ -249,12 +249,12 @@ def main():
     for to_token, dex_max_ts in TOKENS_DEX_MAX_TS:
         for dex, max_ts in dex_max_ts:
             trade_sizes = [t for t in TRADE_SIZES if t <= max_ts]
-            todo.append((do_dex_token_on_agg, v2_client, dex, to_token, trade_sizes))
+            todo.append((do_dex_token_on_agg, totle_client, dex, to_token, trade_sizes))
 
     # for to_token, (max_ts, dexs) in TOKENS_MAXTS_DEXS.items():
     #     trade_sizes = [ t for t in TRADE_SIZES if t <= max_ts ]
     #     for dex in dexs:
-    #         todo.append((do_dex_token_on_agg, v2_client, dex, to_token, trade_sizes))
+    #         todo.append((do_dex_token_on_agg, totle_client, dex, to_token, trade_sizes))
 
     MAX_THREADS = 8
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:

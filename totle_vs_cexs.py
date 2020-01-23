@@ -8,7 +8,7 @@ import exchange_utils
 import binance_client
 import huobi_client
 import kraken_client
-import v2_client
+import totle_client
 from v2_compare_prices import best_price_with_fees, get_savings, print_savings, get_filename_base, SavingsCSV
 
 def compare_totle_and_cexs(cex_name_client, base, quote, trade_size, books, order_type, totle_sd=None, fee_override=None):
@@ -20,7 +20,7 @@ def compare_totle_and_cexs(cex_name_client, base, quote, trade_size, books, orde
     else:
         from_token, to_token, params = base, quote, {'toAmount': trade_size}
 
-    totle_sd = totle_sd or v2_client.try_swap(v2_client.name(), from_token, to_token, params=params, verbose=False)
+    totle_sd = totle_sd or totle_client.try_swap(totle_client.name(), from_token, to_token, params=params, verbose=False)
     if totle_sd:
         for cex_name_c, cex_client in cex_name_client.items():
             if books.get(cex_name_c):
@@ -41,7 +41,7 @@ def compare_totle_and_cexs_same_fee(cex_names, base, quote, trade_size, books, o
 
     # this hardcodes sourceAmount=trade_size when from_token is ETH
     from_token, to_token = (quote, base) if order_type == 'buy' else (base, quote)
-    totle_sd = v2_client.try_swap(v2_client.name(), from_token, to_token, params={'tradeSize': trade_size}, verbose=False)
+    totle_sd = totle_client.try_swap(totle_client.name(), from_token, to_token, params={'tradeSize': trade_size}, verbose=False)
     if totle_sd:
         for cex_name in cex_names:
             try:

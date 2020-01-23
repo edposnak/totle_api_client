@@ -161,9 +161,9 @@ def get_error_pcts(actual_agg_dest_amount, estimator, trade_size, agg_price, agg
 
 CSV_FIELDS = "time action trade_size token agg agg_price agg_split no_split_totle_used no_split_totle_price no_split_pct_savings totle_split totle_split_price totle_split_pct_savings cost_error_pct tokens_error_pct".split()
 
-def summary_csv_row_gen(summary_csv_file, string_trade_sizes=False, only_splits=False, only_non_splits=False, max_cost_error_pct=MAX_COST_ERROR_PCT, max_tokens_error_pct=MAX_TOKENS_ERROR_PCT):
+def summary_csv_row_gen(summary_csv_file, only_splits=False, only_non_splits=False, max_cost_error_pct=MAX_COST_ERROR_PCT, max_tokens_error_pct=MAX_TOKENS_ERROR_PCT):
     """Reads in the summary CSV and yields rows based on price data that meets max_cost_error_pct and max_tokens_error_pct constraints"""
-    print(f"\n\nsummary_csv_row_gen doing {summary_csv_file} string_trade_sizes={string_trade_sizes}, only_splits={only_splits}, only_non_splits={only_non_splits}) ...")
+    print(f"\n\nsummary_csv_row_gen doing {summary_csv_file}, only_splits={only_splits}, only_non_splits={only_non_splits}) ...")
 
     with open(summary_csv_file, newline='') as csvfile:
         reader = csv.DictReader(csvfile, fieldnames=None)
@@ -175,8 +175,7 @@ def summary_csv_row_gen(summary_csv_file, string_trade_sizes=False, only_splits=
 
             # get all the column values
             time, action = row['time'], row['action']
-            trade_size, token = row['trade_size'], row['token']
-            if not string_trade_sizes: trade_size = float(trade_size)
+            trade_size, token = float(row['trade_size']), row['token']
             agg, agg_price =  row['agg'], row['agg_price'] # agg_split was done at the top
             no_split_totle_used, no_split_totle_price, no_split_pct_savings = row['no_split_totle_used'], float(row['no_split_totle_price']), float(row['no_split_pct_savings']),
             totle_split = exchange_utils.canonical_keys(eval(row.get('totle_split') or '{}'))
@@ -246,8 +245,8 @@ def aggregated_savings(per_token_savings):
     """Aggregates savings over all tokens for each trade_size"""
     per_trade_size_savings = defaultdict(lambda: defaultdict(list))
 
-    for token, trade_size, agg, totle_split_pct_savings in data_import.pct_savings_gen(per_token_savings):
-        per_trade_size_savings[trade_size][agg] += totle_split_pct_savings
+    for token, trade_size, agg, totle_split_pct_savings_list in data_import.pct_savings_gen(per_token_savings):
+        per_trade_size_savings[trade_size][agg] += totle_split_pct_savings_list
 
     return per_trade_size_savings
 
@@ -299,16 +298,12 @@ def compute_mean(savings_list):
 ########################################################################################################################
 
 def main():
-    if len(sys.argv) < 1:
-        print(f"no CSVs given")
-        exit(1)
-
     # print_dex_used_pcts('outputs/summarized_totle_split_savings_2019-11-23_13:30:47.csv', include_non_splits=True)
     # exit(0)
 
-    summarize = True
+    do_summary_file = True
 
-    if summarize:
+    if do_summary_file:
         summary_csv_file = sys.argv[1] if len(sys.argv) > 1 else 'outputs/summarized_totle_split_savings_2019-11-24_13:30:22.csv'
         print_split_vs_non_split_savings_summary_table_csv(summary_csv_file)
     else:

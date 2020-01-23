@@ -4,43 +4,51 @@ import functools
 # It must be maintained manually based on the strings returned by the various APIs
 
 SYM_TO_NAME = {
-   '0x': '0xMesh',
-   '0x relays': '0xMesh',
-   '0xmesh': '0xMesh',
-   '0x mesh': '0xMesh',
-   'ag': 'ag',
-   'airswap': 'AirSwap',
-   'bamboorelay': 'Bamboo Relay',
-   'bancor': 'Bancor',
-   'compound': 'Compound',
-   'ddex': 'DDEX',
-   'dydx': 'dYdX',
-   'erc dex': 'ERC DEX',
-   'eth2dai': 'Oasis',
-   'etherdelta': 'Ether Delta',
-   'ether delta': 'Ether Delta',
-   'ethex': 'Ethex',
-   'ethfinex': 'Ethfinex',
-   'fulcrum': 'Fulcrum',
-   'idex': 'IDEX',
-   'kyber': 'Kyber',
-   'makerdao': 'MakerDAO',
-   'oasis': 'Oasis',
-   'oasisdex': 'Oasis',
-   'paradex': 'Paradex',
-   'pmm': 'PMM',
-   'radar-relay': 'Radar Relay',
-   'radarrelay': 'Radar Relay',
-   'radar relay': 'Radar Relay',
-   'sharkrelay': 'Shark Relay',
-   'shark relay': 'Shark Relay',
-   'stablecoinswap': 'StableCoinSwap',
-   'star bit': 'STAR BIT',
-   'thetokenstore': 'Token Store',
-   'token store': 'Token Store',
-   'uniswap': 'Uniswap',
-   'weidex': 'weiDex',
-   'weth': 'WETH'
+    '0x': '0xMesh',
+    '0x relays': '0xMesh',
+    '0xmesh': '0xMesh',
+    '0x mesh': '0xMesh',
+    'aave': 'Aave',
+    'ag': 'ag',
+    'airswap': 'AirSwap',
+    'bamboorelay': 'Bamboo Relay',
+    'bancor': 'Bancor',
+    'chai': 'Chai',
+    'compound': 'Compound',
+    'curve.fi': 'Curve.fi',
+    'ddex': 'DDEX',
+    'dforce': 'dForce',
+    'dydx': 'dYdX',
+    'erc dex': 'ERC DEX',
+    'eth2dai': 'Oasis',
+    'etherdelta': 'Ether Delta',
+    'ether delta': 'Ether Delta',
+    'ethex': 'Ethex',
+    'ethfinex': 'Ethfinex',
+    'fulcrum': 'Fulcrum',
+    'idex': 'IDEX',
+    'kyber': 'Kyber',
+    'makerdao': 'MakerDAO',
+    'multiuniswap': 'MultiUniswap',
+    'oasis': 'Oasis',
+    'oasisdex': 'Oasis',
+    'paradex': 'Paradex',
+    'pmm': 'PMM',
+    'paraswappool' : 'PMM',
+    'radar-relay': 'Radar Relay',
+    'radarrelay': 'Radar Relay',
+    'radar relay': 'Radar Relay',
+    'sharkrelay': 'Shark Relay',
+    'shark relay': 'Shark Relay',
+    'stablecoinswap': 'StableCoinSwap',
+    'star bit': 'STAR BIT',
+    'synthetix': 'Synthetix',
+    'synth depot': 'Synth Depot',
+    'thetokenstore': 'Token Store',
+    'token store': 'Token Store',
+    'uniswap': 'Uniswap',
+    'weidex': 'weiDex',
+    'weth': 'WETH'
 }
 
 # get tokens
@@ -76,12 +84,12 @@ def canonical_and_splittable(dex_dict):
 ########################################################################################################################
 # To generate the SYM_TO_NAME map
 #
-# import v2_client
+# import totle_client
 # import dexag_client
 # import oneinch_client
 # import dexwatch_client
 #
-# all_dexs = set(v2_client.data_exchanges().keys())
+# all_dexs = set(totle_client.data_exchanges().keys())
 # all_dexs |= set(oneinch_client.exchanges())
 # all_dexs |= set(dexag_client.exchanges())
 # all_dexs |= set(dexwatch_client.exchanges())

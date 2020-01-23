@@ -2,7 +2,7 @@ import os
 import csv
 import json
 from datetime import datetime
-import v2_client
+import totle_client
 import cryptowatch_client
 
 ########################################################################################################################
@@ -51,7 +51,7 @@ def get_cmc_token_market_cap():
 def recommend_better_tokens(day_volume=DAY_VOLUME):
     dexwatch_vol_trades = get_dexwatch_vol_trades(day_volume)
     cmc_token_market_cap = get_cmc_token_market_cap()
-    totle_pairs = v2_client.get_trades_pairs()
+    totle_pairs = totle_client.get_trades_pairs()
 
     # global volume, trades, token, rank, mkt_cap
     min_volume = min([v for v, t in dexwatch_vol_trades.values()])  # min_volume puts an upper bound on tokens not in dexwatch_vol_trades
@@ -96,19 +96,19 @@ def find(t, trades):
 
 
 def check_cw_api_with_totle_trades_api(verbose=False, print_last=False):
-    pairs= v2_client.get_trades_pairs()
+    pairs= totle_client.get_trades_pairs()
     # pairs, verbose = [('CVC', 'ETH')], True
     try:
         for base, quote in pairs:
             print(f"\n\nDoing {base}/{quote} ...")
-            # totle_trades = v2_client.get_trades(base, quote, limit=10)
+            # totle_trades = totle_client.get_trades(base, quote, limit=10)
             # tts = [f"{j['timestamp']}\t{float(j['price']):.8f}\t{float(j['amount']):<20.6f}" for j in totle_trades]
             # for i in range(len(tts)): print(f"{tts[i]}")
 
             cw_trades = cryptowatch_client.get_trades(base, quote)
 
             found = []
-            totle_trades = v2_client.get_trades(base, quote, limit=len(cw_trades))
+            totle_trades = totle_client.get_trades(base, quote, limit=len(cw_trades))
             for t in cw_trades:
                 ft = find(t, totle_trades)
                 if ft: found.append(ft)
@@ -122,7 +122,7 @@ def check_cw_api_with_totle_trades_api(verbose=False, print_last=False):
                 cts = [f"{j['timestamp']}\t{float(j['price']):.8f}\t{float(j['amount']):<20.6f}" for j in reversed(cw_trades)]
                 for i in range(len(tts)): print(f"{tts[i]}\t{cts[i]}")
 
-    except v2_client.TotleAPIException as e:
+    except totle_client.TotleAPIException as e:
         print(f"{type(e)} {e}")
         for a in e.args: print(a)
 

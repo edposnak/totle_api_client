@@ -1,21 +1,21 @@
 import json
 
 import token_utils
-import v2_client
+import totle_client
 
 class FoundBugException(Exception):
     pass
 
 def test_basics():
-    print(v2_client.name())
-    print(v2_client.exchanges())
-    print(v2_client.enabled_exchanges())
-    print(v2_client.data_exchanges())
+    print(totle_client.name())
+    print(totle_client.exchanges())
+    print(totle_client.enabled_exchanges())
+    print(totle_client.data_exchanges())
 
 # BUG 1. partial fills not reflected in the summary
-def test_summary_bug_1(token_to_buy='ZRX', endpoint=v2_client.SWAP_ENDPOINT, debug=False):
-    inputs = v2_client.swap_inputs('ETH', token_to_buy, params={'tradeSize': 0.1})
-    j = v2_client.post_with_retries(endpoint, inputs, debug=debug)
+def test_summary_bug_1(token_to_buy='ZRX', endpoint=totle_client.SWAP_ENDPOINT, debug=False):
+    inputs = totle_client.swap_inputs('ETH', token_to_buy, params={'tradeSize': 0.1})
+    j = totle_client.post_with_retries(endpoint, inputs, debug=debug)
     summary_src_amount, summary_dest_amount, trades0_src_amount, trades0_dest_amount, orders00_src_amount, orders00_dest_amount, totle_fee_amount, totle_used = parse_swap_response1(j)
 
     print(f"summary_src_amount={summary_src_amount} summary_dest_amount={summary_dest_amount}")
@@ -31,13 +31,13 @@ def test_summary_bug_1(token_to_buy='ZRX', endpoint=v2_client.SWAP_ENDPOINT, deb
 
 
 # BUG 2. fees not accounted for when baseAsset is used (e.g. buying SHP with ETH)
-def test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH', json_response_file=None, endpoint=v2_client.SWAP_ENDPOINT):
+def test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH', json_response_file=None, endpoint=totle_client.SWAP_ENDPOINT):
     if json_response_file:
         j = json.load(open(json_response_file))
     else:
-        inputs = v2_client.swap_inputs(token_to_sell, token_to_buy, params={'fromAmount': 10})
+        inputs = totle_client.swap_inputs(token_to_sell, token_to_buy, params={'fromAmount': 10})
         print(f"Using endpoint {endpoint}")
-        j = v2_client.post_with_retries(endpoint, inputs, debug=True)
+        j = totle_client.post_with_retries(endpoint, inputs, debug=True)
 
     # parse the response
     r = j['response']
@@ -90,9 +90,9 @@ def test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH', json_response_fi
 # BUG 3. liquidity appears infinite based on single small trade (e.g. buy 283 MKR for 100 ETH)
 def test_summary_bug_3(token_to_buy='MKR', dex='Eth2dai'):
     # buy ~283 MKR for 100 ETH,
-    # pq = v2_client.get_quote('ETH', token_to_buy, from_amount=100.0, dex=dex, debug=True, verbose=True)
-    inputs = v2_client.swap_inputs('ETH', token_to_buy, exchange=dex, params={'tradeSize':100.0})
-    j = v2_client.post_with_retries(v2_client.SWAP_ENDPOINT, inputs, debug=True)
+    # pq = totle_client.get_quote('ETH', token_to_buy, from_amount=100.0, dex=dex, debug=True, verbose=True)
+    inputs = totle_client.swap_inputs('ETH', token_to_buy, exchange=dex, params={'tradeSize':100.0})
+    j = totle_client.post_with_retries(totle_client.SWAP_ENDPOINT, inputs, debug=True)
     summary_src_amount, summary_dest_amount, trades0_src_amount, trades0_dest_amount, orders00_src_amount, orders00_dest_amount, totle_fee_amount, totle_used = parse_swap_response1(j)
 
     # bug 3 checks
@@ -117,8 +117,8 @@ def parse_swap_response1(j):
 
 def test_get_quote(tradable_tokens, trade_size=0.1, dex=None, from_token='ETH', debug=False, verbose=False):
     for to_token in tradable_tokens:
-        print(f"swap {trade_size} {from_token} to {to_token} on {dex if dex else 'all DEXs'}")
-        pq = v2_client.get_quote(from_token, to_token, from_amount=trade_size, dex=dex, debug=debug, verbose=verbose)
+        print(f"\nswap {trade_size} {from_token} to {to_token} on {dex if dex else 'all DEXs'}")
+        pq = totle_client.get_quote(from_token, to_token, from_amount=trade_size, dex=dex, debug=debug, verbose=verbose)
         print(pq)
 
 def test_which_tokens_supported(tradable_tokens, trade_size=0.1, dex='0xMesh', from_token='ETH', debug=False, verbose=False):
@@ -126,7 +126,7 @@ def test_which_tokens_supported(tradable_tokens, trade_size=0.1, dex='0xMesh', f
     supported_tokens = []
     for to_token in tradable_tokens:
         print(f"swap {trade_size} {from_token} to {to_token} on {dex if dex else 'all DEXs'}")
-        pq = v2_client.get_quote('ETH', to_token, from_amount=trade_size, dex=dex) # , verbose=True, debug=True)
+        pq = totle_client.get_quote('ETH', to_token, from_amount=trade_size, dex=dex) # , verbose=True, debug=True)
         print(pq)
         if pq and pq.get('price'):
             supported_tokens.append(to_token)
@@ -136,7 +136,29 @@ def test_which_tokens_supported(tradable_tokens, trade_size=0.1, dex='0xMesh', f
     print(token_map)
 
 
+def test_summary_bug_4(token_to_buy='AST', token_to_sell='ETH', json_response_file=None, endpoint=totle_client.SWAP_ENDPOINT):
+    if json_response_file:
+        test_swap_data(json_response_file)
+    else:
+        inputs = totle_client.swap_inputs(token_to_sell, token_to_buy, params={'fromAmount': 10})
+        print(f"Using endpoint {endpoint}")
+        j = totle_client.post_with_retries(endpoint, inputs, debug=True)
+        sd = totle_client.swap_data(j, True)
+        print(json.dumps(sd, indent=3))
+
+def test_swap_data(json_response_file):
+    j = json.load(open(json_response_file))
+
+    sd = totle_client.swap_data(j, True)
+    print(json.dumps(sd, indent=3))
+
+
 #######################################################################################################################
+
+
+# TODO: debug this
+# get_quote returned Error request was {'fromTokenSymbol': 'ETH', 'toTokenSymbol': 'DAI', 'amount': 100000000000000000000} response was {'message': 'Error'}
+
 
 tradable_tokens = token_utils.tradable_tokens()
 
@@ -146,12 +168,14 @@ try:
 
     # test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH')
     # test_summary_bug_2(token_to_buy='CDAI', token_to_sell='BAT', endpoint='https://services.totlenext.com/suggester/fix-amounts')
-    test_summary_bug_2(token_to_buy='CDAI', token_to_sell='ETH', endpoint='https://services.totlenext.com/suggester/fix-amounts')
+    # test_summary_bug_2(token_to_buy='CDAI', token_to_sell='ETH', endpoint='https://services.totlenext.com/suggester/fix-amounts')
     # test_summary_bug_2(token_to_buy='DAI', token_to_sell='BAT', endpoint='https://services.totlenext.com/suggester/fix-amounts')
     # test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug2_plus_fee.json')
     # test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug_2_fee_in_source_asset.json')
 
     # test_summary_bug_3(token_to_buy='MKR', dex='Oasis')
+
+    test_summary_bug_4(token_to_buy='AST', json_response_file='test_data/summary_bug_4.json')
 except FoundBugException as e:
     print(e)
 

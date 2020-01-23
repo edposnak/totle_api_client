@@ -3,7 +3,7 @@ import argparse
 from collections import defaultdict
 
 import token_utils
-import v2_client
+import totle_client
 from v2_compare_prices import compare_dex_prices, print_average_savings, get_filename_base, SavingsCSV, redirect_stdout
 
 ##############################################################################################
@@ -58,7 +58,7 @@ TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0]
 
 # don't waste time on non-liquid dexes
 non_liquid_dexs = [ 'Compound' ]
-liquid_dexs = tuple(filter(lambda e: e not in non_liquid_dexs, v2_client.enabled_exchanges()))
+liquid_dexs = tuple(filter(lambda e: e not in non_liquid_dexs, totle_client.enabled_exchanges()))
 
 liquid_tokens = [ t for t in token_utils.tokens() if t != 'ETH' ] # start with all tradable tokens
 

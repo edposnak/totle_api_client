@@ -54,18 +54,24 @@ def get_pairs(quote='ETH'):
     return [(t, quote) for t in canonical_symbols if t]
 
 
+@functools.lru_cache(1)
 def supported_tokens():
     # guess based on empirical data
-    return ['ABT','ABYSS','ANT','APPC','AST','BAT','BLZ','BNT','BTU','CBI','CDAI','CDT','CETH','CND','CUSDC','CVC','CWBTC','CZRX','DAI','DGX','ELF','ENG','ENJ','EQUAD','ETHOS','FUN','GEN','GNO','IDAI','KNC','LBA','LEND','LINK','LRC','MANA','MCO','MKR','MLN','MOC','MTL','NEXO','OMG','OST','PAX','PAY','PLR','POE','POLY','POWR','QKC','RCN','RDN','REN','REP','REQ','RLC','RPL','SNT','SNX','SPANK','SPN','STORJ','TAU','TKN','TUSD','UPP','USDC','USDT','VERI','WBTC','WETH','XCHF','XDCE','ZRX']
+    # return ['ABT','ABYSS','ANT','APPC','AST','BAT','BLZ','BNT','BTU','CBI','CDAI','CDT','CETH','CND','CUSDC','CVC','CWBTC','CZRX','DAI','DGX','ELF','ENG','ENJ','EQUAD','ETHOS','FUN','GEN','GNO','IDAI','KNC','LBA','LEND','LINK','LRC','MANA','MCO','MKR','MLN','MOC','MTL','NEXO','OMG','OST','PAX','PAY','PLR','POE','POLY','POWR','QKC','RCN','RDN','REN','REP','REQ','RLC','RPL','SNT','SNX','SPANK','SPN','STORJ','TAU','TKN','TUSD','UPP','USDC','USDT','VERI','WBTC','WETH','XCHF','XDCE','ZRX']
 
+    r = requests.get(TOKENS_NAMES_ENDPOINT)
+    return [t['symbol'] for t in (r.json())]
 
 # get quote
 AG_DEX = 'ag'
 def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='all', verbose=False, debug=False):
     """Returns the price in terms of the from_token - i.e. how many from_tokens to purchase 1 to_token"""
 
+    # don't bother to make the call if either of the tokens are not supported
     for t in [from_token, to_token]:
-        if t != 'ETH' and t not in supported_tokens(): return {} # temporary speedup
+        if t != 'ETH' and t not in supported_tokens():
+            print(f"{t} is not supported by {name()}")
+            return {}
 
     # buy: https://api.dex.ag/price?from=ETH&to=DAI&fromAmount=1.5&dex=all
     # sell: https://api.dex.ag/price?from=DAI&to=ETH&toAmount=1.5&dex=all
@@ -78,10 +84,13 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='all',
         raise ValueError(f"{name()} only accepts either from_amount or to_amount, not both")
 
     if debug: print(f"REQUEST to {PRICE_ENDPOINT}:\n{json.dumps(query, indent=3)}\n\n")
-    r = requests.get(PRICE_ENDPOINT, params=query)
+    r = None
     try:
+        r = requests.get(PRICE_ENDPOINT, params=query)
         j = r.json()
         if debug: print(f"RESPONSE from {PRICE_ENDPOINT}:\n{json.dumps(j, indent=3)}\n\n")
+
+        if 'error' in j: raise ValueError(j['error'])
 
         # Response:
         # {"dex": "ag", "price": "159.849003708050647455", "pair": {"base": "ETH", "quote": "DAI"}, "liquidity": {"uniswap": 38, "bancor": 62}}
@@ -89,7 +98,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='all',
         # if dex=='all' j will be an array of dicts like this
         # [ {"dex": "bancor", "price": "159.806431928046276401", "pair": {"base": "ETH", "quote": "DAI"}},
         #   {"dex": "uniswap", "price": "159.737708484933187899", "pair": {"base": "ETH", "quote": "DAI"}}, ... ]
-        exchanges_prices = {}
+        ag_data, exchanges_prices = {}, {}
         if isinstance(j, list):
             for dex_data in j:
                 dex, dexag_price = dex_data['dex'], float(dex_data['price'])
@@ -99,6 +108,8 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='all',
         else:
             ag_data = j
             check_pair(ag_data, query, dex=AG_DEX)
+
+        if not ag_data: return {}
 
         # BUG? DEX.AG price is not a simple function of base and quote. It changes base on whether you specify toAmount
         # or fromAmount even though base and quote stay the same! So it has nothing to do with base and quote.
@@ -133,13 +144,15 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='all',
             'exchanges_prices': exchanges_prices
         }
 
-    except ValueError as e:
-        print(f"{name()} {query} raised {r}: {r.text[:128]}")
+    except (ValueError, requests.exceptions.RequestException) as e:
+        print(f"{name()} {query} raised {e}: {r.text[:128] if r else 'no JSON returned'}")
         return {}
 
 
 def check_pair(ag_data, query, dex=AG_DEX):
     """sanity check that asserts base == from and quote == to, but the base and quote actually don't matter in how the price is quoted"""
+    if 'pair' not in ag_data:
+        print(f"NO PAIR!\n\n{json.dumps(ag_data, indent=3)}")
     pair = ag_data['pair']
     if (pair['base'], pair['quote']) != (query['from'], query['to']):
         raise ValueError(f"unexpected base,quote: dex={dex} pair={pair} but query={query}")

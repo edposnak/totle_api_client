@@ -2,19 +2,20 @@ import json
 import sys
 from collections import defaultdict
 from datetime import datetime
-import v2_client
+import totle_client
 import dexag_client
 import oneinch_client
 import paraswap_client
 
 import exchange_utils
 
-TOTLE_EX = v2_client.name()
+TOTLE_EX = totle_client.name()
 
 QUOTE = 'ETH'
 TRADE_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0]
+TOKENS = ['BAT','DAI','REP']
 COMPOUND_TOKENS = ['CBAT','CDAI','CETH','CREP','CUSDC','CWBTC','CZRX']
-TOTLE_EXCHANGES = integrated_exchanges = list(v2_client.exchanges().keys())
+TOTLE_EXCHANGES = integrated_exchanges = list(totle_client.exchanges().keys())
 
 
 def get_totle_data(tokens=TOKENS, trade_sizes=TRADE_SIZES, quote=QUOTE, exchanges=TOTLE_EXCHANGES):
@@ -34,7 +35,7 @@ def get_totle_data(tokens=TOKENS, trade_sizes=TRADE_SIZES, quote=QUOTE, exchange
                 can_dex = exchange_utils.canonical_name(dex)
                 if dex == 'Compound' and not base in COMPOUND_TOKENS: continue  # don't waste queries for non-C tokens
 
-                pq = v2_client.get_quote(quote, base, from_amount=trade_size, dex=dex)
+                pq = totle_client.get_quote(quote, base, from_amount=trade_size, dex=dex)
                 if not pq:
                     print(f"{can_dex} did not have {quote} to {base} at trade size={trade_size}")
                 else:

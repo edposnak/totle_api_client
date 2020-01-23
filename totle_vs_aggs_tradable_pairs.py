@@ -10,12 +10,12 @@ import dexag_client
 import oneinch_client
 import paraswap_client
 import token_utils
-import v2_client
+import totle_client
 
 from v2_compare_prices import get_filename_base, SavingsCSV
 
 
-AGG_CLIENTS = [v2_client, dexag_client, oneinch_client, paraswap_client]
+AGG_CLIENTS = [totle_client, dexag_client, oneinch_client, paraswap_client]
 CSV_FIELDS = ['base', 'quote'] + [ a.name() for a in AGG_CLIENTS ]
 
 def check_pair(base, quote, usd_price_of_quote, csv_writer):
@@ -44,6 +44,7 @@ def summarize_csv(filename):
         reader = csv.DictReader(csvfile, fieldnames=None)
         for row in reader:
             base, quote = row['base'], row['quote']
+            if base == 'ETH' or quote == 'ETH': continue # discard ETH pairs accidentally tested
             pair = (base, quote)
             all_pairs.append(pair)
             for agg_name in agg_names:
@@ -75,11 +76,11 @@ def do_summary():
     for agg, pairs in agg_pairs.items():
         print(f"{agg} supports a total of {len(pairs)}  ERC-20/ERC-20 pairs")
 
-    totle_pairs, totle_tokens = agg_pairs[v2_client.name()], agg_tokens[v2_client.name()]
+    totle_pairs, totle_tokens = agg_pairs[totle_client.name()], agg_tokens[totle_client.name()]
     all_other_agg_exc_tokens, all_other_agg_exc_pairs = set(), set()
     summary_csv = ['Competitor,"Overlap","Exclusive to Totle","Exclusive to Competitor"']
     for other_agg_name in agg_pairs:
-        if other_agg_name == v2_client.name(): continue
+        if other_agg_name == totle_client.name(): continue
 
         other_agg_tokens = agg_tokens[other_agg_name]
         totle_exc_tokens = set(totle_tokens) - set(other_agg_tokens)
@@ -125,11 +126,20 @@ def do_summary():
 
     print(f"\n\nOverlap Pairs")
     overlap_pairs = []
+    dexag_supported_tokens = dexag_client.supported_tokens()
     for o_pair in agg_pairs[paraswap_client.name()]: # iterate through the agg with the least pairs
-        if all([ o_pair in pairs for _, pairs in agg_pairs.items() ]):
-            overlap_pairs.append(o_pair)
+        if all([ o_pair in pairs for pairs in agg_pairs.values() ]):
+            # dexag no longer supports certain tokens and pairs constructed from them, so we add this constraint
+            if o_pair[0] in dexag_supported_tokens and o_pair[1] in dexag_supported_tokens:
+                overlap_pairs.append(o_pair)
+            else:
+                print(f"{o_pair} was removed because DEXAG does not support one of the tokens")
     print(f"there are {len(overlap_pairs)} pairs supported by Totle and all competitors")
     print(f"OVERLAP_PAIRS={overlap_pairs}")
+
+    print(f"\n\nTotle Supported Pairs CSV")
+    print("base,quote")
+    for base,quote in sorted(totle_pairs): print(f"{base},{quote}")
 
     # print(f"\n\nAppendix A: Pairs supported by other aggregators but not Totle")
     # base_pairstr_map = defaultdict(list)
@@ -149,6 +159,7 @@ ETH_PRICE = 148.00
 
 def get_token_prices(tokens = None):
     all_tradable_tokens = tokens or token_utils.tradable_tokens()
+    all_tradable_tokens.pop('ETH')
     # TODO: remove ETH it's not really an ERC-20
     cmc_data = json.load(open(f'data/cmc_tokens.json'))['data']
     usd_prices = {t['symbol']: float(t['quote']['USD']['price']) for t in cmc_data if t['symbol'] in all_tradable_tokens}
@@ -159,7 +170,7 @@ def get_token_prices(tokens = None):
         if missing_token == 'CETH':
             usd_prices[missing_token] = 2.83
         else:
-            totle_sd = v2_client.try_swap(v2_client.name(), missing_token, 'ETH', params={'toAmount': 0.1}, verbose=False, debug=False)
+            totle_sd = totle_client.try_swap(totle_client.name(), missing_token, 'ETH', params={'toAmount': 0.1}, verbose=False, debug=False)
 
             if totle_sd:  # set the from_amount so it's roughly the same across all swaps
                 usd_prices[missing_token] = ETH_PRICE / totle_sd['price']

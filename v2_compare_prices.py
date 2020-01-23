@@ -3,10 +3,11 @@ import csv
 from collections import defaultdict
 from datetime import datetime
 
-import v2_client
+import exchange_utils
+import totle_client
 
 # Common struct returned by compare_dex_prices and compare_cex_prices
-def savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price, splits=None, ex_prices=None):
+def savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price, splits=None, totle_splits=None, ex_prices=None):
     """Returns a savings entry suitable for logging or appending to CSV"""
     # CSV header=time, action, trade_size, token, exchange, exchange_price, totle_used, totle_price, pct_savings, splits, ex_prices
     return {
@@ -20,6 +21,7 @@ def savings_data(order_type, trade_size, token, exchange, pct_savings, totle_use
         'totle_price': totle_price,
         'pct_savings': pct_savings,
         'splits': splits,
+        'totle_splits': totle_splits,
         'ex_prices': ex_prices
     }
 
@@ -36,10 +38,10 @@ def compare_dex_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, o
     trade_size = params['orderType'], params['tradeSize']
     savings = {}
     from_token, to_token, bidask = ('ETH', token, 'ask') if order_type == 'buy' else (token, 'ETH', 'bid')
-    totle_ex = v2_client.name()
+    totle_ex = totle_client.name()
     
     # Get the best price using Totle's aggregated order books
-    totle_sd = v2_client.try_swap(totle_ex, from_token, to_token, **kw_params)
+    totle_sd = totle_client.try_swap(totle_ex, from_token, to_token, **kw_params)
 
     if totle_sd:
         totle_used = totle_sd['totleUsed']
@@ -52,7 +54,7 @@ def compare_dex_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, o
         # don't compare to the one that Totle used, unless Totle used multiple DEXs
         dexs_to_compare = [ dex for dex in liquid_dexs if dex != totle_used[0] or len(totle_used) > 1 ]
         for dex in dexs_to_compare:
-            dex_sd = v2_client.try_swap(dex, from_token, to_token, exchange=dex, **kw_params)
+            dex_sd = totle_client.try_swap(dex, from_token, to_token, exchange=dex, **kw_params)
             if dex_sd:
                 swap_prices[dex] = dex_sd['price']
                 if swap_prices[dex] < 0.0:
@@ -173,7 +175,7 @@ def get_cex_savings(cex_client, order_type, pairs, trade_sizes, redirect=True):
 def compare_to_totle(base, quote, order_type, trade_size, exchange, ex_price, splits=None):
     """Returns a savings_data dict comparing price (in *spent* token) to totle's price"""
     from_token, to_token = get_from_to(order_type, base, quote)
-    totle_sd = v2_client.try_swap(v2_client.name(), from_token, to_token, params={'tradeSize': trade_size}, verbose=False)
+    totle_sd = totle_client.try_swap(totle_client.name(), from_token, to_token, params={'tradeSize': trade_size}, verbose=False)
     if totle_sd:
         return get_savings(exchange, ex_price, totle_sd, base, trade_size, order_type, splits)
     else:
@@ -183,12 +185,31 @@ def compare_to_totle(base, quote, order_type, trade_size, exchange, ex_price, sp
 def get_savings(exchange, exchange_price, totle_sd, token, trade_size, order_type, splits=None, ex_prices=None, print_savings=True):
     totle_price = totle_sd['price']
     totle_used = totle_sd['totleUsed']
+
+    totle_splits = canonicalize_totle_splits(totle_sd['totleSplits']) if 'totleSplits' in totle_sd else None
+
     pct_savings = get_pct_savings(totle_price, exchange_price)
     if print_savings:
         trade_info = f"trade size={trade_size} ETH (Totle price={totle_price:.5g} {exchange} price={exchange_price:.5g})"
-        if splits: trade_info += f"splits={splits}"
+        if splits: trade_info += f" splits={splits}"
+        if totle_splits: trade_info += f" totle_splits={totle_splits}"
         print(f"Totle saved {pct_savings:.2f} percent vs {exchange} {order_type}ing {token} on {','.join(totle_used)} {trade_info}")
-    return savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price, splits, ex_prices)
+    return savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price, splits=splits, totle_splits=totle_splits, ex_prices=ex_prices)
+
+
+def canonicalize_totle_splits(raw_splits):
+    """Canonicalizes any DEX named in Totle splits"""
+    # See also swap_data() in totle_client
+    if is_multi_split(raw_splits):
+        return {pair: exchange_utils.canonical_keys(t_splits) for pair, t_splits in raw_splits.items()}
+    else:
+        return exchange_utils.canonical_keys(raw_splits)
+
+def is_multi_split(totle_splits):
+    """ returns True if there are multiple splits keyed by pair e.g. {'BAT/ETH': {'Kyber':90, 'Uniswap':10}, 'ETH/DAT': {...}}"""
+    first_val = list(totle_splits.values())[0]
+    return type(first_val) == dict
+
 
 
 def print_savings(order_type, savings, trade_sizes, title="Savings"):
@@ -201,8 +222,8 @@ def print_savings(order_type, savings, trade_sizes, title="Savings"):
         str_vals = [pf(v['pct_savings']) if v else ph('-') for v in vals]
         print(f"{base:<8}", ''.join(str_vals))
 
-def get_pct_savings(p1, p2):
-    return 100 - (100.0 * p1 / p2)
+def get_pct_savings(base_price, competitor_price):
+    return 100 - (100.0 * base_price / competitor_price)
 
 ##############################################################################################
 #

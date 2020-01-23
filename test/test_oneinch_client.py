@@ -2,11 +2,14 @@ import oneinch_client
 import exchange_utils
 
 dexs = oneinch_client.exchanges()
+
+# map = {exchange_utils.canonical_name(dex_name): dex_name for dex_name in sorted(dexs)}
+# print(f"DEX_NAME_MAP = {map}")
+# exit(0)
 for dex_name in dexs:
     can_name = exchange_utils.canonical_name(dex_name)
-    print(f"{can_name} => {oneinch_client.DEX_NAME_MAP[can_name]}")
-exit(0)
-
+    print(f"{can_name}: {dex_name},")
+    # print(f"{can_name} => {oneinch_client.DEX_NAME_MAP[can_name]}")
 
 from_token, to_token = 'ETH', 'OMG'
 from_amount, to_amount = 1.0, 200.0
