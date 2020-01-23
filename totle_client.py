@@ -44,9 +44,8 @@ class TotleAPIException(Exception):
 def name():
     return 'Totle' # 'Totle' is used for comparison with other exchanges
 
-# get exchanges
-DEX_NAME_MAP = { '0xMesh': '0xMesh', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Ether Delta': 'EtherDelta', 'Fulcrum': 'Fulcrum',
-                 'Kyber': 'Kyber', 'Oasis': 'Oasis', 'StableCoinSwap': 'Stablecoinswap', 'Uniswap': 'Uniswap', }
+DEX_NAME_MAP = { '0x V3': '0x V3', '0xMesh': '0xMesh', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Ether Delta': 'EtherDelta',
+                 'Fulcrum': 'Fulcrum', 'Kyber': 'Kyber', 'Oasis': 'Oasis', 'PMM': 'PMM', 'StableCoinSwap': 'Stablecoinswap', 'Uniswap': 'Uniswap' }
 
 @functools.lru_cache(1)
 def exchanges():
