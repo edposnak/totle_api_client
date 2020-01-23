@@ -159,4 +159,7 @@ test_basics()
 # test_find_duplicates()
 # test_missing()
 
+totle_tokens = token_utils.totle_tokens_json()
+print(totle_tokens['ETHOS'])
+
 
