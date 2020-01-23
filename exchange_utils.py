@@ -4,8 +4,9 @@ import functools
 # It must be maintained manually based on the strings returned by the various APIs
 
 SYM_TO_NAME = {
-    '0x': '0xMesh',
-    '0x relays': '0xMesh',
+    '0x': '0x V3',
+    '0x relays': '0x V3',
+    '0x v3': '0x V3',
     '0xmesh': '0xMesh',
     '0x mesh': '0xMesh',
     'aave': 'Aave',
