@@ -200,11 +200,16 @@ def get_savings(exchange, exchange_price, totle_sd, token, trade_size, order_typ
 def canonicalize_totle_splits(raw_splits):
     """Canonicalizes any DEX named in Totle splits"""
     # See also swap_data() in totle_client
-    first_val = list(raw_splits.values())[0]
-    if type(first_val) == dict:  # there are multiple splits keyed by pair e.g. {'BAT/ETH': {'Kyber':90, 'Uniswap':10}, 'ETH/DAT': {...}}
+    if is_multi_split(raw_splits):
         return {pair: exchange_utils.canonical_keys(t_splits) for pair, t_splits in raw_splits.items()}
     else:
         return exchange_utils.canonical_keys(raw_splits)
+
+def is_multi_split(totle_splits):
+    """ returns True if there are multiple splits keyed by pair e.g. {'BAT/ETH': {'Kyber':90, 'Uniswap':10}, 'ETH/DAT': {...}}"""
+    first_val = list(totle_splits.values())[0]
+    return type(first_val) == dict
+
 
 
 def print_savings(order_type, savings, trade_sizes, title="Savings"):
