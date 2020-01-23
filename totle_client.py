@@ -17,8 +17,7 @@ API_BASE = 'https://api.totle.com'
 EXCHANGES_ENDPOINT = API_BASE + '/exchanges'
 TOKENS_ENDPOINT = API_BASE + '/tokens'
 SWAP_ENDPOINT = API_BASE + '/swap'
-SWAP_ENDPOINT = 'https://us.services.totlenext.com:10018/suggestions' # TODO remove test endpoint
-SWAP_ENDPOINT = 'https://services.totlenext.com/suggester/curves'
+SWAP_ENDPOINT = 'https://services.totlenext.com/suggester/curves' # TODO remove test endpoint
 
 DATA_ENDPOINT = API_BASE + '/data'
 PAIRS_ENDPOINT = DATA_ENDPOINT + '/pairs'
@@ -362,8 +361,8 @@ def post_with_retries(endpoint, inputs, num_retries=3, debug=False, timer=False)
             if timer: print(f"call to {endpoint} {pp(inputs)} took {timer_end - timer_start:.1f} seconds")
             if debug: print(f"RESPONSE from {endpoint}:\n{pp(j)}\n\n")
             return j
-        except:
-            print(f"failed to extract JSON, retrying ...")
+        except Exception as e:
+            print(f"failed to extract JSON: {e} \nretrying ...")
             time.sleep(1)
 
     # all attempts failed
