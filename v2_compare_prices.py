@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import datetime
 
 import exchange_utils
-import v2_client
+import totle_client
 
 # Common struct returned by compare_dex_prices and compare_cex_prices
 def savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price, splits=None, totle_splits=None, ex_prices=None):
@@ -38,10 +38,10 @@ def compare_dex_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, o
     trade_size = params['orderType'], params['tradeSize']
     savings = {}
     from_token, to_token, bidask = ('ETH', token, 'ask') if order_type == 'buy' else (token, 'ETH', 'bid')
-    totle_ex = v2_client.name()
+    totle_ex = totle_client.name()
     
     # Get the best price using Totle's aggregated order books
-    totle_sd = v2_client.try_swap(totle_ex, from_token, to_token, **kw_params)
+    totle_sd = totle_client.try_swap(totle_ex, from_token, to_token, **kw_params)
 
     if totle_sd:
         totle_used = totle_sd['totleUsed']
@@ -54,7 +54,7 @@ def compare_dex_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, o
         # don't compare to the one that Totle used, unless Totle used multiple DEXs
         dexs_to_compare = [ dex for dex in liquid_dexs if dex != totle_used[0] or len(totle_used) > 1 ]
         for dex in dexs_to_compare:
-            dex_sd = v2_client.try_swap(dex, from_token, to_token, exchange=dex, **kw_params)
+            dex_sd = totle_client.try_swap(dex, from_token, to_token, exchange=dex, **kw_params)
             if dex_sd:
                 swap_prices[dex] = dex_sd['price']
                 if swap_prices[dex] < 0.0:
@@ -175,7 +175,7 @@ def get_cex_savings(cex_client, order_type, pairs, trade_sizes, redirect=True):
 def compare_to_totle(base, quote, order_type, trade_size, exchange, ex_price, splits=None):
     """Returns a savings_data dict comparing price (in *spent* token) to totle's price"""
     from_token, to_token = get_from_to(order_type, base, quote)
-    totle_sd = v2_client.try_swap(v2_client.name(), from_token, to_token, params={'tradeSize': trade_size}, verbose=False)
+    totle_sd = totle_client.try_swap(totle_client.name(), from_token, to_token, params={'tradeSize': trade_size}, verbose=False)
     if totle_sd:
         return get_savings(exchange, ex_price, totle_sd, base, trade_size, order_type, splits)
     else:

@@ -10,12 +10,12 @@ import dexag_client
 import oneinch_client
 import paraswap_client
 import token_utils
-import v2_client
+import totle_client
 
 from v2_compare_prices import get_filename_base, SavingsCSV
 
 
-AGG_CLIENTS = [v2_client, dexag_client, oneinch_client, paraswap_client]
+AGG_CLIENTS = [totle_client, dexag_client, oneinch_client, paraswap_client]
 CSV_FIELDS = ['base', 'quote'] + [ a.name() for a in AGG_CLIENTS ]
 
 def check_pair(base, quote, usd_price_of_quote, csv_writer):
@@ -76,11 +76,11 @@ def do_summary():
     for agg, pairs in agg_pairs.items():
         print(f"{agg} supports a total of {len(pairs)}  ERC-20/ERC-20 pairs")
 
-    totle_pairs, totle_tokens = agg_pairs[v2_client.name()], agg_tokens[v2_client.name()]
+    totle_pairs, totle_tokens = agg_pairs[totle_client.name()], agg_tokens[totle_client.name()]
     all_other_agg_exc_tokens, all_other_agg_exc_pairs = set(), set()
     summary_csv = ['Competitor,"Overlap","Exclusive to Totle","Exclusive to Competitor"']
     for other_agg_name in agg_pairs:
-        if other_agg_name == v2_client.name(): continue
+        if other_agg_name == totle_client.name(): continue
 
         other_agg_tokens = agg_tokens[other_agg_name]
         totle_exc_tokens = set(totle_tokens) - set(other_agg_tokens)
@@ -170,7 +170,7 @@ def get_token_prices(tokens = None):
         if missing_token == 'CETH':
             usd_prices[missing_token] = 2.83
         else:
-            totle_sd = v2_client.try_swap(v2_client.name(), missing_token, 'ETH', params={'toAmount': 0.1}, verbose=False, debug=False)
+            totle_sd = totle_client.try_swap(totle_client.name(), missing_token, 'ETH', params={'toAmount': 0.1}, verbose=False, debug=False)
 
             if totle_sd:  # set the from_amount so it's roughly the same across all swaps
                 usd_prices[missing_token] = ETH_PRICE / totle_sd['price']

@@ -84,12 +84,12 @@ def canonical_and_splittable(dex_dict):
 ########################################################################################################################
 # To generate the SYM_TO_NAME map
 #
-# import v2_client
+# import totle_client
 # import dexag_client
 # import oneinch_client
 # import dexwatch_client
 #
-# all_dexs = set(v2_client.data_exchanges().keys())
+# all_dexs = set(totle_client.data_exchanges().keys())
 # all_dexs |= set(oneinch_client.exchanges())
 # all_dexs |= set(dexag_client.exchanges())
 # all_dexs |= set(dexwatch_client.exchanges())

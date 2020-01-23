@@ -79,8 +79,8 @@ def tokens_json():
 
 @functools.lru_cache(2)
 def totle_tokens_json(canonical_symbols=True):
-    # v2_client imports token_utils so we avoid a circular dependency by not using TOKENS_ENDPOINT
-    # j = requests.get(v2_client.TOKENS_ENDPOINT).json()
+    # totle_client imports token_utils so we avoid a circular dependency by not using TOKENS_ENDPOINT
+    # j = requests.get(totle_client.TOKENS_ENDPOINT).json()
     j = requests.get('https://api.totle.com/tokens').json()
     tokens = j['tokens']
     if canonical_symbols:

@@ -7,13 +7,13 @@ import data_import
 import dexag_client
 import oneinch_client
 import paraswap_client
-import v2_client
+import totle_client
 import exchange_utils
 
 DEX_AG = dexag_client.name()
 ONE_INCH = oneinch_client.name()
 PARASWAP = paraswap_client.name()
-TOTLE_EX = v2_client.name()
+TOTLE_EX = totle_client.name()
 
 AGG_NAMES = [DEX_AG, ONE_INCH, PARASWAP]
 

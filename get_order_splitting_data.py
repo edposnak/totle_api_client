@@ -3,7 +3,7 @@ import sys
 from collections import defaultdict
 import concurrent.futures
 
-import v2_client
+import totle_client
 import dexag_client
 import oneinch_client
 import paraswap_client
@@ -11,7 +11,7 @@ import paraswap_client
 import exchange_utils
 from v2_compare_prices import get_filename_base
 
-TOTLE_EX = v2_client.name()
+TOTLE_EX = totle_client.name()
 
 QUOTE = 'ETH'
 
@@ -86,7 +86,7 @@ def get_agg_data(*agg_clients, tokens=ALL_AGGS_TOKENS, trade_sizes=TRADE_SIZES, 
 
 
 COMPOUND_TOKENS = ['CBAT','CDAI','CETH','CREP','CUSDC','CWBTC','CZRX']
-TOTLE_EXCHANGES = integrated_exchanges = list(v2_client.exchanges().keys())
+TOTLE_EXCHANGES = integrated_exchanges = list(totle_client.exchanges().keys())
 
 
 def get_totle_data(tokens=ALL_AGGS_TOKENS, trade_sizes=TRADE_SIZES, quote=QUOTE, exchanges=TOTLE_EXCHANGES):
@@ -108,7 +108,7 @@ def get_totle_data(tokens=ALL_AGGS_TOKENS, trade_sizes=TRADE_SIZES, quote=QUOTE,
                 can_dex = exchange_utils.canonical_name(dex)
                 if dex == 'Compound' and not base in COMPOUND_TOKENS: continue  # don't waste queries for non-C tokens
 
-                pq = v2_client.get_quote(quote, base, from_amount=trade_size, dex=dex)
+                pq = totle_client.get_quote(quote, base, from_amount=trade_size, dex=dex)
                 if not pq:
                     print(f"{can_dex} did not have {quote} to {base} at trade size={trade_size}")
                 else:
