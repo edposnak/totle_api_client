@@ -1,46 +1,20 @@
 import glob
-import operator
 import os
-import functools
 from collections import defaultdict
 import concurrent.futures
 
-import csv
 import json
 
-import data_import
 import dexag_client
 import exchange_utils
 import oneinch_client
 import paraswap_client
 import totle_client
 from v2_compare_prices import get_savings, print_savings, get_filename_base, SavingsCSV
-from summarize_csvs import aggregated_savings, print_savings_summary_table_csv, print_neg_savings_stats, print_savings_summary_table, compute_mean, sorted_trade_sizes
+
 
 AGG_CLIENTS = [dexag_client, oneinch_client, paraswap_client]
-CSV_FIELDS = "time action trade_size token quote exchange exchange_price totle_used totle_price totle_splits pct_savings splits ex_prices".split()
-
-def compare_totle_and_aggs(from_token, to_token, from_amount, usd_trade_size=None):
-    agg_savings = {}
-
-    totle_sd = totle_client.try_swap(totle_client.name(), from_token, to_token, params={'fromAmount': from_amount}, verbose=False, debug=False)
-    if totle_sd:
-        for agg_client in AGG_CLIENTS:
-            pq = agg_client.get_quote(from_token, to_token, from_amount=from_amount)
-            agg_name = agg_client.name()
-            if pq:
-                splits = exchange_utils.canonical_keys(pq['exchanges_parts'])
-                ex_prices = pq.get('exchanges_prices') and exchange_utils.canonical_and_splittable(pq['exchanges_prices'])
-                if pq['price'] == 0:
-                    print(f"DIVISION BY ZERO: {agg_name} buying {to_token} with {from_amount} {from_token} returned a price of {pq['price']}")
-                    continue
-                savings = get_savings(agg_name, pq['price'], totle_sd, to_token, usd_trade_size or from_amount, 'buy', splits=splits, ex_prices=ex_prices, print_savings=False)
-                savings['quote'] = from_token # TODO: add this to get_savings
-                print(f"Totle saved {savings['pct_savings']:.2f} percent vs {agg_name} buying {to_token} with {from_amount} {from_token} on {savings['totle_used']}")
-                agg_savings[agg_name] = savings
-            else:
-                print(f"{agg_name} had no price quote for buying {to_token} with {from_amount} {from_token}")
-    return agg_savings
+CSV_FIELDS = "time id action trade_size token quote exchange exchange_price totle_used totle_price totle_splits pct_savings splits ex_prices".split()
 
 def compare_totle_and_aggs_parallel(from_token, to_token, from_amount, usd_trade_size=None):
     agg_savings = {}
@@ -63,7 +37,6 @@ def compare_totle_and_aggs_parallel(from_token, to_token, from_amount, usd_trade
                     print(f"DIVISION BY ZERO: {agg_name} buying {to_token} with {from_amount} {from_token} returned a price of {pq['price']}")
                     continue
                 savings = get_savings(agg_name, pq['price'], totle_sd, to_token, usd_trade_size or from_amount, 'buy', splits=splits, ex_prices=ex_prices, print_savings=False)
-                savings['quote'] = from_token # TODO: add this to get_savings
                 print(f"Totle saved {savings['pct_savings']:.2f} percent vs {agg_name} buying {to_token} with {from_amount} {from_token} on {savings['totle_used']}")
                 agg_savings[agg_name] = savings
             else:
