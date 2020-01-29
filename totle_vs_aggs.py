@@ -185,17 +185,16 @@ def do_eth_pairs():
             for trade_size in TRADE_SIZES:
                 todo.append((compare_totle_and_aggs_parallel, quote, base, trade_size))
 
-
         MAX_THREADS = 16
-        print(f"Queueing up {len(todo)} todos for execution on {MAX_THREADS} workers")
+        print(f"Queueing up {len(todo)} todos ({len(TOKENS)} tokens x {len(TRADE_SIZES)} trade sizes) for execution on {MAX_THREADS} workers")
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
             futures_p = {executor.submit(*p): p for p in todo}
 
             for f in concurrent.futures.as_completed(futures_p):
-                _, from_token, to_token, from_amount = futures_p[f]
+                _, quote, base, trade_size = futures_p[f]
                 agg_savings = f.result()
                 for agg_name, savings in agg_savings.items():
-                    all_buy_savings[agg_name][quote][trade_size] = savings
+                    all_buy_savings[agg_name][base][trade_size] = savings
                     csv_writer.append(savings)
 
     # print(json.dumps(all_buy_savings, indent=3))
