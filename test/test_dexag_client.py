@@ -55,10 +55,10 @@ def test_supported_tokens():
 
 #######################################################################################################################
 test_dex_name_map()
+exit(0)
 
 # Buying CVC for 993.5942467706458 PAX
 test_get_quote('CVC', from_token='PAX', from_amount=994)
-exit(0)
 
 
 test_get_quote('MKR', from_amount=1.0, dex='all')

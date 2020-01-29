@@ -32,12 +32,12 @@ def test_get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=N
 
 #######################################################################################################################
 test_dex_name_map()
+exit(0)
 
 # Buying RDN for 156.19586819370878 REN
 test_get_quote('REN', 'RDN', from_amount=156.19586819370878, debug=True)
 
 # test_get_quote('REQ', 'USDC', from_amount=9.935)
-exit(0)
 
 
 test_get_quote('OMG', 'ETH', from_amount=200.0)

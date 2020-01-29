@@ -33,7 +33,8 @@ def test_get_quote(to_token, from_token='ETH', from_amount=None, to_amount=None,
     except (oneinch_client.DexAGAPIException, ValueError) as e:
         print(e)
 
-
+test_dex_name_map()
+exit(0)
 
 test_get_quote('OMG', from_amount=1.0)
 test_get_quote('OMG', to_amount=200)

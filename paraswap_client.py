@@ -36,7 +36,7 @@ def fee_pct():
 #
 
 # get exchanges
-DEX_NAME_MAP = { '0xMesh': '0x', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Fulcrum': 'Fulcrum', 'Kyber': 'Kyber', 'MakerDAO': 'MakerDAO', 'Oasis': 'Oasis', 'PMM': 'ParaSwapPool', 'Uniswap': 'Uniswap' }
+DEX_NAME_MAP = { '0x V3': '0x', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Fulcrum': 'Fulcrum', 'Kyber': 'Kyber', 'MakerDAO': 'MakerDAO', 'Oasis': 'Oasis', 'PMM': 'ParaSwapPool', 'Uniswap': 'Uniswap' }
 
 @functools.lru_cache()
 def exchanges():

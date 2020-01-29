@@ -17,6 +17,7 @@ SYM_TO_NAME = {
     'chai': 'Chai',
     'compound': 'Compound',
     'curve.fi': 'Curve.fi',
+    'deversifi': 'deversifi',
     'ddex': 'DDEX',
     'dforce': 'dForce',
     'dydx': 'dYdX',
