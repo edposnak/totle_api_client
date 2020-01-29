@@ -14,7 +14,7 @@ def test_dex_name_map():
 
 
 
-def test_get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, verbose=False, debug=False):
+def test_get_quote(to_token, from_token='ETH', from_amount=None, to_amount=None, dex=None, verbose=False, debug=False):
     kw_params = dict(dex=dex, verbose=verbose, debug=debug)
 
     if from_amount:
@@ -35,14 +35,14 @@ test_dex_name_map()
 exit(0)
 
 # Buying RDN for 156.19586819370878 REN
-test_get_quote('REN', 'RDN', from_amount=156.19586819370878, debug=True)
+test_get_quote('RDN', 'REN', from_amount=156.19586819370878, debug=True)
 
-# test_get_quote('REQ', 'USDC', from_amount=9.935)
+# test_get_quote('USDC', 'REQ', from_amount=9.935)
 
 
-test_get_quote('OMG', 'ETH', from_amount=200.0)
-test_get_quote('OMG', 'ETH', to_amount=1.0)
+test_get_quote('ETH', 'OMG', from_amount=200.0)
+test_get_quote('ETH', 'OMG', to_amount=1.0)
 
-test_get_quote('ETH', 'BAT', from_amount=10.0)
-test_get_quote('ETH', 'BAT', to_amount=200.0)
+test_get_quote('BAT', from_amount=10.0)
+test_get_quote('BAT', to_amount=200.0)
 

@@ -16,7 +16,7 @@ def test_dex_name_map():
         print(f"{can_name} => {dexag_client.DEX_NAME_MAP[can_name]}")
 
 
-def test_get_quote(to_token, from_token='ETH', from_amount=None, to_amount=None, dex=dexag_client.AG_DEX, verbose=True, debug=True, client=dexag_client):
+def test_get_quote(to_token, from_token='ETH', from_amount=None, to_amount=None, dex=dexag_client.AG_DEX, verbose=True, debug=True):
     kw_params = dict(dex=dex, verbose=verbose, debug=debug)
 
     if from_amount:
@@ -27,7 +27,7 @@ def test_get_quote(to_token, from_token='ETH', from_amount=None, to_amount=None,
         raise ValueError(f"either from_amount or to_amount must be specified")
 
     try:
-        pq = client.get_quote(from_token, to_token, **kw_params)
+        pq = dexag_client.get_quote(from_token, to_token, **kw_params)
         if not pq:
             print(f"{dex} did not have {from_token} to {to_token} from_amount={from_amount} to_amount={to_amount}")
         else:
@@ -54,7 +54,9 @@ def test_supported_tokens():
 
 
 #######################################################################################################################
-test_dex_name_map()
+# test_dex_name_map()
+# test_get_quote('MKR', from_amount=1.0)
+test_get_quote('MKR', to_amount=1.0)
 exit(0)
 
 # Buying CVC for 993.5942467706458 PAX
