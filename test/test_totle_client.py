@@ -163,9 +163,14 @@ def test_swap_data(json_response_file):
     sd = totle_client.swap_data(j, True)
     print(json.dumps(sd, indent=3))
 
+def test_get_snapshot(id):
+    j = totle_client.get_snapshot(id)
+    print(json.dumps(j, indent=3))
 
 #######################################################################################################################
 
+test_get_snapshot('0x998f9d03d108475998aba20c525009fd263a3ece5f724cbaa013b4a2283300a0')
+exit(0)
 
 test_dex_name_map()
 
