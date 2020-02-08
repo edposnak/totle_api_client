@@ -44,9 +44,8 @@ class TotleAPIException(Exception):
 def name():
     return 'Totle' # 'Totle' is used for comparison with other exchanges
 
-# get exchanges
-DEX_NAME_MAP = { '0xMesh': '0xMesh', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Ether Delta': 'EtherDelta', 'Fulcrum': 'Fulcrum',
-                 'Kyber': 'Kyber', 'Oasis': 'Oasis', 'StableCoinSwap': 'Stablecoinswap', 'Uniswap': 'Uniswap', }
+DEX_NAME_MAP = { '0x V3': '0x V3', '0xMesh': '0xMesh', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Ether Delta': 'EtherDelta',
+                 'Fulcrum': 'Fulcrum', 'Kyber': 'Kyber', 'Oasis': 'Oasis', 'PMM': 'PMM', 'StableCoinSwap': 'Stablecoinswap', 'Uniswap': 'Uniswap' }
 
 @functools.lru_cache(1)
 def exchanges():
@@ -70,6 +69,8 @@ def data_exchanges():
 def data_exchanges_by_id():
     return { v:k for k,v in data_exchanges.items() }
 
+def get_snapshot(response_id):
+    return requests.get(f"https://totle-api-snapshot.s3.amazonaws.com/{response_id}").json()
 
 ##############################################################################################
 #
@@ -147,8 +148,6 @@ def sum_amounts(trade, src_dest, summary_token):
         
     return total_amount
 
-HACK_UNTIL_SUMMARY_FIXED=False
-
 def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
     """adjust source and destination amounts so price reflects paying totle fee"""
     # Assumes source_amount and destination amount are sums of order amounts
@@ -159,25 +158,6 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
     totle_fee_token = summary['totleFee']['asset']['symbol']
     totle_fee_amount = int(summary['totleFee']['amount'])
     totle_fee_pct = float(summary['totleFee']['percentage'])
-
-    # Until the summary is fixed we can just assume summary amounts correctly include Totle fees in
-    # all cases (maybe not a good assumption) and subtract them out for non is_totle cases
-    if HACK_UNTIL_SUMMARY_FIXED:
-        summary_source_amount = int(summary['sourceAmount'])
-        summary_destination_amount = int(summary['destinationAmount'])
-        if is_totle:
-            return summary_source_amount, summary_destination_amount
-        else: # subtract out Totle fee
-            if buying_tokens_with_eth: # for buys, summary_destination_amount is lower than it would be without fee
-                if totle_fee_token == summary_destination_token:
-                    return summary_source_amount, summary_destination_amount + totle_fee_amount
-                else: # fee was taken in baseAsset so just estimate it
-                    return summary_source_amount, summary_destination_amount / (1 - (totle_fee_pct / 100))
-            else: # for sells, summary_source_amount is higher than it would be without fee
-                return summary_source_amount * (1 - (totle_fee_pct / 100)), summary_destination_amount
-
-    ##### HACK_UNTIL_SUMMARY_FIXED == False #####
-    # Below is code to use individual orders (when summary is fixed)
 
     if is_totle:
         summary_source_amount = int(summary['sourceAmount'])
@@ -263,6 +243,7 @@ def get_split(trade):
 def swap_data(response, is_totle, request={}):
     """Extracts relevant data from a swap API endpoint response"""
     try:
+        response_id = response['id']
         summary, base_token, source_token, source_div, destination_token, destination_div = get_summary_data(response)
 
         if 'trades' not in summary: return {} # Suggester has no trades
@@ -319,6 +300,7 @@ def swap_data(response, is_totle, request={}):
         price = source_amount / destination_amount
 
         return {
+            "responseId": response_id,
             "tradeSize": trade_size,
             "sourceToken": source_token,
             "sourceAmount": source_amount,

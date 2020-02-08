@@ -1,10 +1,21 @@
 import json
 
+import exchange_utils
 import token_utils
 import totle_client
 
 class FoundBugException(Exception):
     pass
+
+def test_dex_name_map():
+    dexs = totle_client.exchanges()
+    # map = {exchange_utils.canonical_name(dex_name): dex_name for dex_name in sorted(dexs)}
+    # print(f"DEX_NAME_MAP = {map}")
+    # exit(0)
+
+    for dex_name in dexs:
+        can_name = exchange_utils.canonical_name(dex_name)
+        print(f"{can_name} => {totle_client.DEX_NAME_MAP[can_name]}")
 
 def test_basics():
     print(totle_client.name())
@@ -152,13 +163,16 @@ def test_swap_data(json_response_file):
     sd = totle_client.swap_data(j, True)
     print(json.dumps(sd, indent=3))
 
+def test_get_snapshot(id):
+    j = totle_client.get_snapshot(id)
+    print(json.dumps(j, indent=3))
 
 #######################################################################################################################
 
+test_get_snapshot('0x998f9d03d108475998aba20c525009fd263a3ece5f724cbaa013b4a2283300a0')
+exit(0)
 
-# TODO: debug this
-# get_quote returned Error request was {'fromTokenSymbol': 'ETH', 'toTokenSymbol': 'DAI', 'amount': 100000000000000000000} response was {'message': 'Error'}
-
+test_dex_name_map()
 
 tradable_tokens = token_utils.tradable_tokens()
 

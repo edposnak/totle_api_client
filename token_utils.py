@@ -59,11 +59,14 @@ def ten_to_the_decimals(token):
     return 10 ** token_decimals()[token]
 
 @functools.lru_cache(1)
-def tokens_json():
+def tokens_json(use_oneinch_tokens=False):
     """Returns the tokens json filtering out non-tradable tokens"""
     # get Totle tokens
     totle_tokens = totle_tokens_json()
     for t in totle_tokens: t['address'] = t['address'].lower()
+
+    # 1-Inch has severe rate limiting without an API key, causing API calls to return 'Forbidden'
+    if not use_oneinch_tokens: return totle_tokens
 
     # get 1-inch tokens
     oneinch_tokens = oneinch_tokens_json()

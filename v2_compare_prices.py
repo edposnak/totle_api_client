@@ -7,14 +7,17 @@ import exchange_utils
 import totle_client
 
 # Common struct returned by compare_dex_prices and compare_cex_prices
-def savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price, splits=None, totle_splits=None, ex_prices=None):
+def savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price,
+                 splits=None, totle_splits=None, ex_prices=None, quote_token=None, response_id=None):
     """Returns a savings entry suitable for logging or appending to CSV"""
     # CSV header=time, action, trade_size, token, exchange, exchange_price, totle_used, totle_price, pct_savings, splits, ex_prices
     return {
         'time': datetime.now().isoformat(),
+        'id': response_id,
         'action': order_type,
         'trade_size': trade_size,
         'token': token,
+        'quote': quote_token,
         'exchange': exchange,
         'exchange_price': exchange_price,
         'totle_used': '/'.join(totle_used),
@@ -182,7 +185,8 @@ def compare_to_totle(base, quote, order_type, trade_size, exchange, ex_price, sp
         print(f"Compare {order_type} {base}/{quote} tradeSize={trade_size} got no result from Totle")
 
 
-def get_savings(exchange, exchange_price, totle_sd, token, trade_size, order_type, splits=None, ex_prices=None, print_savings=True):
+def get_savings(exchange, exchange_price, totle_sd, token, trade_size, order_type, splits=None, ex_prices=None, quote_token=None, print_savings=True):
+    response_id = totle_sd['responseId']
     totle_price = totle_sd['price']
     totle_used = totle_sd['totleUsed']
 
@@ -194,7 +198,8 @@ def get_savings(exchange, exchange_price, totle_sd, token, trade_size, order_typ
         if splits: trade_info += f" splits={splits}"
         if totle_splits: trade_info += f" totle_splits={totle_splits}"
         print(f"Totle saved {pct_savings:.2f} percent vs {exchange} {order_type}ing {token} on {','.join(totle_used)} {trade_info}")
-    return savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price, splits=splits, totle_splits=totle_splits, ex_prices=ex_prices)
+    return savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price,
+                        splits=splits, totle_splits=totle_splits, ex_prices=ex_prices, quote_token=quote_token, response_id=response_id)
 
 
 def canonicalize_totle_splits(raw_splits):
