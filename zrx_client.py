@@ -73,13 +73,18 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
         source_amount = token_utils.real_amount(j['sellAmount'], from_token)
         destination_amount = token_utils.real_amount(j['buyAmount'], to_token)
 
+        fee_amount = token_utils.real_amount(j['protocolFee'], from_token)
+        print(f"0x fee = {100 * fee_amount/source_amount:.4f}%")
+        print(f"orders.exchange address(es):")
+        for o in j['orders']: print(o['exchangeAddress'])
+
         return {
             'source_token': from_token,
             'source_amount': source_amount,
             'destination_token': to_token,
             'destination_amount': destination_amount,
             'price': price,
-            'exchanges_parts': [],
+            'exchanges_parts': {},
             # 'exchanges_prices': exchanges_prices
         }
 

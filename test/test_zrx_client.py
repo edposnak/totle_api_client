@@ -17,7 +17,7 @@ def test_get_quote(to_token, from_token='ETH', from_amount=None, to_amount=None,
     try:
         pq = zrx_client.get_quote(from_token, to_token, **kw_params)
         if not pq:
-            print(f"{dex} did not have {from_token} to {to_token} from_amount={from_amount} to_amount={to_amount}")
+            print(f"{zrx_client.name()} did not have {from_token} to {to_token} from_amount={from_amount} to_amount={to_amount}")
         else:
             # print(f"price={pq['price']} from {from_token} to {to_token} from_amount={from_amount} to_amount={to_amount}\nexchanges_prices={pq['exchanges_prices']}")
             print(pq)
@@ -30,7 +30,12 @@ def test_get_quote(to_token, from_token='ETH', from_amount=None, to_amount=None,
 test_dex_name_map()
 
 # test_get_quote('MKR', from_amount=1.0)
-test_get_quote('MKR', to_amount=1.0)
+# test_get_quote('MKR', to_amount=1.0)
+
+TOTLE_39 = ['ANT','AST','BAT','BNT','CDT','CND','CVC','DAI','ENG','ENJ','ETHOS','GNO','KNC','LINK','MANA','MCO','MKR','OMG','PAX','PAY','POE','POLY','POWR','RCN','RDN','REN','REP','REQ','RLC','RPL','SNT','SNX','STORJ','TKN','TUSD','USDC','USDT','WBTC','ZRX']
+TOKENS = [t for t in TOTLE_39 if t not in ['CDT', 'CND', 'CVC', 'ENG', 'ETHOS', 'MCO', 'PAY', 'POE', 'POLY', 'RCN', 'RPL', 'TKN']]
+for token in TOKENS:
+    test_get_quote(token, from_amount=0.1)
 
 exit(0)
 

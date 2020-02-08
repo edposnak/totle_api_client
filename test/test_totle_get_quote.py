@@ -13,8 +13,9 @@ def test_get_quote(to_token, from_token='ETH', trade_sizes=[1.0], dex=None, verb
     return n_quotes
 
 
-test_get_quote('MKR', verbose=False, debug=False)
-test_get_quote('MKR', to_amount=1.0)
+# test_get_quote('MKR', verbose=False, debug=False)
+pq = totle_client.get_quote('ETH', 'MKR', to_amount=1.0, debug=True)
+print(pq)
 
 exit(0)
 # test_get_quote('MKR', trade_sizes=[0.1, 0.5, 1.0, 5.0], dex='Kyber')
