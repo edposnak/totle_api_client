@@ -10,12 +10,14 @@ import dexag_client
 import oneinch_client
 import paraswap_client
 import token_utils
+import top_tokens
 import totle_client
+import zrx_client
 
 from v2_compare_prices import get_filename_base, SavingsCSV
 
 
-AGG_CLIENTS = [totle_client, dexag_client, oneinch_client, paraswap_client]
+AGG_CLIENTS = [totle_client, dexag_client, oneinch_client, paraswap_client, zrx_client]
 CSV_FIELDS = ['base', 'quote'] + [ a.name() for a in AGG_CLIENTS ]
 
 def check_pair(base, quote, usd_price_of_quote, csv_writer):
@@ -155,9 +157,9 @@ def do_summary():
     # for _, pair_str in base_pairstr_map.items():
     #     print(', '.join(pair_str))
 
-ETH_PRICE = 148.00
+ETH_PRICE = 268.00
 
-def get_token_prices(tokens = None):
+def get_token_prices(tokens=None):
     all_tradable_tokens = tokens or token_utils.tradable_tokens()
     all_tradable_tokens.pop('ETH')
     # TODO: remove ETH it's not really an ERC-20
@@ -182,26 +184,16 @@ def get_token_prices(tokens = None):
     print(f"Skipping {skipped_tokens} because we couldn't get a price from CMC or Totle")
     return usd_prices
 
-########################################################################################################################
-BAD_PAIRS = {('NPXS', 'RCN'), ('FUN', 'MKR'), ('TAU', 'CND'), ('POE', 'RLC'), ('POE', 'MKR'), ('CVC', 'BLT'), ('TAU', 'KNC'), ('TKN', 'VERI'), ('TAU', 'BNT'), ('REN', 'DENT'), ('KIN', 'TUSD'), ('AST', 'MKR'), ('PAX', 'NPXS'), ('SAI', 'USDC'), ('POWR', 'DENT'), ('MKR', 'ETHOS'), ('NPXS', 'STORJ'), ('NPXS', 'ANT'), ('KNC', 'SPANK'), ('RDN', 'ETHOS'), ('WBTC', 'BLT'), ('TAU', 'MTL'), ('ZRX', 'BLT'), ('TAU', 'TKN'), ('PAX', 'DENT'), ('RCN', 'DENT'), ('LINK', 'BLT'), ('CND', 'DENT'), ('ENG', 'POLY'), ('NEXO', 'DENT'), ('NPXS', 'TAU'), ('LEND', 'POLY'), ('OMG', 'ETHOS'), ('GNO', 'BLT'), ('ABYSS', 'SPANK'), ('USDT', 'DENT'), ('TUSD', 'POLY'), ('POE', 'TUSD'), ('NPXS', 'FUN'), ('CND', 'REP'), ('CDT', 'POLY'), ('PAX', 'ETHOS'), ('FUN', 'MCO'), ('REP', 'ETHOS'), ('BAT', 'NPXS'), ('REP', 'POLY'), ('XDCE', 'SPANK'), ('RLC', 'LINK'), ('KNC', 'POLY'), ('MKR', 'BLT'), ('TUSD', 'RPL'), ('BNT', 'POLY'), ('CDT', 'GNO'), ('STORJ', 'POLY'), ('POE', 'ETHOS'), ('RLC', 'POLY'), ('SPANK', 'ETHOS'), ('KNC', 'DENT'), ('XDCE', 'WBTC'), ('MANA', 'AST'), ('MANA', 'BLT'), ('REP', 'DENT'), ('NPXS', 'LEND'), ('AST', 'REP'), ('RPL', 'ETHOS'), ('CDT', 'DENT'), ('BAT', 'DENT'), ('TUSD', 'DENT'), ('TAU', 'USDT'), ('USDT', 'POLY'), ('KIN', 'KNC'), ('NPXS', 'PAY'), ('AST', 'CZRX'), ('XDCE', 'ETHOS'), ('CDT', 'ETHOS'), ('USDC', 'NPXS'), ('KIN', 'WBTC'), ('ENG', 'DENT'), ('ZRX', 'CDT'), ('NPXS', 'POLY'), ('RDN', 'VERI'), ('TAU', 'PAY'), ('CVC', 'REP'), ('USDC', 'PAY'), ('TAU', 'TUSD'), ('AST', 'DENT'), ('POWR', 'CZRX'), ('ABYSS', 'PAX'), ('POWR', 'POLY'), ('MANA', 'ETHOS'), ('SPANK', 'POLY'), ('MCO', 'POLY'), ('KIN', 'USDC'), ('RLC', 'ETHOS'), ('TAU', 'OMG'), ('DAI', 'KIN'), ('REN', 'POLY'), ('ANT', 'ETHOS'), ('BNT', 'ETHOS'), ('RDN', 'POLY'), ('TAU', 'PAX'), ('AST', 'ETHOS'), ('ABYSS', 'DAI'), ('NPXS', 'SPANK'), ('ABYSS', 'TAU'), ('USDT', 'ETHOS'), ('SNT', 'POWR'), ('SNT', 'MKR'), ('LEND', 'REP'), ('OMG', 'POLY'), ('KIN', 'LINK'), ('POE', 'ANT'), ('NPXS', 'MANA'), ('RPL', 'VERI'), ('TAU', 'DAI'), ('NPXS', 'XDCE'), ('TUSD', 'BLT'), ('CVC', 'MKR'), ('FUN', 'ETHOS'), ('MKR', 'POLY'), ('TUSD', 'NPXS'), ('FUN', 'POLY'), ('TAU', 'XDCE'), ('POE', 'ENG'), ('REN', 'BLT'), ('MANA', 'DENT'), ('STORJ', 'REP'), ('ANT', 'POLY'), ('REN', 'ETHOS'), ('NPXS', 'REN'), ('NPXS', 'CND'), ('MCO', 'ETHOS'), ('POE', 'OMG'), ('ZRX', 'POLY'), ('MTL', 'DENT'), ('USDC', 'POLY'), ('ABYSS', 'ETH'), ('ENG', 'ETHOS'), ('WBTC', 'XDCE'), ('POWR', 'MKR'), ('NEXO', 'NPXS'), ('LINK', 'POLY'), ('TAU', 'RCN'), ('CND', 'REQ'), ('NPXS', 'ETHOS'), ('SPANK', 'WBTC'), ('CND', 'ETHOS'), ('MANA', 'MKR'), ('ENG', 'CND'), ('NEXO', 'ETHOS'), ('NPXS', 'AST'), ('NPXS', 'PLR'), ('ZRX', 'DENT'), ('TAU', 'ZRX'), ('MTL', 'POLY'), ('AST', 'MCO'), ('PAX', 'BLT'), ('MANA', 'POLY'), ('POE', 'REP'), ('ENJ', 'POLY'), ('NPXS', 'DAI'), ('FUN', 'REP'), ('MKR', 'DENT'), ('TAU', 'REN'), ('SNT', 'POLY'), ('KIN', 'TKN'), ('USDC', 'ETHOS'), ('STORJ', 'ETHOS'), ('WBTC', 'ABYSS'), ('ZRX', 'ETHOS'), ('CVC', 'DENT'), ('POE', 'PAX'), ('GNO', 'ETHOS'), ('DENT', 'ETHOS'), ('TAU', 'SPANK'), ('POE', 'STORJ'), ('CVC', 'ETHOS'), ('REQ', 'ETHOS'), ('POE', 'GNO'), ('POWR', 'BLT'), ('REQ', 'BLT'), ('NPXS', 'RDN'), ('NPXS', 'POE'), ('ABYSS', 'USDT'), ('POWR', 'ETHOS'), ('RDN', 'DENT'), ('AST', 'GNO'), ('POE', 'POLY'), ('LINK', 'BAT'), ('WBTC', 'KIN'), ('MCO', 'DENT'), ('PLR', 'ETHOS'), ('SAI', 'BLT'), ('TAU', 'LINK'), ('PAY', 'POE'), ('LEND', 'MKR'), ('AST', 'POLY'), ('MANA', 'ABYSS'), ('KIN', 'REN'), ('POLY', 'DAI'), ('SPANK', 'MKR'), ('LEND', 'ETHOS'), ('CZRX', 'PAX'), ('CZRX', 'DAI'), ('RDN', 'MKR'), ('GNO', 'DENT'), ('SPANK', 'MCO'), ('SPANK', 'VERI'), ('REP', 'BLT'), ('KIN', 'PAX'), ('REQ', 'POLY'), ('TAU', 'MCO'), ('KNC', 'BLT'), ('TAU', 'VERI'), ('CVC', 'POLY'), ('TAU', 'USDC'), ('KNC', 'ETHOS'), ('MTL', 'ETHOS'), ('NPXS', 'RPL'), ('CDT', 'MKR'), ('SNT', 'DENT'), ('REQ', 'MKR'), ('DAI', 'ETH'), ('STORJ', 'DENT'), ('ENJ', 'DENT'), ('SAI', 'POLY'), ('SNT', 'NPXS'), ('ANT', 'BLT'), ('RLC', 'DENT'), ('POE', 'USDC'), ('CDT', 'MCO'), ('TAU', 'NEXO'), ('POE', 'USDT'), ('TAU', 'WBTC'), ('NPXS', 'REQ'), ('NPXS', 'CDT'), ('BNT', 'DENT'), ('POE', 'LINK'), ('NPXS', 'GNO'), ('SNT', 'ETHOS'), ('AST', 'WBTC'), ('PAY', 'ETHOS'), ('TAU', 'ABYSS'), ('TKN', 'BLT'), ('SNT', 'BLT'), ('TAU', 'ENG'), ('TKN', 'ETHOS'), ('PAY', 'AST'), ('BAT', 'ETHOS'), ('KIN', 'DAI'), ('LINK', 'DENT'), ('TAU', 'ENJ'), ('LEND', 'DENT'), ('REP', 'RPL'), ('BAT', 'BLT'), ('RCN', 'BLT'), ('NPXS', 'MTL'), ('RCN', 'ETHOS'), ('TAU', 'NPXS'), ('NEXO', 'POLY'), ('USDT', 'ENJ'), ('RCN', 'POLY'), ('CDT', 'REP'), ('CND', 'POLY'), ('POE', 'KNC'), ('PAX', 'POLY'), ('USDC', 'DENT'), ('TUSD', 'ETHOS'), ('POLY', 'ETHOS'), ('RLC', 'BLT'), ('NPXS', 'TKN'), ('BNT', 'BLT'), ('ANT', 'DENT'), ('ENJ', 'BLT'), ('FUN', 'DENT'), ('ENJ', 'ETHOS'), ('CND', 'MCO'), ('NPXS', 'CVC'), ('SAI', 'RLC'), ('TAU', 'REP'), ('NPXS', 'BNT'), ('USDT', 'NPXS'), ('USDC', 'BLT'), ('WBTC', 'ETHOS'), ('NPXS', 'POWR'), ('DENT', 'POLY'), ('WBTC', 'REN'), ('RDN', 'BLT'), ('TAU', 'PLR'), ('OMG', 'DENT'), ('BAT', 'POLY'), ('LINK', 'ETHOS'), ('POE', 'MCO')}
-
-def main():
-    do_summary()
-    exit(0)
-
-    working_dir = os.path.dirname(__file__)
-    if working_dir: os.chdir(working_dir)
-
-    usd_prices = get_token_prices()
+def create_supported_pairs_csv():
+    usd_prices = get_token_prices(token_utils.tokens())
     # usd_prices = get_token_prices(tokens=set(sum(map(list, BAD_PAIRS), [])))
-
     filename = get_filename_base(prefix='totle_vs_agg_supported_tokens')
     with SavingsCSV(filename, fieldnames=CSV_FIELDS) as csv_writer:
         todo = []
         combos = list(combinations(usd_prices, 2))
         random.shuffle(combos)
         for base, quote in combos:
-        # for base, quote in BAD_PAIRS:
+            # for base, quote in BAD_PAIRS:
             todo.append((check_pair, base, quote, usd_prices[quote], csv_writer))
 
         print(f"{todo[0:5]}")
@@ -214,6 +206,60 @@ def main():
             for f in concurrent.futures.as_completed(futures_p):
                 _, base, quote, *_ = futures_p[f]
                 print(f"Completed: {base}/{quote}: result={f.result()}")
+
+def create_eth_pairs_csv(tokens):
+    filename = get_filename_base(prefix='totle_vs_agg_supported_eth_pairs')
+    with SavingsCSV(filename, fieldnames=CSV_FIELDS) as csv_writer:
+        todo = []
+        for base in tokens:
+            todo.append((check_pair, base, 'ETH', ETH_PRICE, csv_writer))
+
+        print(f"{todo[0:5]}")
+
+        MAX_THREADS = 8
+        print(f"Queueing up {len(todo)} pairs for execution on {MAX_THREADS} workers")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
+            futures_p = {executor.submit(*p): p for p in todo}
+
+            for f in concurrent.futures.as_completed(futures_p):
+                _, base, quote, *_ = futures_p[f]
+                print(f"Completed: {base}/{quote}: result={f.result()}")
+
+def parse_eth_pairs_csv(filename):
+    agg_names = [ agg_client.name() for agg_client in AGG_CLIENTS ]
+
+    with open(filename, newline='') as csvfile:
+        supp_tokens = []
+        reader = csv.DictReader(csvfile, fieldnames=None)
+        for row in reader:
+            base = row['base']
+            if not row['Totle']: continue
+            supporting_aggs = 0
+            for agg_name in agg_names:
+                if row[agg_name]: supporting_aggs += 1
+
+            if supporting_aggs > 3: # Totle and at least 2 other aggs
+                supp_tokens.append(base)
+
+    print(f"{len(supp_tokens)} tokens supported by Totle and other aggs")
+    print(supp_tokens)
+    print(', '.join(supp_tokens))
+
+########################################################################################################################
+
+def main():
+    working_dir = os.path.dirname(__file__)
+    if working_dir: os.chdir(working_dir)
+
+    parse_eth_pairs_csv('outputs/totle_vs_agg_supported_eth_pairs_2020-02-13_12:18:17.csv')
+    exit(0)
+
+    create_eth_pairs_csv(top_tokens.top_tokens_by_volume(100, 90))
+
+    # do_summary()
+    # exit(0)
+
+    # create_supported_pairs_csv()
 
 
 
