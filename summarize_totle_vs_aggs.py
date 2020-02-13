@@ -266,10 +266,10 @@ def print_large_neg_savings(large_neg_savings, min_samples=10):
 
 def print_sample(tok_ts_agg, prices_splits, print_num_times=False):
     to_token, trade_size, agg = tok_ts_agg
-    n_samples, totle_price, totle_splits, agg_price, agg_splits = prices_splits
+    id_or_n_samples, totle_price, totle_splits, agg_price, agg_splits = prices_splits
 
     price_diff = 100.0 * totle_price / agg_price - 100
-    add_data = f"({n_samples} times)" if print_num_times else ''
+    add_data = f"({id_or_n_samples} times)" if print_num_times else f"id={id_or_n_samples}"
     print(f"{to_token} for {trade_size} ETH vs {agg} (Totle's price is {price_diff:.2f}% higher) {add_data}")
     totle, agg = 'Totle:', f"{agg}:"
     print(f"\t{totle:<10}  {totle_price:.6f}    {totle_splits}")
@@ -412,6 +412,7 @@ def do_summary_eth_pairs(csv_files):
         with open(filename, newline='') as csvfile:
             reader = csv.DictReader(csvfile, fieldnames=None)
             for row in reader:
+                id = row['id']
                 from_token, to_token = row['quote'], row['token']
                 pair = (from_token, to_token)
                 trade_size, pct_savings = float(row['trade_size']), float(row['pct_savings'])
@@ -433,11 +434,11 @@ def do_summary_eth_pairs(csv_files):
                 # if is_multi_split(totle_splits) and totle_price / agg_price > 3:
                 if totle_price / agg_price > 1.1: # 10% worse
                     key = (to_token, trade_size, agg)
-                    select_samples[key].append((0, totle_price, totle_splits, agg_price, agg_splits))
+                    select_samples[key].append((id, totle_price, totle_splits, agg_price, agg_splits))
 
                 if pct_savings < -10:
                     key = (to_token, trade_size, agg)
-                    print(f"Totle price is {totle_price} agg_price is {agg_price} -> {totle_price / agg_price}% GREATER")
+                    print(f"{id}\t{to_token} for {trade_size} ETH Totle price is {totle_price} agg_price is {agg} price -> {(100 * totle_price - agg_price) / agg_price}% GREATER")
 
                     if key in large_neg_savings:
                         n_samples, old_totle_price, old_totle_splits, old_agg_price, old_agg_splits = large_neg_savings[key]
