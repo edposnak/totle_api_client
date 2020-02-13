@@ -124,6 +124,8 @@ def get_exchange_fees(trades):
 
 
 def get_totle_fees(summary):
+    if 'totleFee' not in summary: return None, None, None, None # Totle has removed fees from the summary
+
     tf = summary['totleFee']
     totle_fee_token = tf['asset']['symbol']
     totle_fee_div = 10**int(tf['asset']['decimals'])
@@ -150,13 +152,15 @@ def sum_amounts(trade, src_dest, summary_token):
 
 def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
     """adjust source and destination amounts so price reflects paying totle fee"""
+
+    if 'totleFee' not in summary: return source_amount, destination_amount
+
     # Assumes source_amount and destination amount are sums of order amounts
     buying_tokens_with_eth = summary['sourceAsset']['symbol'] == 'ETH'
     summary_source_token = summary['sourceAsset']['symbol']
     summary_destination_token = summary['destinationAsset']['symbol']
 
     totle_fee_token = summary['totleFee']['asset']['symbol']
-    totle_fee_amount = int(summary['totleFee']['amount'])
     totle_fee_pct = float(summary['totleFee']['percentage'])
 
     if is_totle:

@@ -158,7 +158,7 @@ def test_summary_bug_4(token_to_buy='AST', token_to_sell='ETH', json_response_fi
         print(json.dumps(sd, indent=3))
 
 def test_swap_data(json_response_file):
-    j = json.load(open(json_response_file))
+    j = json.load(open(json_response_file))['response']
 
     sd = totle_client.swap_data(j, True)
     print(json.dumps(sd, indent=3))
@@ -169,7 +169,8 @@ def test_get_snapshot(id):
 
 #######################################################################################################################
 
-test_get_snapshot('0x998f9d03d108475998aba20c525009fd263a3ece5f724cbaa013b4a2283300a0')
+# test_get_snapshot('0x998f9d03d108475998aba20c525009fd263a3ece5f724cbaa013b4a2283300a0')
+test_swap_data('test_data/suggester-response-with-path.json')
 exit(0)
 
 test_dex_name_map()
