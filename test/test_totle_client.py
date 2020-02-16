@@ -170,7 +170,7 @@ def test_get_snapshot(id):
 #######################################################################################################################
 
 # test_get_snapshot('0x998f9d03d108475998aba20c525009fd263a3ece5f724cbaa013b4a2283300a0')
-test_swap_data('test_data/suggester-response-with-path.json')
+test_swap_data('test_data/suggester-response-with-path-multiple-segments.json')
 exit(0)
 
 test_dex_name_map()
