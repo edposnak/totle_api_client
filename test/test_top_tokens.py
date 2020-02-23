@@ -117,14 +117,13 @@ def top_tokens_not_tradable_on_totle(top_n=100, day_volume=90):
 
 def print_top_tokens_by_vol_and_mkt_cap():
     tradable_tokens = token_utils.tradable_tokens()
-    top_by_volume = top_tokens.top_tokens_by_volume(100, 90)
+    top_by_volume = top_tokens.top_tokens_by_volume(100, day_volume=90)
     top_by_mkt_cap = top_tokens.top_tokens_by_market_cap(100)
     top_both = set(top_by_volume) & set(top_by_mkt_cap)
     print(f"TOKEN\tVOL RANK\tMKT CAP RANK\tTRADABLE")
     for token in top_both:
         if token not in tradable_tokens:
-            print(
-                f"{token:<6} number {top_by_volume.index(token) + 1} by 90-day volume, number {top_by_mkt_cap.index(token) + 1} by market cap")
+            print(f"{token:<6} number {top_by_volume.index(token) + 1} by 90-day volume, number {top_by_mkt_cap.index(token) + 1} by market cap")
 
 
 ########################################################################################################################
@@ -135,7 +134,15 @@ def print_top_tokens_by_vol_and_mkt_cap():
 # tradable_tokens_by_market_cap()
 
 TOP_VOLUME_AGG_TRADABLE_TOKENS = ['SAI', 'MKR', 'WBTC', 'USDC', 'USDT', 'KNC', 'BNT', 'LINK', 'DAI', 'TUSD', 'BAT', 'RLC', 'REP', 'REN', 'ENJ', 'ZRX', 'ANT', 'TKN', 'LEND', 'MANA', 'OMG', 'LRC', 'PAX', 'SPANK', 'RCN', 'SNT', 'RDN']
-print_volume_and_market_cap_rank(TOP_VOLUME_AGG_TRADABLE_TOKENS, max_mkt_cap_rank=2000, vol_only=None)
+TOP_VOLUME_AT_LEAST_TWO_AGGS_TRADABLE_TOKENS = ['SAI', 'MKR', 'WBTC', 'USDC', 'USDT', 'KNC', 'BNT', 'LINK', 'DAI', 'TUSD', 'BAT', 'RLC', 'ENG', 'REP', 'REN', 'ENJ', 'ZRX', 'XDCE', 'ANT', 'TKN', 'LEND', 'MANA', 'OMG', 'LRC', 'NMR', 'PAX', 'RPL', 'SPANK', 'RCN', 'SNT', 'RDN', 'NEXO']
+NOT_TWO_AGGS_TOKENS = ['AST', 'CDT', 'CND', 'CVC', 'ETHOS', 'GNO', 'MCO', 'PAY', 'POE', 'POLY', 'POWR', 'REQ', 'SNX', 'STORJ']
+
+print_volume_and_market_cap_rank(TOP_VOLUME_AGG_TRADABLE_TOKENS, max_mkt_cap_rank=9000, vol_only=None)
+
+print("\n\n-----------------------------------------------------------\n\n")
+
+print_volume_and_market_cap_rank(NOT_TWO_AGGS_TOKENS, max_mkt_cap_rank=9000, vol_only=None)
+
 
 # print_top_tokens_by_vol_and_mkt_cap()
 
