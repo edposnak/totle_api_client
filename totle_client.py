@@ -1,6 +1,10 @@
+import sys
 import time
 import functools
 import json
+import traceback
+from collections import defaultdict
+
 import requests
 import token_utils
 
@@ -17,7 +21,7 @@ API_BASE = 'https://api.totle.com'
 EXCHANGES_ENDPOINT = API_BASE + '/exchanges'
 TOKENS_ENDPOINT = API_BASE + '/tokens'
 SWAP_ENDPOINT = API_BASE + '/swap'
-SWAP_ENDPOINT = 'https://services.totlenext.com/suggester/curves' # TODO remove test endpoint
+SWAP_ENDPOINT = 'https://services.totlenext.com/suggester/curves/stage/new' # TODO remove test endpoint
 
 DATA_ENDPOINT = API_BASE + '/data'
 PAIRS_ENDPOINT = DATA_ENDPOINT + '/pairs'
@@ -234,14 +238,18 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
     return source_amount, destination_amount
         
 def get_split(trade):
-    dex_src_amounts, sum_source_amount = {}, 0
+    dex_src_amounts, sum_source_amount = defaultdict(int), 0
+    reported_splits = defaultdict(int)
     for o in trade['orders']:
         order_source_amount = int(o['sourceAmount'])
         dex = o['exchange']['name']
-        dex_src_amounts[dex] = order_source_amount
+        dex_src_amounts[dex] += order_source_amount
         sum_source_amount += order_source_amount
+        reported_splits[dex] += int(o['splitPercentage']) # TODO: is splitPercentage always an integer?
 
-    return { dex: round(100 * src_amount / sum_source_amount) for dex, src_amount in dex_src_amounts.items() }
+    computed_splits = {dex: round(100 * src_amount / sum_source_amount) for dex, src_amount in dex_src_amounts.items()}
+    print(f"computed_splits={computed_splits}\nreported_splits={reported_splits}")
+    return computed_splits
 
 
 def swap_data(response, is_totle, request={}):
@@ -431,6 +439,7 @@ def handle_swap_exception(e, dex, from_token, to_token, params, verbose=True):
 
     else: # print req/resp for uncommon failures
         print(f"{dex}: swap raised {type(e).__name__}: {e.args[0]}")
+        traceback.print_exc(file=sys.stdout)
         if has_args1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
         if has_args2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
 
@@ -477,7 +486,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
     if sd:
         # keep consistent with exchanges_parts from other aggregators
         # TODO, this is not an order split, it is a multi-hop route
-        exchanges_parts = {dex: -1} if dex else {tu: -1 for tu in sd['totleUsed']}
+        exchanges_parts = sd['totleSplits']
         return {
             'source_token': sd['sourceToken'],
             'source_amount': sd['sourceAmount'],

@@ -170,32 +170,31 @@ def test_get_snapshot(id):
 #######################################################################################################################
 
 # test_get_snapshot('0x998f9d03d108475998aba20c525009fd263a3ece5f724cbaa013b4a2283300a0')
-test_swap_data('test_data/suggester-response-with-path-multiple-segments.json')
-exit(0)
+# test_swap_data('test_data/suggester-response-with-path-multiple-segments.json')
 
-test_dex_name_map()
+# test_dex_name_map()
 
-tradable_tokens = token_utils.tradable_tokens()
+# try:
+#     for token in token_utils.tradable_tokens():
+#         test_summary_bug_1(token)
+#
+#     test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH')
+#     test_summary_bug_2(token_to_buy='CDAI', token_to_sell='BAT', endpoint='https://services.totlenext.com/suggester/fix-amounts')
+#     test_summary_bug_2(token_to_buy='CDAI', token_to_sell='ETH', endpoint='https://services.totlenext.com/suggester/fix-amounts')
+#     test_summary_bug_2(token_to_buy='DAI', token_to_sell='BAT', endpoint='https://services.totlenext.com/suggester/fix-amounts')
+#     test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug2_plus_fee.json')
+#     test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug_2_fee_in_source_asset.json')
+#
+#     test_summary_bug_3(token_to_buy='MKR', dex='Oasis')
+#
+#     test_summary_bug_4(token_to_buy='AST', json_response_file='test_data/summary_bug_4.json')
+# except FoundBugException as e:
+#     print(e)
 
-try:
-    # for token in token_utils.tradable_tokens():
-    #     test_summary_bug_1(token)
 
-    # test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH')
-    # test_summary_bug_2(token_to_buy='CDAI', token_to_sell='BAT', endpoint='https://services.totlenext.com/suggester/fix-amounts')
-    # test_summary_bug_2(token_to_buy='CDAI', token_to_sell='ETH', endpoint='https://services.totlenext.com/suggester/fix-amounts')
-    # test_summary_bug_2(token_to_buy='DAI', token_to_sell='BAT', endpoint='https://services.totlenext.com/suggester/fix-amounts')
-    # test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug2_plus_fee.json')
-    # test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug_2_fee_in_source_asset.json')
-
-    # test_summary_bug_3(token_to_buy='MKR', dex='Oasis')
-
-    test_summary_bug_4(token_to_buy='AST', json_response_file='test_data/summary_bug_4.json')
-except FoundBugException as e:
-    print(e)
-
-# # tradable_tokens = ['BAT', 'CVC', 'ZIL']
-# test_get_quote(tradable_tokens)
+# tradable_tokens = token_utils.tradable_tokens()
+tradable_tokens = ['SAI', 'MKR', 'WBTC', 'KNC', 'LINK']
+test_get_quote(tradable_tokens, debug=True)
 # test_what_tokens_supported(tradable_tokens, dex='0xMesh')
 
 # test_what_tokens_supported(tradable_tokens, dex='Stablecoinswap')
