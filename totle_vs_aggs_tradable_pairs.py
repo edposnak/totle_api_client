@@ -238,7 +238,8 @@ def parse_eth_pairs_csv(filename):
             for agg_name in agg_names:
                 if row[agg_name]: supporting_aggs += 1
 
-            if supporting_aggs > 3: # Totle and at least 2 other aggs
+            if base == 'ENG': print(f"ENG has {supporting_aggs} supporting_aggs")
+            if supporting_aggs >= 3: # Totle and at least 2 other aggs
                 supp_tokens.append(base)
 
     print(f"{len(supp_tokens)} tokens supported by Totle and other aggs")
