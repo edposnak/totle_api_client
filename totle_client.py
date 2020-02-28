@@ -239,13 +239,13 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
         
 def get_split(trade):
     dex_src_amounts, sum_source_amount = defaultdict(int), 0
-    reported_splits = defaultdict(int)
+    reported_splits = defaultdict(float)
     for o in trade['orders']:
         order_source_amount = int(o['sourceAmount'])
         dex = o['exchange']['name']
         dex_src_amounts[dex] += order_source_amount
         sum_source_amount += order_source_amount
-        reported_splits[dex] += int(o['splitPercentage']) # TODO: is splitPercentage always an integer?
+        reported_splits[dex] += float(o['splitPercentage']) # TODO: is splitPercentage always an integer?
 
     computed_splits = {dex: round(100 * src_amount / sum_source_amount) for dex, src_amount in dex_src_amounts.items()}
     print(f"computed_splits={computed_splits}\nreported_splits={reported_splits}")
