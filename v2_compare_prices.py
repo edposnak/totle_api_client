@@ -220,7 +220,7 @@ def is_multi_split(totle_splits):
 def print_savings(order_type, savings, trade_sizes, title="Savings"):
     """Prints a savings dict, token => trade_size => savings values"""
     ph = lambda x: f"{x:>8}"
-    pf = lambda x: f"{x:>8.2g}"
+    pf = lambda x: f"{x:>8.2f}"
     print(f"\n{title}\n{order_type.upper():<8}", ''.join(map(ph, trade_sizes)))
     for base, ts_savings in savings.items():
         vals = [ ts_savings.get(ts) for ts in trade_sizes ]
