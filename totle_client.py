@@ -48,8 +48,9 @@ class TotleAPIException(Exception):
 def name():
     return 'Totle' # 'Totle' is used for comparison with other exchanges
 
-DEX_NAME_MAP = { '0x V3': '0x V3', '0xMesh': '0xMesh', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Ether Delta': 'EtherDelta',
-                 'Fulcrum': 'Fulcrum', 'Kyber': 'Kyber', 'Oasis': 'Oasis', 'PMM': 'PMM', 'StableCoinSwap': 'Stablecoinswap', 'Uniswap': 'Uniswap' }
+
+DEX_NAME_MAP = {'0x V2': '0x V2', '0x V3': '0x V3', '0xMesh': '0xMesh', 'Aave': 'Aave', 'Bancor': 'Bancor', 'Chai': 'Chai', 'Compound': 'Compound', 'CurveFi Pool #1': 'CurveFi Pool #1', 'CurveFi Pool #2': 'CurveFi Pool #2',
+                'CurveFi Pool #3': 'CurveFi Pool #3', 'Ether Delta': 'EtherDelta', 'Fulcrum': 'Fulcrum', 'Kyber': 'Kyber', 'Oasis': 'Oasis', 'PMM': 'PMM', 'StableCoinSwap': 'Stablecoinswap', 'Uniswap': 'Uniswap'}
 
 @functools.lru_cache(1)
 def exchanges():
@@ -247,8 +248,8 @@ def get_split(trade):
         sum_source_amount += order_source_amount
         reported_splits[dex] += float(o['splitPercentage']) # TODO: is splitPercentage always an integer?
 
-    computed_splits = {dex: round(100 * src_amount / sum_source_amount) for dex, src_amount in dex_src_amounts.items()}
-    print(f"computed_splits={computed_splits}\nreported_splits={reported_splits}")
+    computed_splits = {dex: round(100 * src_amount / sum_source_amount, 1) for dex, src_amount in dex_src_amounts.items()}
+    print(f"computed_splits={computed_splits}\nreported_splits={dict(reported_splits)}")
     return computed_splits
 
 
@@ -433,10 +434,9 @@ def handle_swap_exception(e, dex, from_token, to_token, params, verbose=True):
     normal_messages = ['Endpoint request timed out'] # this response does not come with error code or name, just a message
     # Check for normal exceptions, maybe print them
     if has_args2 and type(e.args[2]) == dict and e.args[2].get('name') in normal_exceptions:
-        if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} due to {e.args[2]['name']}")
+        if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} due to {e.args[2]['name']}\nmaxMarketSlippagePercent={e.args[1]['swap']['maxMarketSlippagePercent']}")
     elif has_args2 and type(e.args[2]) == dict and e.args[2].get('message') in normal_messages:
         if verbose: print(f"{dex}: Suggester timed out for {from_token}->{to_token}")
-
     else: # print req/resp for uncommon failures
         print(f"{dex}: swap raised {type(e).__name__}: {e.args[0]}")
         traceback.print_exc(file=sys.stdout)
