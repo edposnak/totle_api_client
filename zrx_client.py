@@ -62,7 +62,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
 
 
         if not j.get('price'):
-            print(json.dumps(j, indent=3))
+            if verbose: print(f"FAILURE RESPONSE from {SWAP_ENDPOINT}:\n{json.dumps(j, indent=3)}\n\n")
             return {}
 
         zrx_price = float(j['price'])
