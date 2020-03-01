@@ -169,10 +169,12 @@ def test_get_snapshot(id):
 
 #######################################################################################################################
 
+# test_dex_name_map()
+
 # test_get_snapshot('0x998f9d03d108475998aba20c525009fd263a3ece5f724cbaa013b4a2283300a0')
 # test_swap_data('test_data/suggester-response-with-path-multiple-segments.json')
+# test_swap_data('test_data/order_destination_asset_summary_asset.json')
 
-# test_dex_name_map()
 
 # try:
 #     for token in token_utils.tradable_tokens():
@@ -193,11 +195,12 @@ def test_get_snapshot(id):
 
 
 # tradable_tokens = token_utils.tradable_tokens()
-tradable_tokens = ['SAI', 'MKR', 'WBTC', 'KNC', 'LINK']
-test_get_quote(tradable_tokens, debug=True)
+# tradable_tokens = ['SAI', 'MKR', 'WBTC', 'KNC', 'LINK']
+# test_get_quote(tradable_tokens, debug=True)
 # test_what_tokens_supported(tradable_tokens, dex='0xMesh')
-
 # test_what_tokens_supported(tradable_tokens, dex='Stablecoinswap')
 # test_what_tokens_supported(tradable_tokens, dex='Fulcrum')
 
-# test_get_quote(['CETH'], dex='Fulcrum')
+TOP_VOLUME_AT_LEAST_TWO_AGGS_TRADABLE_TOKENS = ['SAI', 'MKR', 'WBTC', 'USDC', 'USDT', 'KNC', 'BNT', 'LINK', 'DAI', 'TUSD', 'BAT', 'RLC', 'ENG', 'REP', 'REN', 'ENJ', 'ZRX', 'XDCE', 'ANT', 'TKN', 'LEND', 'MANA', 'OMG', 'LRC', 'NMR', 'PAX', 'RPL', 'SPANK', 'RCN', 'SNT', 'RDN', 'NEXO']
+LOW_LIQUIDITY_TOKENS = ['BAT', 'RLC', 'ENG', 'ZRX', 'MANA', 'OMG']
+test_get_quote(LOW_LIQUIDITY_TOKENS, trade_size=50.0, verbose=True)
