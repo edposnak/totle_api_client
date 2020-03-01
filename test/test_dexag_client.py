@@ -49,7 +49,7 @@ def test_which_tokens_supported(tradable_tokens, trade_size=0.1, dex=None, from_
     print(f"{len(supported_tokens)}/{len(tradable_tokens)} tokens supported by Radar Relay: {supported_tokens}")
 
 def test_supported_tokens():
-    supported_tokens = dexag_client.supp_toks()
+    supported_tokens = dexag_client.supported_tokens()
     print(f"supported_tokens={supported_tokens}")
 
 
