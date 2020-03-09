@@ -430,13 +430,14 @@ def swap_inputs(from_token, to_token, exchange=None, params={}):
 
 def handle_swap_exception(e, dex, from_token, to_token, params, verbose=True):
     has_args1, has_args2 = len(e.args) > 1 and bool(e.args[1]), len(e.args) > 2 and bool(e.args[2])
-    normal_exceptions = ["NotEnoughVolumeError", "MarketSlippageTooHighError"]
-    normal_messages = ['Endpoint request timed out'] # this response does not come with error code or name, just a message
+    # normal_messages = ["Endpoint request timed out", "The market slippage is higher than acceptable percentage.", "We couldn't find enough orders to fill your request for"] # this response does not come with error code or name, just a message
+    normal_errors = {
+        2100: "We couldn't find enough orders to fill your request for ",
+        2101: "The market slippage is higher than acceptable percentage."
+    }
     # Check for normal exceptions, maybe print them
-    if has_args2 and type(e.args[2]) == dict and e.args[2].get('name') in normal_exceptions:
-        if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} due to {e.args[2]['name']}\nmaxMarketSlippagePercent={e.args[1]['swap']['maxMarketSlippagePercent']}")
-    elif has_args2 and type(e.args[2]) == dict and e.args[2].get('message') in normal_messages:
-        if verbose: print(f"{dex}: Suggester timed out for {from_token}->{to_token}")
+    if has_args2 and type(e.args[2]) == dict and e.args[2].get('code') in normal_errors:
+        if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} ({params.get('fromAmount')} {from_token}) (id={e.args[2].get('id')}) due to {e.args[2]['name']}")
     else: # print req/resp for uncommon failures
         print(f"{dex}: swap raised {type(e).__name__}: {e.args[0]}")
         traceback.print_exc(file=sys.stdout)
