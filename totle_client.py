@@ -364,7 +364,8 @@ def post_with_retries(endpoint, inputs, num_retries=3, debug=False, timer=False)
 
     
 # Default parameters for swap. These can be overridden by passing params
-DEFAULT_WALLET_ADDRESS = "0xD18CEC4907b50f4eDa4a197a50b619741E921B4D"
+# DEFAULT_WALLET_ADDRESS = "0xD18CEC4907b50f4eDa4a197a50b619741E921B4D"
+DEFAULT_WALLET_ADDRESS = "0x8d12A197cB00D4747a1fe03395095ce2A5CC6819" # Ether Delta address with lots of tokens
 DEFAULT_TRADE_SIZE = 1.0 # the amount of ETH to spend or acquire, used to calculate amount
 DEFAULT_MAX_SLIPPAGE_PERCENT = 50
 DEFAULT_MIN_FILL_PERCENT = 80
