@@ -8,9 +8,10 @@ def test_dex_name_map():
     # print(f"DEX_NAME_MAP = {map}")
     # exit(0)
     for dex_name in dexs:
+        print(f"\n{dex_name},")
         can_name = exchange_utils.canonical_name(dex_name)
         print(f"{can_name}: {dex_name},")
-        # print(f"{can_name} => {oneinch_client.DEX_NAME_MAP[can_name]}")
+        print(f"{can_name} => {oneinch_client.DEX_NAME_MAP[can_name]}")
 
 
 def test_get_quote(to_token, from_token='ETH', from_amount=None, to_amount=None, dex=None, verbose=True, debug=True):
@@ -36,11 +37,9 @@ def test_get_quote(to_token, from_token='ETH', from_amount=None, to_amount=None,
 #######################################################################################################################
 
 test_dex_name_map()
-exit(0)
 
 test_get_quote('OMG', from_amount=1.0)
-test_get_quote('OMG', to_amount=200)
+exit(0)
 
 test_get_quote('ETH', 'OMG', from_amount=200)
-test_get_quote('ETH', 'OMG', to_amount=1.0)
 
