@@ -37,6 +37,7 @@ SYM_TO_NAME = {
     'fulcrum': 'Fulcrum',
     'idex': 'IDEX',
     'kyber': 'Kyber',
+    'liquidityprovider': 'LiquidityProvider',
     'makerdao': 'MakerDAO',
     'multisplit': 'MultiSplit',
     'multiuniswap': 'MultiUniswap',
