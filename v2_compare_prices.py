@@ -163,9 +163,11 @@ def get_from_to_params(order_type, base, quote, trade_size):
     if order_type == 'buy':
         from_token, to_token = (quote, base)
         params = {'fromAmount': trade_size}
-    else:
+    elif order_type == 'sell':
         from_token, to_token = (base, quote)
         params = {'toAmount': trade_size}
+    else:
+        raise ValueError(f"order_type must be 'buy' or 'sell'")
 
     return from_token, to_token, params
 
