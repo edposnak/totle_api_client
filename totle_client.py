@@ -21,7 +21,8 @@ API_BASE = 'https://api.totle.com'
 EXCHANGES_ENDPOINT = API_BASE + '/exchanges'
 TOKENS_ENDPOINT = API_BASE + '/tokens'
 SWAP_ENDPOINT = API_BASE + '/swap'
-SWAP_ENDPOINT = 'https://services.totlenext.com/suggester/curves/stage/new' # TODO remove test endpoint
+# SWAP_ENDPOINT = 'https://services.totlenext.com/suggester/curves/stage/new' # TODO remove test endpoint
+SWAP_ENDPOINT = 'https://services.totlenext.com/suggester/v0-6-1' # TODO remove test endpoint
 
 DATA_ENDPOINT = API_BASE + '/data'
 PAIRS_ENDPOINT = DATA_ENDPOINT + '/pairs'
@@ -476,12 +477,14 @@ def try_swap(label, from_token, to_token, exchange=None, params={}, verbose=True
 
 # get quote
 def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, params={}, verbose=False, debug=False):
-    if from_amount:
+    if from_amount and to_amount:
+        raise ValueError(f"{name()} only accepts either from_amount or to_amount, not both")
+    elif from_amount:
         params['fromAmount'] = from_amount
     elif to_amount:
         params['toAmount'] = to_amount
     else:
-        raise ValueError(f"{name()} only accepts either from_amount or to_amount, not both")
+        raise ValueError(f"{name()}: either from_amount or to_amount must be specified")
 
     sd = try_swap(dex or name(), from_token, to_token, exchange=dex, params=params, verbose=verbose, debug=debug)
 
