@@ -16,7 +16,7 @@ def top_tokens_by_volume(top_n=50, day_volume=DAY_VOLUME):
     return list(top_tokens_by_volume_with_volume(day_volume).keys())[:top_n]
 
 
-def top_tokens_by_volume_with_volume(day_volume=DAY_VOLUME, filename_top_n=100):
+def top_tokens_by_volume_with_volume(day_volume=DAY_VOLUME, filename_top_n=300):
     with open(csv_filename(day_volume, filename_top_n), newline='') as csvfile:
         reader = csv.DictReader(csvfile, fieldnames=None)
         return { row['TOKEN'] : row['VOLUME'] for row in reader if row['TOKEN'] != 'ETH' }
