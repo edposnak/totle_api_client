@@ -39,6 +39,7 @@ def compare_dex_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, o
 
     kw_params = { k:v for k,v in vars().items() if k in ['params', 'verbose', 'debug'] }
     savings = {}
+    # TODO: replace token with from_token, to_token
     if order_type == 'buy':
         trade_size = params['fromAmount']
         from_token, to_token, bidask = ('ETH', token, 'ask')
@@ -77,7 +78,8 @@ def compare_dex_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, o
             for e in other_dexs:
                 # totle_price assumed lower
                 pct_savings = get_pct_savings(totle_price, swap_prices[e])
-                savings[e] = savings_data(order_type, trade_size, token, e, pct_savings, totle_used, totle_price, swap_prices[e])
+                savings[e] = get_savings(e, swap_prices[e], totle_sd, token, trade_size, order_type, quote_token='ETH', print_savings=True)
+
                 print(f"Totle saved {pct_savings:.2f} percent vs {e} {order_type}ing {token} on {totle_used} trade size={trade_size} ETH")
         else:
             print(f"Could not compare {token} prices. Only valid price was {swap_prices}")
@@ -152,12 +154,20 @@ def best_price_with_fees(trade_size, book, buysell, fee_pct):
         # e.g. sell DAI for ETH with 10% fee: price (in DAI) = (1.1 * (1 / .005)) # user has to pay 10% more DAI
         return markup / p
 
-def get_from_to(order_type, base, quote):
+def get_from_to_params(order_type, base, quote, trade_size):
     """returns base, quote ordered as from, to based on order_type"""
     # buy: selling from (from) quote tokens to buy (to) base tokens
     # sell: selling (from) base tokens to buy (to) quote tokens
     from_token, to_token = (quote, base) if order_type == 'buy' else (base, quote)
-    return from_token, to_token
+
+    if order_type == 'buy':
+        from_token, to_token = (quote, base)
+        params = {'fromAmount': trade_size}
+    else:
+        from_token, to_token = (base, quote)
+        params = {'toAmount': trade_size}
+
+    return from_token, to_token, params
 
 
 def get_cex_savings(cex_client, order_type, pairs, trade_sizes, redirect=True):
@@ -184,13 +194,12 @@ def get_cex_savings(cex_client, order_type, pairs, trade_sizes, redirect=True):
 
 def compare_to_totle(base, quote, order_type, trade_size, exchange, ex_price, splits=None):
     """Returns a savings_data dict comparing price (in *spent* token) to totle's price"""
-    from_token, to_token = get_from_to(order_type, base, quote)
-    totle_sd = totle_client.try_swap(totle_client.name(), from_token, to_token, params={'tradeSize': trade_size}, verbose=False)
+    from_token, to_token, params = get_from_to_params(order_type, base, quote, trade_size)
+    totle_sd = totle_client.try_swap(totle_client.name(), from_token, to_token, params=params, verbose=False)
     if totle_sd:
         return get_savings(exchange, ex_price, totle_sd, base, trade_size, order_type, splits)
     else:
-        print(f"Compare {order_type} {base}/{quote} tradeSize={trade_size} got no result from Totle")
-
+        print(f"Compare {order_type} {base}/{quote} trade size={trade_size} got no result from Totle")
 
 def get_savings(exchange, exchange_price, totle_sd, token, trade_size, order_type, splits=None, ex_prices=None, quote_token=None, print_savings=True):
     response_id = totle_sd['responseId']
@@ -207,7 +216,6 @@ def get_savings(exchange, exchange_price, totle_sd, token, trade_size, order_typ
         print(f"Totle saved {pct_savings:.2f} percent vs {exchange} {order_type}ing {token} on {','.join(totle_used)} {trade_info}")
     return savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price,
                         splits=splits, totle_splits=totle_splits, ex_prices=ex_prices, quote_token=quote_token, response_id=response_id)
-
 
 def canonicalize_totle_splits(raw_splits):
     """Canonicalizes any DEX named in Totle splits"""
