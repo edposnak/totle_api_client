@@ -6,7 +6,7 @@ from datetime import datetime
 from collections import defaultdict
 
 import totle_client
-from v2_compare_prices import savings_data, print_savings, get_filename_base, SavingsCSV
+from v2_compare_prices import get_filename_base
 
 #####################################################################
 
