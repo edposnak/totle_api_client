@@ -38,9 +38,16 @@ def compare_dex_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, o
     """Returns a dict of dex: savings_data for Totle and other DEXs"""
 
     kw_params = { k:v for k,v in vars().items() if k in ['params', 'verbose', 'debug'] }
-    trade_size = params['orderType'], params['tradeSize']
     savings = {}
-    from_token, to_token, bidask = ('ETH', token, 'ask') if order_type == 'buy' else (token, 'ETH', 'bid')
+    if order_type == 'buy':
+        trade_size = params['fromAmount']
+        from_token, to_token, bidask = ('ETH', token, 'ask')
+    elif order_type == 'sell':
+        trade_size = params['toAmount']
+        from_token, to_token, bidask = (token, 'ETH', 'bid')
+    else:
+        raise ValueError(f"order_type must be either 'buy' or 'sell'")
+
     totle_ex = totle_client.name()
     
     # Get the best price using Totle's aggregated order books
@@ -50,8 +57,8 @@ def compare_dex_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, o
         totle_used = totle_sd['totleUsed']
         swap_prices = {totle_ex: totle_sd['price']}
 
-        for dex, pair in totle_sd['dexPairs'].items():
-            supported_pairs[dex].append(pair)
+        # we only need to pre-populate of if len(totle_used) <= 1, otherwise dexs_to_compare will include all dexes
+        if len(totle_used) == 1: supported_pairs[totle_used[0]].append([from_token, to_token])
 
         # Compare to best prices from other DEXs
         # don't compare to the one that Totle used, unless Totle used multiple DEXs

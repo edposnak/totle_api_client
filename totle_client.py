@@ -420,13 +420,7 @@ def swap_inputs(from_token, to_token, exchange=None, params={}):
     elif 'toAmount' in params:
         swap_inputs['swap']['destinationAmount'] = token_utils.int_amount(params['toAmount'], to_token)
     else: # implied behavior based on params['trade_size'] and which token is 'ETH'
-        eth_amount = token_utils.int_amount(params.get('tradeSize') or DEFAULT_TRADE_SIZE, 'ETH')
-        if from_token == 'ETH':
-            swap_inputs['swap']['sourceAmount'] = eth_amount
-        elif to_token == 'ETH':
-            swap_inputs['swap']['destinationAmount'] = eth_amount
-        else:
-            raise ValueError('when tradeSize is specified, either from_token or to_token must be ETH')
+        raise ValueError('either fromAmount or toAmount must be provided (tradeSize is no longer supported)')
 
     return {**swap_inputs, **base_inputs}
 
@@ -439,9 +433,12 @@ def handle_swap_exception(e, dex, from_token, to_token, params, verbose=True):
     }
     # Check for normal exceptions, maybe print them
     if has_args2 and type(e.args[2]) == dict and e.args[2].get('code') in normal_errors:
-        if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} ({params.get('fromAmount')} {from_token}) (id={e.args[2].get('id')}) due to {e.args[2]['name']}")
+        if verbose:
+            eth_amount = params.get('fromAmount') or params.get('toAmount')
+            error_info, id = f"{e.args[2]['name']} {e.args[2]['code']}: {e.args[2]['message']}", e.args[2].get('id')
+            print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} ({eth_amount} {from_token}) (id={id}) due to {error_info}")
     else: # print req/resp for uncommon failures
-        print(f"{dex}: swap raised {type(e).__name__}: {e.args[0]}")
+        print(f"{dex}: swap {to_token} for {from_token} raised {type(e).__name__}: {e.args[0]}")
         traceback.print_exc(file=sys.stdout)
         if has_args1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
         if has_args2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
