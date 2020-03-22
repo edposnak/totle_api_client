@@ -51,12 +51,6 @@ def do_eth_pairs(order_type='buy'):
     CSV_FIELDS = "time id action trade_size token quote exchange exchange_price totle_used totle_price totle_splits pct_savings splits ex_prices".split()
     with SavingsCSV(filename, fieldnames=CSV_FIELDS) as csv_writer:
         for trade_size in TRADE_SIZES:
-            if order_type == 'buy':
-                params['fromAmount'] = trade_size
-            elif order_type == 'sell':
-                params['toAmount'] = trade_size
-            else:
-                raise ValueError(f"order_type must be 'buy' or 'sell'")
 
             non_liquid_tokens = []
             all_savings[trade_size] = {}
