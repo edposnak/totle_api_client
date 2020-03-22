@@ -605,7 +605,7 @@ def main():
     # do_summary_erc20(glob.glob(f'outputs/totle_vs_agg_overlap_reversed_pairs_*'))
 
     # do_summary_eth_pairs(glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-01-[01]*'))
-    csv_files = glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-03-20_2*csv') + glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-03-21*csv')
+    csv_files = glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-03-21_2*csv') + glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-03-22*csv')
     do_summary_eth_pairs(csv_files)
 
 if __name__ == "__main__":
