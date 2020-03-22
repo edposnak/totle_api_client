@@ -530,8 +530,7 @@ def do_summary_eth_pairs(csv_files):
     print_savings_summary_table_csv(aggregated_savings(per_pair_savings_with_routing), agg_names, label="Average Savings (samples with smart routing)")
 
     do_better_worse_same_price(per_pair_savings_without_routing, "Samples Where Totle Did Not Employ Smart Routing")
-    print_savings_summary_table_csv(aggregated_savings(per_pair_savings_without_routing), agg_names, label="Average Savings (all samples)")
-    exit(0)
+    print_savings_summary_table_csv(aggregated_savings(per_pair_savings_without_routing), agg_names, label="Average Savings (samples without smart routing)")
 
     # do_neg_savings(per_pair_savings, trade_sizes)
 
@@ -540,10 +539,10 @@ def do_summary_eth_pairs(csv_files):
     # for trade_size in trade_sizes:
     #     print(f"{trade_size}:\t{100 * totle_split_samples[trade_size]/all_samples[trade_size]:.2f}")
     #
-    print(f"large_neg_savings_with_routing_count={large_neg_savings_with_routing_count}")
-    print(f"large_neg_savings_count={large_neg_savings_count}")
-    print_large_neg_savings(large_neg_savings)
-    exit(0)
+    # print(f"large_neg_savings_with_routing_count={large_neg_savings_with_routing_count}")
+    # print(f"large_neg_savings_count={large_neg_savings_count}")
+    # print_large_neg_savings(large_neg_savings)
+    # exit(0)
 
     print(f"\nGot {len(select_samples)} select samples")
     for tok_ts_agg, prices_splits_list in select_samples.items():
@@ -551,11 +550,11 @@ def do_summary_eth_pairs(csv_files):
         for prices_splits in prices_splits_list:
             print_sample(tok_ts_agg, prices_splits)
 
+    print_savings_summary_table_csv(aggregated_savings(per_pair_savings), agg_names, label="Average Savings (all samples)")
+    print_avg_savings_by_token(per_pair_savings, only_trade_size=1.0, only_aggs=agg_names)
+
     exit(0)
 
-
-    print_savings_summary_table_csv(aggregated_savings(per_pair_savings), agg_names, label="Average Savings (all samples)")
-    print_avg_savings_by_token(per_pair_savings, only_trade_size=10.0, only_aggs=agg_names)
 
 
     # do_splits_vs_non_splits(tuple(csv_files), agg_names)
@@ -606,10 +605,7 @@ def main():
     # do_summary_erc20(glob.glob(f'outputs/totle_vs_agg_overlap_reversed_pairs_*'))
 
     # do_summary_eth_pairs(glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-01-[01]*'))
-    # feb_files = glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-02-2[89]*csv')
-    feb_files = glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-02-2[89]*csv')
-    mar_files = glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-03*csv')
-    csv_files = feb_files + mar_files
+    csv_files = glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-03-20_2*csv') + glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-03-21*csv')
     do_summary_eth_pairs(csv_files)
 
 if __name__ == "__main__":
