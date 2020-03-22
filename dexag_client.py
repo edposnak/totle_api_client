@@ -77,6 +77,29 @@ def supported_tokens_critical():
 
     return [t['symbol'] for t in (supp_tokens_json)]
 
+
+def calc_amounts_and_price(from_amount, to_amount, dexag_price):
+    """Returns the source_amount, destination_amount, and price in terms of the from_token - i.e. how many from_tokens to purchase 1 to_token"""
+
+    # BUG? DEX.AG price is not a simple function of base and quote. It changes base on whether you specify toAmount
+    # or fromAmount even though base and quote stay the same! So it has nothing to do with base and quote.
+    # Here are four examples:
+    # https://api.dex.ag/price?from=ETH&to=DAI&toAmount=1.5&dex=ag -> price: 0.0055    <- buy (OK)
+    # https://api.dex.ag/price?from=ETH&to=DAI&fromAmount=1.5&dex=ag -> price: 180     <- buy (inverted)
+    # https://api.dex.ag/price?from=DAI&to=ETH&toAmount=1.5&dex=ag -> price: 180       <- sell (OK)
+    # https://api.dex.ag/price?from=DAI&to=ETH&fromAmount=1.5&dex=ag -> price: 0.0055  <- sell (inverted)
+
+    # We always want to return price in terms of how many from_tokens for 1 to_token, which means we need to
+    # invert DEX.AG's price whenever from_amount is specified.
+    if from_amount:  # When from_amount is specified, dexag_price is the amount of to_tokens per 1 from_token.
+        source_amount, destination_amount = (from_amount, from_amount * dexag_price)
+        price = 1 / dexag_price
+    else:  # When to_amount is specified, price is the amount of from_tokens per 1 to_token.
+        source_amount, destination_amount = (to_amount * dexag_price, to_amount)
+        price = dexag_price
+    return source_amount, destination_amount, price
+
+
 # get quote
 AG_DEX = 'ag'
 def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='all', verbose=False, debug=False):
@@ -91,12 +114,15 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='all',
     # buy: https://api.dex.ag/price?from=ETH&to=DAI&fromAmount=1.5&dex=all
     # sell: https://api.dex.ag/price?from=DAI&to=ETH&toAmount=1.5&dex=all
     query = {'from': from_token, 'to': to_token, 'dex': dex}
-    if from_amount:
+
+    if from_amount and to_amount:
+        raise ValueError(f"{name()} only accepts either from_amount or to_amount, not both")
+    elif from_amount:
         query['fromAmount'] = from_amount
     elif to_amount:
         query['toAmount'] = to_amount
     else:
-        raise ValueError(f"{name()} only accepts either from_amount or to_amount, not both")
+        raise ValueError(f"{name()}: either from_amount or to_amount must be specified")
 
     if debug: print(f"REQUEST to {PRICE_ENDPOINT}:\n{json.dumps(query, indent=3)}\n\n")
     r = None
@@ -117,34 +143,15 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='all',
         if isinstance(j, list):
             for dex_data in j:
                 dex, dexag_price = dex_data['dex'], float(dex_data['price'])
-                check_pair(dex_data, query, dex=dex)
                 exchanges_prices[dex] = 1 / dexag_price if from_amount else dexag_price
                 if dex == AG_DEX: ag_data = dex_data
         else:
             ag_data = j
-            check_pair(ag_data, query, dex=AG_DEX)
 
         if not ag_data: return {}
 
-        # BUG? DEX.AG price is not a simple function of base and quote. It changes base on whether you specify toAmount
-        # or fromAmount even though base and quote stay the same! So it has nothing to do with base and quote.
-        # Here are four examples:
-        # https://api.dex.ag/price?from=ETH&to=DAI&toAmount=1.5&dex=ag -> price: 0.0055    <- buy (OK)
-        # https://api.dex.ag/price?from=ETH&to=DAI&fromAmount=1.5&dex=ag -> price: 180     <- buy (inverted)
-        # https://api.dex.ag/price?from=DAI&to=ETH&toAmount=1.5&dex=ag -> price: 180       <- sell (OK)
-        # https://api.dex.ag/price?from=DAI&to=ETH&fromAmount=1.5&dex=ag -> price: 0.0055  <- sell (inverted)
+        source_amount, destination_amount, price = calc_amounts_and_price(from_amount, to_amount, float(ag_data['price']))
 
-        dexag_price = float(ag_data['price'])
-        if debug: print(f"dexag_price={dexag_price}")
-
-        # We always want to return price in terms of how many from_tokens for 1 to_token, which means we need to
-        # invert DEX.AG's price whenever from_amount is specified.
-        if from_amount: # When from_amount is specified, dexag_price is the amount of to_tokens per 1 from_token.
-            source_amount, destination_amount = (from_amount, from_amount * dexag_price)
-            price = 1 / dexag_price
-        else: # When to_amount is specified, price is the amount of from_tokens per 1 to_token.
-            source_amount, destination_amount = (to_amount * dexag_price, to_amount)
-            price = dexag_price
 
         # "liquidity": {"uniswap": 38, "bancor": 62}, ...
         exchanges_parts = ag_data['liquidity'] if ag_data.get('liquidity') else {}
@@ -164,11 +171,66 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex='all',
         return {}
 
 
-def check_pair(ag_data, query, dex=AG_DEX):
-    """sanity check that asserts base == from and quote == to, but the base and quote actually don't matter in how the price is quoted"""
-    if 'pair' not in ag_data:
-        print(f"NO PAIR!\n\n{json.dumps(ag_data, indent=3)}")
-    pair = ag_data['pair']
-    if (pair['base'], pair['quote']) != (query['from'], query['to']):
-        raise ValueError(f"unexpected base,quote: dex={dex} pair={pair} but query={query}")
+def get_swap(from_token, to_token, from_amount=None, to_amount=None, dex='ag', from_address=None, slippage=50, verbose=False, debug=False):
+    """Returns the price in terms of the from_token - i.e. how many from_tokens to purchase 1 to_token"""
+
+    # don't bother to make the call if either of the tokens are not supported
+    for t in [from_token, to_token]:
+        if t != 'ETH' and t not in supported_tokens():
+            print(f"{t} is not supported by {name()}")
+            return {}
+
+    # buy: https://api.dex.ag/price?from=ETH&to=DAI&fromAmount=1.5&dex=all
+    # sell: https://api.dex.ag/price?from=DAI&to=ETH&toAmount=1.5&dex=all
+    query = {'from': from_token, 'to': to_token, 'dex': dex}
+    if from_amount:
+        query['fromAmount'] = from_amount
+    elif to_amount:
+        query['toAmount'] = to_amount
+    else:
+        raise ValueError(f"{name()} only accepts either from_amount or to_amount, not both")
+
+    # TODO limitAmount - The limit of "from" token to still execute the trade (specifies slippage)
+    # query['limitAmount'] = some_function_of(splippage, from_amount)
+
+    if debug: print(f"REQUEST to {TRADE_ENDPOINT}:\n{json.dumps(query, indent=3)}\n\n")
+    r = None
+    try:
+        r = requests.get(TRADE_ENDPOINT, params=query)
+        j = r.json()
+        if debug: print(f"RESPONSE from {TRADE_ENDPOINT}:\n{json.dumps(j, indent=3)}\n\n")
+
+        if 'error' in j: raise ValueError(j['error'])
+
+        # Response:
+        # {
+        #   "trade": { "to": "0xA540fb50288cc31639305B1675c70763C334953b", "data": "0x5d46..." "value": "1500000000000000000" },
+        #   "metadata": {
+        #     "source": { "dex": "ag", "price": "80.13582764310020105533", "liquidity": { "uniswap": 100 } },
+        #     "query": { "from": "ETH", "to": "DAI", "fromAmount": "1.5", "dex": "ag" }
+        #   }
+        # }
+
+        payload=j['trade']['data']
+        ag_data = j['metadata']['source']
+        if not ag_data: return {}
+
+        source_amount, destination_amount, price = calc_amounts_and_price(from_amount, to_amount, float(ag_data['price']))
+        exchanges_parts = ag_data['liquidity'] if ag_data.get('liquidity') else {}
+
+        return {
+            'source_token': from_token,
+            'source_amount': source_amount,
+            'destination_token': to_token,
+            'destination_amount': destination_amount,
+            'price': price,
+            'exchanges_parts': exchanges_parts,
+            'exchanges_prices': {},
+            'payload': payload
+        }
+
+    except (ValueError, requests.exceptions.RequestException) as e:
+        print(f"{name()} {query} raised {e}: {r.text[:128] if r else 'no JSON returned'}")
+        return {}
+
 
