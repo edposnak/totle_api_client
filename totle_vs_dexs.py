@@ -5,6 +5,7 @@ from collections import defaultdict
 
 import token_utils
 import totle_client
+import v2_compare_prices
 from v2_compare_prices import compare_dex_prices, print_average_savings, get_filename_base, SavingsCSV, redirect_stdout
 
 ##############################################################################################
@@ -37,7 +38,7 @@ def reportnegative_savings(all_savings):
 
 TRADE_SIZES  = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0]
 
-def do_eth_pairs():
+def do_eth_pairs(order_type='buy'):
     # don't waste time on non-liquid dexes
     non_liquid_dexs = ['Compound']
     # liquid_dexs = tuple(filter(lambda e: e not in non_liquid_dexs, totle_client.enabled_exchanges()))
@@ -46,7 +47,7 @@ def do_eth_pairs():
     liquid_tokens = ['SAI', 'MKR', 'WBTC', 'USDC', 'USDT', 'KNC', 'BNT', 'LINK', 'DAI', 'TUSD', 'BAT', 'RLC', 'ENG', 'REP', 'REN', 'ENJ', 'ZRX', 'XDCE', 'ANT', 'TKN', 'LEND', 'MANA', 'OMG', 'LRC', 'NMR', 'PAX', 'RPL', 'SPANK', 'RCN', 'SNT',
                      'RDN', 'NEXO']
     all_savings, all_supported_pairs = {}, {}
-    order_type = params['orderType']
+
     CSV_FIELDS = "time id action trade_size token quote exchange exchange_price totle_used totle_price totle_splits pct_savings splits ex_prices".split()
     with SavingsCSV(filename, fieldnames=CSV_FIELDS) as csv_writer:
         for trade_size in TRADE_SIZES:
@@ -64,6 +65,8 @@ def do_eth_pairs():
             for token in liquid_tokens:
                 print(f"\n----------------------------------------")
                 print(f"\n{order_type} {token} trade size = {trade_size} ETH")
+                from_token, to_token, params = v2_compare_prices.get_from_to_params(order_type, token, 'ETH', trade_size)
+
                 savings = compare_dex_prices(token, all_supported_pairs[trade_size], non_liquid_tokens, liquid_dexs, order_type=order_type, params=params, debug=False)
                 if savings:
                     all_savings[trade_size][token] = savings
@@ -100,11 +103,11 @@ parser.add_argument('apiKey', nargs='?', help='API key')
 
 params = vars(parser.parse_args())
 
-filename = get_filename_base(suffix=params['orderType'])
+order_type = params['orderType']
+filename = get_filename_base(suffix=order_type)
 redirect_stdout(filename)
 
-
-all_savings, all_supported_pairs = do_eth_pairs()
+all_savings, all_supported_pairs = do_eth_pairs(order_type)
 
 print_average_savings(all_savings)
 print_supported_pairs(all_supported_pairs)
