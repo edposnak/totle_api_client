@@ -1,6 +1,5 @@
 #!/usr/local/bin/python3
-from datetime import datetime
-import sys
+import glob
 from collections import defaultdict
 
 import data_import
@@ -254,7 +253,9 @@ def do_splits_vs_non_splits(csv_files, aggs):
 
 
 def main():
-    csv_files = tuple(sys.argv[1:])
+    # csv_files = tuple(sys.argv[1:])
+    csv_files = tuple(glob.glob(f'outputs/2020-03-22_1*buy.csv'))
+
     if len(csv_files) < 1:
         print("no CSV files provided")
         exit(1)

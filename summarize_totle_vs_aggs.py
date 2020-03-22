@@ -557,12 +557,12 @@ def do_summary_eth_pairs(csv_files):
 
 
 
-    # do_splits_vs_non_splits(tuple(csv_files), agg_names)
+    # do_splits_vs_non_splits(csv_files, agg_names)
 
     # Does Totle win more when it splits
 
-    # do_totle_splits_vs_non_splits(tuple(csv_files), agg_names)
-    # per_token_both_splitting_savings, _ = data_import.parse_csv_files(tuple(csv_files), only_splits=True, only_totle_splits=True)
+    # do_totle_splits_vs_non_splits(csv_files, agg_names)
+    # per_token_both_splitting_savings, _ = data_import.parse_csv_files(csv_files, only_splits=True, only_totle_splits=True)
     # do_neg_savings(per_token_both_splitting_savings, trade_sizes)
     #
     # do_both_splitting(per_token_both_splitting_savings, agg_names)
@@ -605,7 +605,7 @@ def main():
     # do_summary_erc20(glob.glob(f'outputs/totle_vs_agg_overlap_reversed_pairs_*'))
 
     # do_summary_eth_pairs(glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-01-[01]*'))
-    csv_files = glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-03-21_2*csv') + glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-03-22*csv')
+    csv_files = tuple(glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-03-21_2*csv') + glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-03-22*csv'))
     do_summary_eth_pairs(csv_files)
 
 if __name__ == "__main__":
