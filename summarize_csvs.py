@@ -33,36 +33,53 @@ def print_savings_with_num_samples(savings_by_trade_size):
         for exchange, pct_savings in savings_by_trade_size[trade_size].items():
             print(f"   {exchange}: {compute_mean(pct_savings):.2f}% ({len(pct_savings)} samples)")
 
+
+BEST_WORSE_THRESHOLD = 0.0001
 def print_neg_savings_stats(per_token_savings):
-    neg_savings, pos_savings = defaultdict(int), defaultdict(int)
-    neg_savings_ts, pos_savings_ts = defaultdict(int), defaultdict(int)
+    neg_savings, pos_savings, same_savings = defaultdict(int), defaultdict(int), defaultdict(int)
+    neg_savings_ts, pos_savings_ts, same_savings_ts = defaultdict(int), defaultdict(int), defaultdict(int)
     for token, trade_size, exchange, pct_savings in data_import.pct_savings_gen(per_token_savings):
         for pct in pct_savings:
-            if pct > 0.0:
+            if pct > BEST_WORSE_THRESHOLD:
                 pos_savings[exchange] += 1
                 pos_savings_ts[trade_size] += 1
-            else:
+            elif pct < -BEST_WORSE_THRESHOLD:
                 neg_savings[exchange] += 1
                 neg_savings_ts[trade_size] += 1
+            else:
+                same_savings[exchange] += 1
+                same_savings_ts[trade_size] += 1
 
     exchanges = sorted(list(set(neg_savings.keys()) | set(pos_savings.keys())))
     neg_samples = sum(neg_savings.values())
     pos_samples = sum(pos_savings.values())
-    total_samples = neg_samples + pos_samples
+    same_samples = sum(same_savings.values())
+    total_samples = neg_samples + pos_samples + same_samples
     neg_pct = 100.0 * neg_samples / total_samples
+    pos_pct = 100.0 * pos_samples / total_samples
+    same_pct = 100.0 * same_samples / total_samples
 
-    print(f"\n\nOut of {total_samples} data points, Totle's fees exceeded the price savings {neg_samples} times, resulting in negative price savings {neg_pct:.1f}% of the time.")
+    print(f"\n\nOut of {total_samples} data points, Totle had a better price {pos_pct:.1f}%, worse price {neg_pct:.1f}%, and same price {same_pct:.1f}% of the time.")
 
-    header = ''.join([ f"{s:<14}" for s in ['NPS % vs'] + exchanges ])
+    header = 'Totle price was         better           worse           same'
     print(f"\n{header}")
-    row = ["total"]
     for exchange in exchanges:
-        if exchange in neg_savings:
-            pct_neg_savings = 100 * neg_savings[exchange] / (neg_savings[exchange] + pos_savings[exchange])
-            row.append(f"{pct_neg_savings:.2f}%")
-        else:
-            row.append("")
-    print(''.join([ f"{s:<14}" for s in row ]))
+        exchange_samples = neg_savings[exchange] + pos_savings[exchange] + same_savings[exchange]
+        pct_pos_savings = 100 * pos_savings[exchange] / exchange_samples
+        pct_neg_savings = 100 * neg_savings[exchange] / exchange_samples
+        pct_same_savings = 100 * same_savings[exchange] / exchange_samples
+        print(f"{exchange:<14} {pct_pos_savings:14.2f}% {pct_neg_savings:14.2f}% {pct_same_savings:14.2f}%" )
+
+    # header = ''.join([ f"{s:<14}" for s in ['% vs'] + exchanges ])
+    # print(f"\n{header}")
+    # row = ["total"]
+    # for exchange in exchanges:
+    #     if exchange in neg_savings:
+    #         pct_neg_savings = 100 * neg_savings[exchange] / (neg_savings[exchange] + pos_savings[exchange])
+    #         row.append(f"{pct_neg_savings:.2f}%")
+    #     else:
+    #         row.append("")
+    # print(''.join([ f"{s:<14}" for s in row ]))
 
     trade_sizes = sorted_trade_sizes(pos_savings_ts, neg_savings_ts)
 
@@ -254,13 +271,13 @@ def do_splits_vs_non_splits(csv_files, aggs):
 
 def main():
     # csv_files = tuple(sys.argv[1:])
-    csv_files = tuple(glob.glob(f'outputs/2020-03-22_1*buy.csv'))
-
+    csv_files = tuple(glob.glob(f'outputs/2020-03-22*_buy.csv'))
     if len(csv_files) < 1:
         print("no CSV files provided")
         exit(1)
     else:
         print(f"processing {len(csv_files)} CSV files ...")
+
     per_token_savings, slip_price_splits = data_import.parse_csv_files(csv_files)
     aggs_or_exchanges = unique_exchanges(per_token_savings)
     print(f"aggs_or_exchanges={aggs_or_exchanges}")
@@ -284,6 +301,8 @@ def main():
     # print_savings_summary_table_csv(per_trade_size_savings, ['Binance', 'BinanceC', 'Huobi', 'HuobiC', 'Kraken', 'KrakenC'])
     print_savings_summary_table_csv(per_trade_size_savings, sorted(set(aggs_or_exchanges) - {'BinanceC', 'HuobiC', 'KrakenC'}))
     # print_savings_summary_table_csv(per_trade_size_savings, aggs_or_exchanges)
+
+    exit(0)
 
     for trade_size in [0.1]:
         print(f"Savings for trade size {trade_size}")
