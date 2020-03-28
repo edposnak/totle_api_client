@@ -69,7 +69,6 @@ def tokens_json(use_oneinch_tokens=False):
 @functools.lru_cache(1)
 def tokens_json_critical(use_oneinch_tokens=False):
     """Returns the tokens json from Totle and optionally 1-Inch"""
-    print(f"************** EXECUTING tokens_json() ...")
     # get Totle tokens
     totle_tokens = totle_tokens_json()
     for t in totle_tokens: t['address'] = t['address'].lower()

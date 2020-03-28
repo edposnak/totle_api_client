@@ -14,7 +14,7 @@ import paraswap_client
 import totle_client
 
 import exchange_utils
-from v2_compare_prices import canonicalize_totle_splits
+from v2_compare_prices import canonicalize_raw_splits
 
 CSV_DATA_DIR = f"{os.path.dirname(os.path.abspath(__file__))}/outputs"
 
@@ -25,8 +25,8 @@ def csv_row_gen(file, only_splits=False, only_non_splits=False, only_totle_split
         reader = csv.DictReader(csvfile, fieldnames=None)
 
         for row in reader:
-            splits = exchange_utils.canonical_keys(eval(row.get('splits') or '{}'))
-            totle_splits = canonicalize_totle_splits(eval(row['totle_splits'])) if 'totle_splits' in row and row['totle_splits'] else {}
+            splits = canonicalize_raw_splits(row.get('splits'))
+            totle_splits = canonicalize_raw_splits(row.get('totle_splits'))
 
             if only_splits and len(splits) < 2: continue
             if only_totle_splits and len(totle_splits) < 2: continue

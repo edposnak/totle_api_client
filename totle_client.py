@@ -250,7 +250,7 @@ def get_split(trade):
         reported_splits[dex] += float(o['splitPercentage']) # TODO: is splitPercentage always an integer?
 
     computed_splits = {dex: round(100 * src_amount / sum_source_amount, 1) for dex, src_amount in dex_src_amounts.items()}
-    print(f"computed_splits={computed_splits}\nreported_splits={dict(reported_splits)}")
+    # print(f"computed_splits={computed_splits}\nreported_splits={dict(reported_splits)}")
     return computed_splits
 
 

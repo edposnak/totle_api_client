@@ -208,7 +208,7 @@ def get_savings(exchange, exchange_price, totle_sd, token, trade_size, order_typ
     totle_price = totle_sd['price']
     totle_used = totle_sd['totleUsed']
 
-    totle_splits = canonicalize_totle_splits(totle_sd['totleSplits']) if 'totleSplits' in totle_sd else None
+    totle_splits = canonicalize_raw_splits(totle_sd.get('totleSplits'))
 
     pct_savings = get_pct_savings(totle_price, exchange_price)
     if print_savings:
@@ -219,18 +219,33 @@ def get_savings(exchange, exchange_price, totle_sd, token, trade_size, order_typ
     return savings_data(order_type, trade_size, token, exchange, pct_savings, totle_used, totle_price, exchange_price,
                         splits=splits, totle_splits=totle_splits, ex_prices=ex_prices, quote_token=quote_token, response_id=response_id)
 
-def canonicalize_totle_splits(raw_splits):
+
+def canonicalize_agg_splits(agg_splits):
+    h = eval(agg_splits or '{}')
+    a_splits = exchange_utils.canonical_keys(h)
+    return dict(sorted(a_splits.items()))
+
+
+def canonicalize_raw_splits(raw_splits):
     """Canonicalizes any DEX named in Totle splits"""
     # See also swap_data() in totle_client
-    if is_multi_split(raw_splits):
-        return {pair: exchange_utils.canonical_keys(t_splits) for pair, t_splits in raw_splits.items()}
+
+    h = eval(raw_splits or '{}')
+
+    if is_multi_split(h):
+        return {pair: sorted_splits(flat_split) for pair, flat_split in h.items()}
     else:
-        return exchange_utils.canonical_keys(raw_splits)
+        return sorted_splits(h)
+
+    return dict(sorted(tot_splits.items()))
+
+def sorted_splits(flat_splits):
+    a_splits = exchange_utils.canonical_keys(flat_splits)
+    return dict(sorted(a_splits.items()))
 
 def is_multi_split(totle_splits):
     """ returns True if there are multiple splits keyed by pair e.g. {'BAT/ETH': {'Kyber':90, 'Uniswap':10}, 'ETH/DAT': {...}}"""
-    first_val = list(totle_splits.values())[0]
-    return type(first_val) == dict
+    return bool(totle_splits) and type(list(totle_splits.values())[0]) == dict
 
 
 
