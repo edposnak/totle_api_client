@@ -1,13 +1,10 @@
+from datetime import datetime
 import glob
 from collections import defaultdict
 
 import csv
 
 import data_import
-import dexag_client
-import exchange_utils
-import oneinch_client
-import paraswap_client
 
 from summarize_csvs import aggregated_savings, print_savings_summary_table_csv, print_neg_savings_stats, \
     print_savings_summary_table, compute_mean, sorted_trade_sizes, do_splits_vs_non_splits
@@ -72,18 +69,33 @@ def do_neg_savings(per_token_savings, trade_sizes):
     print_neg_savings_csv(pos_savings, neg_savings_without_fee, aggs, trade_sizes, label="Worse price (without fees) vs Competitors")
 
 BEST_WORSE_THRESHOLD = 0.00000001
-def do_better_worse_same_price(per_token_savings, label, agg_breakdown=False):
+
+def better_worse_same_counts(pct_savings_list):
+    better_count, worse_count, same_count = 0, 0, 0
+    for pct in pct_savings_list:
+        if pct > BEST_WORSE_THRESHOLD:
+            better_count += 1
+        elif pct < -BEST_WORSE_THRESHOLD:
+            worse_count += 1
+        else:
+            same_count += 1
+
+    return better_count, worse_count, same_count
+
+def better_worse_same_pcts(pct_savings_list):
+    better_count, worse_count, same_count = better_worse_same_counts(pct_savings_list)
+    total_count = better_count + worse_count + same_count
+    return round(100 * better_count / total_count), round(100 * worse_count / total_count), round(100 * same_count / total_count)
+
+def do_better_worse_same_price(per_pair_savings, label, agg_breakdown=False):
     print(f"\n{label}")
     better_price, worse_price, same_price = defaultdict(lambda: defaultdict(int)), defaultdict(lambda: defaultdict(int)), defaultdict(lambda: defaultdict(int))
 
-    for token, trade_size, agg, pct_savings in data_import.pct_savings_gen(per_token_savings):
-        for pct in pct_savings:
-            if pct > BEST_WORSE_THRESHOLD:
-                better_price[agg][trade_size] += 1
-            elif pct < -BEST_WORSE_THRESHOLD:
-                worse_price[agg][trade_size] += 1
-            else:
-                same_price[agg][trade_size] += 1
+    for token, trade_size, agg, pct_savings in data_import.pct_savings_gen(per_pair_savings):
+        better_count, worse_count, same_count = better_worse_same_counts(pct_savings)
+        better_price[agg][trade_size] += better_count
+        worse_price[agg][trade_size] += worse_count
+        same_price[agg][trade_size] += same_count
 
     better_price_samples, worse_price_samples, same_price_samples = 0, 0, 0
     better_pct, worse_pct, same_pct = {}, {}, {}
@@ -198,12 +210,13 @@ def print_avg_savings_per_pair_by_agg(per_pair_savings, only_trade_size=None, pr
 
     print(f"\nToken\tMean Pct. Savings")
     for pair, agg_savings in sorted(pair_agg_savings.items()):
-        print(f"{pair}\t{compute_mean(sum(agg_savings.values(), [])):.2f}")
+        print(f"{pair[1]}\t{compute_mean(sum(agg_savings.values(), [])):.2f}")
 
         for agg, savings in agg_savings.items():
+            better_pct, worse_pct, same_pct = better_worse_same_pcts(savings)
             avg_savings = compute_mean(savings)
             if abs(avg_savings)  > print_threshold:
-                print(f"    {agg}:\t{avg_savings}")
+                print(f"    {agg:<8}\t{better_pct:>3}/{worse_pct:>3}/{same_pct:>3}\t{avg_savings:.2f}")
                 if samples: print(f"    {agg}:\t{savings}")
 
 
@@ -329,21 +342,24 @@ def print_sample(tok_ts_agg, prices_splits, print_num_times=False):
     id_or_n_samples, totle_price, totle_splits, agg_price, agg_splits = prices_splits
 
     if totle_price / agg_price > 1.00001:
-        price_diff, price_desc = 100.0 * totle_price / agg_price - 100, 'higher'
+        price_diff, price_desc = 100.0 * totle_price / agg_price - 100, f"higher than {agg}"
     elif agg_price / totle_price > 1.00001:
-        price_diff, price_desc = 100.0 * agg_price / totle_price - 100, 'lower'
+        price_diff, price_desc = 100.0 * agg_price / totle_price - 100, f"lower than {agg}"
     else:
         price_diff, price_desc = 0, 'same'
 
     if print_num_times:
         add_data = f"({id_or_n_samples} times)"
     else:
-        add_data = f"id={id_or_n_samples}\ntime={all_samples[id_or_n_samples]['time']}"
+        timestamp = datetime.fromisoformat(all_samples[id_or_n_samples]['time'])
+        add_data = f"({timestamp})"
+        # add_data = f"({timestamp})\nid={id_or_n_samples}"
 
-    print(f"{to_token} for {trade_size} ETH vs {agg} (Totle's price is {price_diff:.2f}% {price_desc}) {add_data}")
+    print(f"\n{to_token} for {trade_size} ETH vs {agg} {add_data}")
     totle, agg = 'Totle:', f"{agg}:"
     print(f"\t{totle:<10}  {totle_price:.6f}    {totle_splits}")
     print(f"\t{agg:<10}  {agg_price:.6f}    {agg_splits}")
+    print(f"Totle's price is {price_diff:.2f}% {price_desc}")
 
 def parse_row(row):
     agg = row['exchange']
@@ -512,7 +528,7 @@ def do_summary_eth_pairs(csv_files):
                 # if totle_splits == agg_splits and totle_price / agg_price > 1.05: # same split diff price
                 # if totle_splits == agg_splits and len(agg_splits) > 1 and 'Kyber' in agg_splits.keys(): # same split diff price
                 # if totle_price / agg_price > 1.4:
-                if to_token == 'RLC'  and totle_price / agg_price > 1.1:
+                if to_token == 'SNT' and trade_size == 400 and agg in ('DEX.AG', 'Paraswap'):
                     # if totle_price / agg_price > 1.0001:
                     key = (to_token, trade_size, agg)
                     select_samples[key].append((id, totle_price, totle_splits, agg_price, agg_splits))
@@ -582,21 +598,26 @@ def do_summary_eth_pairs(csv_files):
     # paraswap_pct =  100 * sum([ len(v) for k,v in select_samples.items() if k[2] == 'Paraswap']) / n_select_samples
     # print(f"paraswap_pct={paraswap_pct}")
 
+    # timestamp = datetime.fromisoformat(all_samples[id_or_n_samples]['time'])
+    # print(f"\n{timestamp}")
+
+    id_to_timestamp = lambda ps: datetime.fromisoformat(all_samples[ps[0]]['time'])
+
     for tok_ts_agg, prices_splits_list in sorted(select_samples.items()):
         print(f"\n\n{tok_ts_agg}")
-        for prices_splits in prices_splits_list:
+        for prices_splits in sorted(prices_splits_list, key=id_to_timestamp):
             print_sample(tok_ts_agg, prices_splits)
 
     exit(0)
 
-    print_savings_summary_table_csv(aggregated_savings(per_pair_savings), agg_names, label="Average Savings (all samples)")
-    print_avg_savings_by_token(per_pair_savings, only_trade_size=1.0, only_aggs=agg_names)
+    # ************ AVERAGE SAVINGS ****************
+    # print_savings_summary_table_csv(aggregated_savings(per_pair_savings), agg_names, label="Average Savings (all samples)")
+    # print_avg_savings_by_token(per_pair_savings, only_trade_size=1.0, only_aggs=agg_names)
 
 
     # do_splits_vs_non_splits(csv_files, agg_names)
 
     # Does Totle win more when it splits
-
     # do_totle_splits_vs_non_splits(csv_files, agg_names)
     # per_token_both_splitting_savings, _ = data_import.parse_csv_files(csv_files, only_splits=True, only_totle_splits=True)
     # do_neg_savings(per_token_both_splitting_savings, trade_sizes)
@@ -606,14 +627,12 @@ def do_summary_eth_pairs(csv_files):
     # print_avg_savings_by_token(per_token_both_splitting_savings, only_trade_size=10.0, only_aggs=agg_names)
     # print_avg_savings_by_token(per_token_both_splitting_savings, only_trade_size=100.0, only_aggs=agg_names)
 
-    exit(0)
 
-
-    print_avg_savings_per_pair_by_agg(per_pair_savings, 10.0, print_threshold=4, samples=True, min_stablecoins=0)
+    # print_avg_savings_per_pair_by_agg(per_pair_savings, 10.0, print_threshold=4, samples=True, min_stablecoins=0)
     # for trade_size in trade_sizes:
     #     print_avg_savings_per_pair_by_agg(per_pair_savings, trade_size, samples=True)
     for trade_size in trade_sizes:
-        print_avg_savings_per_pair_by_agg(per_pair_savings, trade_size, print_threshold=10, samples=False)
+        print_avg_savings_per_pair_by_agg(per_pair_savings, trade_size, print_threshold=0, samples=False)
 
     exit(0)
 
