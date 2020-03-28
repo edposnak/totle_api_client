@@ -237,11 +237,9 @@ def canonicalize_raw_splits(raw_splits):
     else:
         return sorted_splits(h)
 
-    return dict(sorted(tot_splits.items()))
-
 def sorted_splits(flat_splits):
     a_splits = exchange_utils.canonical_keys(flat_splits)
-    return dict(sorted(a_splits.items()))
+    return { k:round(v) for k, v in sorted(a_splits.items()) }
 
 def is_multi_split(totle_splits):
     """ returns True if there are multiple splits keyed by pair e.g. {'BAT/ETH': {'Kyber':90, 'Uniswap':10}, 'ETH/DAT': {...}}"""
