@@ -53,11 +53,12 @@ def name():
 DEX_NAME_MAP = {'0x V2': '0x V2', '0x V3': '0x V3', '0xMesh': '0xMesh', 'Aave': 'Aave', 'Bancor': 'Bancor', 'Chai': 'Chai', 'Compound': 'Compound', 'CurveFi Pool #1': 'CurveFi Pool #1', 'CurveFi Pool #2': 'CurveFi Pool #2',
                 'CurveFi Pool #3': 'CurveFi Pool #3', 'Ether Delta': 'EtherDelta', 'Fulcrum': 'Fulcrum', 'Kyber': 'Kyber', 'Oasis': 'Oasis', 'PMM': 'PMM', 'StableCoinSwap': 'Stablecoinswap', 'Uniswap': 'Uniswap'}
 
-@functools.lru_cache(1)
 def exchanges():
     return { e['name']: e['id'] for e in exchanges_json() }
 
-@functools.lru_cache(1)
+def exchanges_by_id():
+    return { **data_exchanges_by_id(), **{ v:k for k,v in exchanges().items() } }
+
 def enabled_exchanges():
     return [ e['name'] for e in exchanges_json() if e['enabled'] ]
 
@@ -66,17 +67,17 @@ def exchanges_json():
     r = requests.get(EXCHANGES_ENDPOINT).json()
     return r['exchanges']
 
+def data_exchanges_by_id():
+    return { v:k for k,v in data_exchanges().items() }
+
 @functools.lru_cache(1)
 def data_exchanges():
     r = requests.get(DATA_EXCHANGES_ENDPOINT).json()
     return { e['name']: e['id'] for e in r['exchanges'] }
 
-@functools.lru_cache(1)
-def data_exchanges_by_id():
-    return { v:k for k,v in data_exchanges.items() }
-
 def get_snapshot(response_id):
     return requests.get(f"https://totle-api-snapshot.s3.amazonaws.com/{response_id}").json()
+
 
 ##############################################################################################
 #
