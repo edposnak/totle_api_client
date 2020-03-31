@@ -1,7 +1,6 @@
 import json
 
 import exchange_utils
-import token_utils
 import totle_client
 
 class FoundBugException(Exception):
@@ -163,15 +162,10 @@ def test_swap_data(json_response_file):
     sd = totle_client.swap_data(j, True)
     print(json.dumps(sd, indent=3))
 
-def test_get_snapshot(id):
-    j = totle_client.get_snapshot(id)
-    print(json.dumps(j, indent=3))
-
 #######################################################################################################################
 
 # test_dex_name_map()
 
-# test_get_snapshot('0xfa510ea7b89944918eb278498f693b32b0594fe71725455e89489db5e676cb73')
 # test_swap_data('test_data/order_destination_asset_summary_asset.json') # destinationAsset=SAI but summary destinationAsset=RDN error
 # test_swap_data('test_data/eth_dai_knc.json') # source/dest flip error
 # test_swap_data('test_data/buy_knc_with_eth_good.json') # source/dest flip error

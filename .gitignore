@@ -8,6 +8,7 @@ autorun.stop
 test/test_data
 experiments
 slippage_doc_csvs
+snapshots
 
 
 
