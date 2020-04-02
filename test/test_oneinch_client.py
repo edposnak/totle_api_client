@@ -36,9 +36,9 @@ def test_get_quote(to_token, from_token='ETH', from_amount=None, to_amount=None,
 
 #######################################################################################################################
 
-test_dex_name_map()
+# test_dex_name_map()
 
-test_get_quote('OMG', from_amount=1.0)
+test_get_quote('OMG', from_amount=1.0, debug=True)
 exit(0)
 
 test_get_quote('ETH', 'OMG', from_amount=200)
