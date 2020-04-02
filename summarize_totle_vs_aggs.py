@@ -364,12 +364,12 @@ def print_sample(tok_ts_agg, prices_splits, print_num_times=False, print_snapsho
     totle, agg = 'Totle:', f"{agg}:"
     print(f"\t{totle:<10}  {totle_price:.6f}    {totle_splits}")
     print(f"\t{agg:<10}  {agg_price:.6f}    {agg_splits}")
-    print(f"Totle's price is {price_description}")
-    print(f"Totle's rate={totle_rate:.6g} {agg}'s rate={agg_rate:.6g}")
+    print(f"Totle's price is {price_description}. Totle rate={totle_rate:.6g} {agg} rate={agg_rate:.6g}")
 
     if print_snapshot and not print_num_times:
-        j = snapshot_utils.fetch_snapshot(id_or_n_samples)
-        snapshot_utils.print_curve_info(j)
+        # pass
+        # snapshot_utils.print_max_allocs(snapshot_utils.fetch_and_get_curve_info(id_or_n_samples), pct_inc=2)
+        snapshot_utils.fetch_and_print_curve_info(id_or_n_samples)
 
 
 def parse_row(row):
@@ -536,11 +536,11 @@ def do_summary_eth_pairs(csv_files):
 
                 # ******************* Select Samples (saves all samples) **************************
                 # if totle_splits == agg_splits and totle_price / agg_price > 1.05: # same split diff price
-                # if totle_splits == agg_splits and len(agg_splits) > 1 and 'Kyber' in agg_splits.keys(): # same split diff price
-                # if 'Oasis' in agg_splits.keys() and totle_price / agg_price > 1000:
-                # OMG for 300 ETH vs Paraswap
-                if to_token == 'OMG' and trade_size == 300 and agg in ('Paraswap') and totle_price / agg_price > 1.05:
-                    # if totle_price / agg_price > 1.0001:
+                # if totle_splits == agg_splits and len(agg_splits) > 1 and 'Kyber' in agg_splits.keys(): # same split involving Kyber
+
+                # if to_token == 'PAX' and trade_size > 299 and agg in ('Paraswap') and totle_price / agg_price > 1.03:
+                if to_token == 'REP' and trade_size > 399 and agg in ('Paraswap') and totle_price / agg_price > 1.02:
+                # if id == '0x64bed9ac2aa34ea090ae4d8a50e39ebdd58616d56b3c4ce98e7ab9f0c32cbc00':
                     key = (to_token, trade_size, agg)
                     select_samples[key].append((id, totle_price, totle_splits, agg_price, agg_splits))
 
@@ -575,8 +575,9 @@ def do_summary_eth_pairs(csv_files):
     agg_names = sorted(agg_names)
     trade_sizes = sorted_trade_sizes(*per_pair_savings.values())
 
-    do_better_worse_same_price(per_pair_savings, "All Samples", agg_breakdown=True)
-    print_savings_summary_table_csv(aggregated_savings(per_pair_savings), agg_names, label="Average Savings (all samples)")
+    # **************** BETTER WORSE SAME / SAVINGS SUMMARY TABLE **********************
+    # do_better_worse_same_price(per_pair_savings, "All Samples", agg_breakdown=True)
+    # print_savings_summary_table_csv(aggregated_savings(per_pair_savings), agg_names, label="Average Savings (all samples)")
 
     # do_better_worse_same_price(per_pair_savings_with_routing, "Samples Where Totle Employed Smart Routing")
     # print_savings_summary_table_csv(aggregated_savings(per_pair_savings_with_routing), agg_names, label="Average Savings (samples with smart routing)")
@@ -600,24 +601,11 @@ def do_summary_eth_pairs(csv_files):
     # print(f"\nGot {len(select_samples)} select samples instances")
     n_select_samples = sum([ len(v) for k,v in select_samples.items() ])
     print(f"\nGot total of {n_select_samples} select samples")
-    # zrx_pct =  100 * sum([ len(v) for k,v in select_samples.items() if k[2] == '0x']) / n_select_samples
-    # print(f"zrx_pct={zrx_pct}")
-    # one_inch_pct =  100 * sum([ len(v) for k,v in select_samples.items() if k[2] == '1-Inch']) / n_select_samples
-    # print(f"one_inch_pct={one_inch_pct}")
-    # dexag_pct =  100 * sum([ len(v) for k,v in select_samples.items() if k[2] == 'DEX.AG']) / n_select_samples
-    # print(f"dexag_pct={dexag_pct}")
-    # paraswap_pct =  100 * sum([ len(v) for k,v in select_samples.items() if k[2] == 'Paraswap']) / n_select_samples
-    # print(f"paraswap_pct={paraswap_pct}")
-
-    # ************ SELECT SAMPLES ****************
-    # timestamp = datetime.fromisoformat(all_samples[id_or_n_samples]['time'])
-    # print(f"\n{timestamp}")
     id_to_timestamp = lambda ps: datetime.fromisoformat(all_samples[ps[0]]['time'])
 
     for tok_ts_agg, prices_splits_list in sorted(select_samples.items()):
         print(f"\n\n{tok_ts_agg}")
         for prices_splits in sorted(prices_splits_list, key=id_to_timestamp):
-            # print_sample(tok_ts_agg, prices_splits)
             print_sample(tok_ts_agg, prices_splits, print_snapshot=True)
     exit(0)
 
