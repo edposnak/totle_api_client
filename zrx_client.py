@@ -83,7 +83,7 @@ def get_swap(from_token, to_token, from_amount=None, to_amount=None, dex=None, f
         destination_amount = token_utils.real_amount(j['buyAmount'], to_token)
 
         fee_amount = token_utils.real_amount(j['protocolFee'], from_token)
-        print(f"0x fee = {100 * fee_amount/source_amount:.4f}%")
+        if verbose: print(f"0x fee = {100 * fee_amount/source_amount:.4f}%")
 
         exchanges_parts = {}
         for source in j['sources']:

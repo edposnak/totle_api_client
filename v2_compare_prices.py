@@ -208,7 +208,7 @@ def get_savings(exchange, exchange_price, totle_sd, token, trade_size, order_typ
     totle_price = totle_sd['price']
     totle_used = totle_sd['totleUsed']
 
-    totle_splits = canonicalize_raw_splits(totle_sd.get('totleSplits'))
+    totle_splits = canonicalize_and_sort_splits(totle_sd.get('totleSplits'))
 
     pct_savings = get_pct_savings(totle_price, exchange_price)
     if print_savings:
@@ -220,17 +220,10 @@ def get_savings(exchange, exchange_price, totle_sd, token, trade_size, order_typ
                         splits=splits, totle_splits=totle_splits, ex_prices=ex_prices, quote_token=quote_token, response_id=response_id)
 
 
-def canonicalize_agg_splits(agg_splits):
-    h = eval(agg_splits or '{}')
-    a_splits = exchange_utils.canonical_keys(h)
-    return dict(sorted(a_splits.items()))
-
-
-def canonicalize_raw_splits(raw_splits):
+def canonicalize_and_sort_splits(raw_splits):
     """Canonicalizes any DEX named in Totle splits"""
-    # See also swap_data() in totle_client
 
-    h = eval(raw_splits or '{}')
+    h = eval(raw_splits or '{}') if isinstance(raw_splits, str) else raw_splits
 
     if is_multi_split(h):
         return {pair: sorted_splits(flat_split) for pair, flat_split in h.items()}

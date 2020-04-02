@@ -10,7 +10,7 @@ import snapshot_utils
 from summarize_csvs import aggregated_savings, print_savings_summary_table_csv, print_neg_savings_stats, \
     print_savings_summary_table, compute_mean, sorted_trade_sizes, do_splits_vs_non_splits
 
-from v2_compare_prices import is_multi_split, canonicalize_raw_splits
+from v2_compare_prices import is_multi_split, canonicalize_and_sort_splits
 
 CSV_FIELDS = "time action trade_size token quote exchange exchange_price totle_used totle_price pct_savings splits ex_prices".split()
 
@@ -380,10 +380,10 @@ def parse_row(row):
     pair = (from_token, to_token)
     trade_size, pct_savings = float(row['trade_size']), float(row['pct_savings'])
     totle_price = float(row['totle_price'])
-    totle_splits = canonicalize_raw_splits(row.get('totle_splits'))
+    totle_splits = canonicalize_and_sort_splits(row.get('totle_splits'))
 
     agg_price = float(row['exchange_price'])
-    agg_splits = canonicalize_raw_splits(row.get('splits'))
+    agg_splits = canonicalize_and_sort_splits(row.get('splits'))
     return id, time, pair, to_token, trade_size, totle_price, totle_splits, agg, agg_price, agg_splits, pct_savings
 
 
