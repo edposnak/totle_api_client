@@ -148,8 +148,7 @@ STABLECOINS = ['DAI', 'PAX', 'SAI', 'TUSD', 'USDC', 'USDT']
 UNSUPPORTED_STABLECOINS = ['CSAI', 'IDAI']
 # TOKENS = HI_SPLIT_TOKENS
 TOKENS = TOP_VOLUME_AT_LEAST_TWO_AGGS_TRADABLE_TOKENS
-TRADE_SIZES  = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0]
-# TRADE_SIZES = [1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0]
+TRADE_SIZES  = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0, 1000.0, 5000.0, 10000.0]
 
 def do_eth_pairs():
     all_buy_savings = defaultdict(lambda: defaultdict(lambda: defaultdict(dict))) # extra lambda prevents KeyError in print_savings
