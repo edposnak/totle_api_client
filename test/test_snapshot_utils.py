@@ -1,3 +1,4 @@
+import glob
 import json
 
 import snapshot_utils
@@ -57,5 +58,18 @@ def test_fetch_and_print_curve_info(id):
 # 	Paraswap:   0.000367    {'Bancor': 36, 'Kyber': 2, 'Uniswap': 62}
 # Totle's price is 2.63% higher than Paraswap's
 # Totle's rate=2655.3 Paraswap:'s rate=2725.17
-test_fetch_and_print_curve_info('0x64bed9ac2aa34ea090ae4d8a50e39ebdd58616d56b3c4ce98e7ab9f0c32cbc00')
+# test_fetch_and_print_curve_info('0x64bed9ac2aa34ea090ae4d8a50e39ebdd58616d56b3c4ce98e7ab9f0c32cbc00')
+
+# ENJ for 5000 ETH vs Paraswap (2020-04-02 15:18:22.466309)
+# id=0xd9919152a010406dba827f92bd15b2bb62779acef0c54c88b4c360ef23730641
+# 	Totle:      0.090606    {'SAI/ETH': {'Uniswap': 100}, 'ENJ/SAI': {'Kyber': 0, 'Uniswap': 100}}
+# 	Paraswap:   0.006477    {'Bancor': 92, 'Uniswap': 8}
+# Totle's price is 1298.89% higher than Paraswap's. Totle rate=11.0368 Paraswap: rate=154.393
+# test_fetch_and_print_curve_info('0xd9919152a010406dba827f92bd15b2bb62779acef0c54c88b4c360ef23730641')
+
+all_snapshots = tuple(glob.glob(f'{snapshot_utils.SNAP_DATA_DIRECTORY}/*'))
+for snap_id in all_snapshots:
+    j = snapshot_utils.fetch_snapshot(snap_id)
+    ci = snapshot_utils.get_curve_info(j)
+
 

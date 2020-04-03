@@ -39,6 +39,12 @@ def get_curve_info(j):
     curve_info = []
     # sd = totle_client.swap_data(j['response']['response'], True)
 
+    respresp = j['response']['response']
+    if len(respresp['summary']) > 1:
+        raise ValueError(f"response response summary has {len(respresp['summary'])} summaries")
+
+    summary_rate = float(respresp['summary'][0]['rate'])
+
     for swap in j['swaps']:
         swap_data = {}
 
@@ -56,6 +62,9 @@ def get_curve_info(j):
             'rate': float(best_route['rate']),
             'trades': []
         }
+        if swap_data['best_route']['rate'] != summary_rate:
+            exp_block_number = respresp['expiration']['blockNumber']
+            print(f"DIFF RATE: best_route rate={swap_data['best_route']['rate']} summary_rate={summary_rate}\n{respresp['id']}")
 
         # sdbr = swap_data['best_route']
         # print(f"DEBUG BEST Route = { sdbr['real_source_amount']} {sdbr['source_asset']} gets {round(sdbr['real_destination_amount'])} {sdbr['destination_asset']} price={1 / sdbr['rate']:.6g} rate={sdbr['rate']:.6g} using {sdbr['num_trades']} trades")
@@ -175,7 +184,7 @@ def print_max_allocs(curve_info, only_dexs=['Kyber', 'Uniswap', 'Oasis'], pct_in
         best_route = swap['best_route']
         for trade in best_route['trades']:
             for split in trade['splits']:
-                if is_max_alloc(split, pct_inc=pct_inc) and split['dex'] in only_dexs:
+                if is_max_alloc(split, pct_inc=pct_inc): # and split['dex'] in only_dexs:
                     print(f"   MAX POSSIBLE ALLOCATION of {split['pct']}% to {split['dex']} for {trade['destination_asset']}/{trade['source_asset']} (rate={split['rate']})")
 
 
