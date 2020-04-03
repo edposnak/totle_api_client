@@ -38,12 +38,10 @@ def fee_pct():
 #
 
 # map from canonical name to 1-Inch name
-DEX_NAME_MAP = {'0x V3': '0x Relays', 'Aave': 'Aave', 'AirSwap': 'AirSwap', 'Bancor': 'Bancor', 'Chai': 'Chai',
-                'Compound': 'Compound', 'Curve.fi': 'Curve.fi', 'Curve.fi v2': 'Curve.fi v2', 'Curve.fi iearn': 'Curve.fi iearn',
-                'Curve.fi BUSD': 'Curve.fi BUSD', 'Fulcrum': 'Fulcrum', 'Kyber': 'Kyber', 'MultiSplit': 'MultiSplit',
-                'MultiUniswap': 'MultiUniswap', 'Oasis': 'Oasis', 'PMM': 'PMM', 'StableCoinSwap': 'StableCoinSwap',
-                'Synth Depot': 'Synth Depot', 'Synthetix': 'Synthetix', 'Uniswap': 'Uniswap', 'WETH': 'WETH', 'dForce': 'dForce'}
-
+DEX_NAME_MAP = {'0x V3': '0x V3', 'Aave': 'Aave', 'AirSwap': 'AirSwap', 'Balancer': 'Balancer', 'Bancor': 'Bancor', 'BETH':'BETH', 'Chai': 'Chai', 'Compound': 'Compound',
+                'Curve.fi': 'Curve.fi', 'Curve.fi v2': 'Curve.fi v2', 'Curve.fi iearn': 'Curve.fi iearn', 'Curve.fi sUSD': 'Curve.fi sUSD', 'Curve.fi BUSD': 'Curve.fi BUSD',
+                'dForce': 'dForce', 'Fulcrum': 'Fulcrum', 'IEarnFinance': 'iearn', 'Kyber': 'Kyber', 'MakerDAO': 'MakerDAO', 'MultiSplit': 'MultiSplit', 'Multi Uniswap': 'Multi Uniswap',
+                'Oasis': 'Oasis', 'PMM': 'PMM', 'StableCoinSwap': 'StableCoinSwap', 'Synth Depot': 'Synth Depot', 'Synthetix': 'Synthetix', 'Uniswap': 'Uniswap', 'WETH': 'WETH'}
 
 @functools.lru_cache(1)
 def exchanges():

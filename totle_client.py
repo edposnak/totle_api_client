@@ -50,8 +50,11 @@ def name():
     return 'Totle' # 'Totle' is used for comparison with other exchanges
 
 
-DEX_NAME_MAP = {'0x V2': '0x V2', '0x V3': '0x V3', '0xMesh': '0xMesh', 'Aave': 'Aave', 'Bancor': 'Bancor', 'Chai': 'Chai', 'Compound': 'Compound', 'CurveFi Pool #1': 'CurveFi Pool #1', 'CurveFi Pool #2': 'CurveFi Pool #2',
-                'CurveFi Pool #3': 'CurveFi Pool #3', 'Ether Delta': 'EtherDelta', 'Fulcrum': 'Fulcrum', 'Kyber': 'Kyber', 'Oasis': 'Oasis', 'PMM': 'PMM', 'StableCoinSwap': 'Stablecoinswap', 'Uniswap': 'Uniswap'}
+DEX_NAME_MAP = {'0x V2': '0x V2', '0x V3': '0x V3', '0xMesh': '0xMesh', 'Aave': 'Aave', 'Bancor': 'Bancor', 'Chai': 'Chai', 'Compound': 'Compound',
+                'CurveFi Compound': 'CurveFi Compound', 'CurveFi Pool #1': 'CurveFi Pool #1', 'CurveFi Pool #2': 'CurveFi Pool #2', 'CurveFi Pool #3': 'CurveFi Pool #3', 'CurveFi USDT': 'CurveFi USDT', 'CurveFi Y': 'CurveFi Y',
+                'Ether Delta': 'EtherDelta', 'Fulcrum': 'Fulcrum', 'IdleFinance' : 'IdleFinance', 'IEarnFinance': 'IEarnFinance', 'Kyber': 'Kyber',
+                'Oasis': 'Oasis', 'PMM': 'PMM', 'SetProtocol': 'SetProtocol', 'StableCoinSwap': 'Stablecoinswap', 'Uniswap': 'Uniswap'}
+
 
 def exchanges():
     return { e['name']: e['id'] for e in exchanges_json() }
