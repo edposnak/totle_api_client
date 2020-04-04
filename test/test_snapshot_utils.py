@@ -67,9 +67,10 @@ def test_fetch_and_print_curve_info(id):
 # Totle's price is 1298.89% higher than Paraswap's. Totle rate=11.0368 Paraswap: rate=154.393
 # test_fetch_and_print_curve_info('0xd9919152a010406dba827f92bd15b2bb62779acef0c54c88b4c360ef23730641')
 
-all_snapshots = tuple(glob.glob(f'{snapshot_utils.SNAP_DATA_DIRECTORY}/*'))
-for snap_id in all_snapshots:
-    j = snapshot_utils.fetch_snapshot(snap_id)
-    ci = snapshot_utils.get_curve_info(j)
+# all_snapshots = tuple(glob.glob(f'{snapshot_utils.SNAP_DATA_DIRECTORY}/*'))
+# for snap_id in all_snapshots:
+#     j = snapshot_utils.fetch_snapshot(snap_id)
+#     ci = snapshot_utils.get_curve_info(j)
 
+test_fetch_and_print_curve_info('0xf049b3b8577c4da1ad68ca9bffcd07f72d50c979117f470a8b54254ca94c344f')
 
