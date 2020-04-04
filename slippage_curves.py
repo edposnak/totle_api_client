@@ -283,9 +283,8 @@ def splitting_algorithm(target_trade_size, price_estimator, delta=0.005, exclude
         # Iterate over all j because the slippage cost function has multiple local minima
         for j in range(1,100):
             frac = j/100
-            # create a new candidate with frac allocated to ex and (1 - frac) allocated to the
-            # DEXs in the existing solution
-            new_candidate = { e: round(t*(1-frac),precision) for e,t in best_new_candidate.items() }
+            # create a new candidate with frac allocated to the new dex and (1 - frac) allocated to the the existing ones
+            new_candidate = { existing_dex: round(alloc*(1-frac),precision) for existing_dex,alloc in best_new_candidate.items() }
             new_alloc = round(target_trade_size - sum(new_candidate.values()), precision)
             new_candidate[dex] = new_alloc # i.e. frac * target_trade_size
 
