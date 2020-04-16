@@ -1,7 +1,7 @@
 import json
 import token_utils
 import requests
-
+import concurrent.futures
 
 def test_basics():
     print("\ntokens_json():", token_utils.tokens_json())
@@ -150,6 +150,28 @@ def compare_totle_to_oneinch(verbose=False):
 
     print(f"Out of {len(tu_tokens_json)} tokens listed in token_utils and {len(cmp_tokens_json)} tokens listed by {oneinch_client.name()}, {overlap_cnt} are listed by both")
     print(f"duplicate symbols: {set([s for s in overlap if overlap.count(s) > 1])}")
+
+import threading
+def test_tokens_json():
+    print(f"thread {threading.get_ident()} calling token_utils.tokens_json()")
+    j = token_utils.tokens_json()
+    print(f"thread {threading.get_ident()} got json")
+    return j
+
+def test_multithreaded_lru():
+    MAX_THREADS = 4
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
+        futures_p = { executor.submit(test_tokens_json): p for p in range(MAX_THREADS*4) }
+
+        for f in concurrent.futures.as_completed(futures_p):
+            p = futures_p[f]
+            j = f.result()
+
+
+#######################################################################################################################
+
+test_multithreaded_lru()
+exit(0)
 
 test_basics()
 # test_token_functions('ETH')

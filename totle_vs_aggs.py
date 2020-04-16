@@ -14,8 +14,8 @@ import totle_client
 from v2_compare_prices import get_savings, print_savings, get_filename_base, SavingsCSV
 
 
-AGG_CLIENTS = [dexag_client, oneinch_client, paraswap_client]
-AGG_CLIENTS = [dexag_client, zrx_client]
+AGG_CLIENTS = [dexag_client, oneinch_client, paraswap_client, zrx_client]
+# AGG_CLIENTS = [dexag_client, zrx_client]
 CSV_FIELDS = "time id action trade_size token quote exchange exchange_price totle_used totle_price totle_splits pct_savings splits ex_prices".split()
 
 def compare_totle_and_aggs_parallel(from_token, to_token, from_amount, usd_trade_size=None):
@@ -141,13 +141,14 @@ TOTLE_39 = ['ANT','AST','BAT','BNT','CDT','CND','CVC','DAI','ENG','ENJ','ETHOS',
 HI_SPLIT_TOKENS = ['BAT', 'ENJ', 'GNO', 'KNC', 'MANA', 'OMG', 'POE', 'POWR', 'RCN', 'RDN', 'REN', 'REP', 'REQ', 'RLC', 'SNT']
 TOTLE_74 = ['DNT','CZRX','ONG','CSAI','CUSDC','BNTY','XDCE','QSP','ANT','MKR','ASTRO','BNT','FLIXX','OMG','DATA','REP','WLK','USDS','REAL','STORM','STORJ','MLN','MTL','DRT','DALC','ZRX','TKN','TRST','PRG','SHP','DRGN','VIB','ABYSS','PAX','LEV','RHOC','ENJ','SCL','WBTC','POLY','LRC','ZIL','RCN','ERC20','USDC','ISAI','KNC','NEXO','STX','REN','ELEC','SUSD','WABI','CBAT','CETH','NPXS','VERI','BAT','TUSD','ENG','RPL','ART','PAY','CND','WINGS','REQ','MCO','CDAI','LINK','KIN','PLR','BNB','DAI','SWT']
 
+TOP_VOLUME_AGG_TRADABLE_TOKENS = ['SAI', 'MKR', 'WBTC', 'USDC', 'USDT', 'KNC', 'BNT', 'LINK', 'DAI', 'TUSD', 'BAT', 'RLC', 'REP', 'REN', 'ENJ', 'ZRX', 'ANT', 'TKN', 'LEND', 'MANA', 'OMG', 'LRC', 'PAX', 'SPANK', 'RCN', 'SNT', 'RDN']
+TOP_VOLUME_AT_LEAST_TWO_AGGS_TRADABLE_TOKENS = ['SAI', 'MKR', 'WBTC', 'USDC', 'USDT', 'KNC', 'BNT', 'LINK', 'DAI', 'TUSD', 'BAT', 'RLC', 'ENG', 'REP', 'REN', 'ENJ', 'ZRX', 'XDCE', 'ANT', 'TKN', 'LEND', 'MANA', 'OMG', 'LRC', 'NMR', 'PAX', 'RPL', 'SPANK', 'RCN', 'SNT', 'RDN', 'NEXO']
 
 STABLECOINS = ['DAI', 'PAX', 'SAI', 'TUSD', 'USDC', 'USDT']
 UNSUPPORTED_STABLECOINS = ['CSAI', 'IDAI']
 # TOKENS = HI_SPLIT_TOKENS
-TOKENS = [t for t in TOTLE_39 if t != 'SNX']
-TRADE_SIZES  = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0]
-# TRADE_SIZES = [1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0]
+TOKENS = TOP_VOLUME_AT_LEAST_TWO_AGGS_TRADABLE_TOKENS
+TRADE_SIZES  = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0, 1000.0, 5000.0, 10000.0]
 
 def do_eth_pairs():
     all_buy_savings = defaultdict(lambda: defaultdict(lambda: defaultdict(dict))) # extra lambda prevents KeyError in print_savings

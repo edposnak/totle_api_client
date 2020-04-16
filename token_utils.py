@@ -1,4 +1,5 @@
 import functools
+import threading
 import requests
 
 import oneinch_client
@@ -58,9 +59,16 @@ def token_decimals():
 def ten_to_the_decimals(token):
     return 10 ** token_decimals()[token]
 
-@functools.lru_cache(1)
+tokens_json_lock = threading.Lock()
 def tokens_json(use_oneinch_tokens=False):
-    """Returns the tokens json filtering out non-tradable tokens"""
+    tokens_json_lock.acquire()
+    j =  tokens_json_critical(use_oneinch_tokens)
+    tokens_json_lock.release()
+    return j
+
+@functools.lru_cache(1)
+def tokens_json_critical(use_oneinch_tokens=False):
+    """Returns the tokens json from Totle and optionally 1-Inch"""
     # get Totle tokens
     totle_tokens = totle_tokens_json()
     for t in totle_tokens: t['address'] = t['address'].lower()
@@ -77,7 +85,6 @@ def tokens_json(use_oneinch_tokens=False):
     for t in oneinch_tokens:
         if not (t['symbol'] in syms or t['address'] in addrs):
             r.append(t) # Totle's info takes precendence
-
     return r
 
 @functools.lru_cache(2)

@@ -1,6 +1,10 @@
+import sys
 import time
 import functools
 import json
+import traceback
+from collections import defaultdict
+
 import requests
 import token_utils
 
@@ -17,7 +21,8 @@ API_BASE = 'https://api.totle.com'
 EXCHANGES_ENDPOINT = API_BASE + '/exchanges'
 TOKENS_ENDPOINT = API_BASE + '/tokens'
 SWAP_ENDPOINT = API_BASE + '/swap'
-SWAP_ENDPOINT = 'https://services.totlenext.com/suggester/curves' # TODO remove test endpoint
+SWAP_ENDPOINT = 'https://services.totlenext.com/suggester/curves/stage/new' # TODO remove test endpoint
+# SWAP_ENDPOINT = 'https://services.totlenext.com/suggester/v0-6-1' # TODO remove test endpoint
 
 DATA_ENDPOINT = API_BASE + '/data'
 PAIRS_ENDPOINT = DATA_ENDPOINT + '/pairs'
@@ -44,14 +49,19 @@ class TotleAPIException(Exception):
 def name():
     return 'Totle' # 'Totle' is used for comparison with other exchanges
 
-DEX_NAME_MAP = { '0x V3': '0x V3', '0xMesh': '0xMesh', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Ether Delta': 'EtherDelta',
-                 'Fulcrum': 'Fulcrum', 'Kyber': 'Kyber', 'Oasis': 'Oasis', 'PMM': 'PMM', 'StableCoinSwap': 'Stablecoinswap', 'Uniswap': 'Uniswap' }
 
-@functools.lru_cache(1)
+DEX_NAME_MAP = {'0x V2': '0x V2', '0x V3': '0x V3', '0xMesh': '0xMesh', 'Aave': 'Aave', 'Bancor': 'Bancor', 'Chai': 'Chai', 'Compound': 'Compound',
+                'CurveFi Compound': 'CurveFi Compound', 'CurveFi Pool #1': 'CurveFi Pool #1', 'CurveFi Pool #2': 'CurveFi Pool #2', 'CurveFi Pool #3': 'CurveFi Pool #3', 'CurveFi USDT': 'CurveFi USDT', 'CurveFi Y': 'CurveFi Y',
+                'Ether Delta': 'EtherDelta', 'Fulcrum': 'Fulcrum', 'IdleFinance' : 'IdleFinance', 'IEarnFinance': 'IEarnFinance', 'Kyber': 'Kyber',
+                'Oasis': 'Oasis', 'PMM': 'PMM', 'SetProtocol': 'SetProtocol', 'StableCoinSwap': 'Stablecoinswap', 'Uniswap': 'Uniswap'}
+
+
 def exchanges():
     return { e['name']: e['id'] for e in exchanges_json() }
 
-@functools.lru_cache(1)
+def exchanges_by_id():
+    return { **data_exchanges_by_id(), **{ v:k for k,v in exchanges().items() } }
+
 def enabled_exchanges():
     return [ e['name'] for e in exchanges_json() if e['enabled'] ]
 
@@ -60,17 +70,17 @@ def exchanges_json():
     r = requests.get(EXCHANGES_ENDPOINT).json()
     return r['exchanges']
 
+def data_exchanges_by_id():
+    return { v:k for k,v in data_exchanges().items() }
+
 @functools.lru_cache(1)
 def data_exchanges():
     r = requests.get(DATA_EXCHANGES_ENDPOINT).json()
     return { e['name']: e['id'] for e in r['exchanges'] }
 
-@functools.lru_cache(1)
-def data_exchanges_by_id():
-    return { v:k for k,v in data_exchanges.items() }
-
 def get_snapshot(response_id):
     return requests.get(f"https://totle-api-snapshot.s3.amazonaws.com/{response_id}").json()
+
 
 ##############################################################################################
 #
@@ -124,6 +134,8 @@ def get_exchange_fees(trades):
 
 
 def get_totle_fees(summary):
+    if 'totleFee' not in summary: return None, None, None, None # Totle has removed fees from the summary
+
     tf = summary['totleFee']
     totle_fee_token = tf['asset']['symbol']
     totle_fee_div = 10**int(tf['asset']['decimals'])
@@ -150,13 +162,15 @@ def sum_amounts(trade, src_dest, summary_token):
 
 def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
     """adjust source and destination amounts so price reflects paying totle fee"""
+
+    if 'totleFee' not in summary: return source_amount, destination_amount
+
     # Assumes source_amount and destination amount are sums of order amounts
     buying_tokens_with_eth = summary['sourceAsset']['symbol'] == 'ETH'
     summary_source_token = summary['sourceAsset']['symbol']
     summary_destination_token = summary['destinationAsset']['symbol']
 
     totle_fee_token = summary['totleFee']['asset']['symbol']
-    totle_fee_amount = int(summary['totleFee']['amount'])
     totle_fee_pct = float(summary['totleFee']['percentage'])
 
     if is_totle:
@@ -230,14 +244,18 @@ def adjust_for_totle_fees(is_totle, source_amount, destination_amount, summary):
     return source_amount, destination_amount
         
 def get_split(trade):
-    dex_src_amounts, sum_source_amount = {}, 0
+    dex_src_amounts, sum_source_amount = defaultdict(int), 0
+    reported_splits = defaultdict(float)
     for o in trade['orders']:
         order_source_amount = int(o['sourceAmount'])
         dex = o['exchange']['name']
-        dex_src_amounts[dex] = order_source_amount
+        dex_src_amounts[dex] += order_source_amount
         sum_source_amount += order_source_amount
+        reported_splits[dex] += float(o['splitPercentage']) # TODO: is splitPercentage always an integer?
 
-    return { dex: round(100 * src_amount / sum_source_amount) for dex, src_amount in dex_src_amounts.items() }
+    computed_splits = {dex: round(100 * src_amount / sum_source_amount, 1) for dex, src_amount in dex_src_amounts.items()}
+    # print(f"computed_splits={computed_splits}\nreported_splits={dict(reported_splits)}")
+    return computed_splits
 
 
 def swap_data(response, is_totle, request={}):
@@ -351,7 +369,8 @@ def post_with_retries(endpoint, inputs, num_retries=3, debug=False, timer=False)
 
     
 # Default parameters for swap. These can be overridden by passing params
-DEFAULT_WALLET_ADDRESS = "0xD18CEC4907b50f4eDa4a197a50b619741E921B4D"
+# DEFAULT_WALLET_ADDRESS = "0xD18CEC4907b50f4eDa4a197a50b619741E921B4D"
+DEFAULT_WALLET_ADDRESS = "0x8d12A197cB00D4747a1fe03395095ce2A5CC6819" # Ether Delta address with lots of tokens
 DEFAULT_TRADE_SIZE = 1.0 # the amount of ETH to spend or acquire, used to calculate amount
 DEFAULT_MAX_SLIPPAGE_PERCENT = 50
 DEFAULT_MIN_FILL_PERCENT = 80
@@ -405,28 +424,26 @@ def swap_inputs(from_token, to_token, exchange=None, params={}):
     elif 'toAmount' in params:
         swap_inputs['swap']['destinationAmount'] = token_utils.int_amount(params['toAmount'], to_token)
     else: # implied behavior based on params['trade_size'] and which token is 'ETH'
-        eth_amount = token_utils.int_amount(params.get('tradeSize') or DEFAULT_TRADE_SIZE, 'ETH')
-        if from_token == 'ETH':
-            swap_inputs['swap']['sourceAmount'] = eth_amount
-        elif to_token == 'ETH':
-            swap_inputs['swap']['destinationAmount'] = eth_amount
-        else:
-            raise ValueError('when tradeSize is specified, either from_token or to_token must be ETH')
+        raise ValueError('either fromAmount or toAmount must be provided (tradeSize is no longer supported)')
 
     return {**swap_inputs, **base_inputs}
 
 def handle_swap_exception(e, dex, from_token, to_token, params, verbose=True):
     has_args1, has_args2 = len(e.args) > 1 and bool(e.args[1]), len(e.args) > 2 and bool(e.args[2])
-    normal_exceptions = ["NotEnoughVolumeError", "MarketSlippageTooHighError"]
-    normal_messages = ['Endpoint request timed out'] # this response does not come with error code or name, just a message
+    # normal_messages = ["Endpoint request timed out", "The market slippage is higher than acceptable percentage.", "We couldn't find enough orders to fill your request for"] # this response does not come with error code or name, just a message
+    normal_errors = {
+        2100: "We couldn't find enough orders to fill your request for ",
+        2101: "The market slippage is higher than acceptable percentage."
+    }
     # Check for normal exceptions, maybe print them
-    if has_args2 and type(e.args[2]) == dict and e.args[2].get('name') in normal_exceptions:
-        if verbose: print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} due to {e.args[2]['name']}")
-    elif has_args2 and type(e.args[2]) == dict and e.args[2].get('message') in normal_messages:
-        if verbose: print(f"{dex}: Suggester timed out for {from_token}->{to_token}")
-
+    if has_args2 and type(e.args[2]) == dict and e.args[2].get('code') in normal_errors:
+        if verbose:
+            eth_amount = params.get('fromAmount') or params.get('toAmount')
+            error_info, id = f"{e.args[2]['name']} {e.args[2]['code']}: {e.args[2]['message']}", e.args[2].get('id')
+            print(f"{dex}: Suggester returned no orders for {from_token}->{to_token} ({eth_amount} {from_token}) (id={id}) due to {error_info}")
     else: # print req/resp for uncommon failures
-        print(f"{dex}: swap raised {type(e).__name__}: {e.args[0]}")
+        print(f"{dex}: swap {to_token} for {from_token} raised {type(e).__name__}: {e.args[0]}")
+        traceback.print_exc(file=sys.stdout)
         if has_args1: print(f"FAILED REQUEST:\n{pp(e.args[1])}\n")
         if has_args2: print(f"FAILED RESPONSE:\n{pp(e.args[2])}\n\n")
 
@@ -461,19 +478,21 @@ def try_swap(label, from_token, to_token, exchange=None, params={}, verbose=True
 
 # get quote
 def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, params={}, verbose=False, debug=False):
-    if from_amount:
+    if from_amount and to_amount:
+        raise ValueError(f"{name()} only accepts either from_amount or to_amount, not both")
+    elif from_amount:
         params['fromAmount'] = from_amount
     elif to_amount:
         params['toAmount'] = to_amount
     else:
-        raise ValueError(f"{name()} only accepts either from_amount or to_amount, not both")
+        raise ValueError(f"{name()}: either from_amount or to_amount must be specified")
 
     sd = try_swap(dex or name(), from_token, to_token, exchange=dex, params=params, verbose=verbose, debug=debug)
 
     if sd:
         # keep consistent with exchanges_parts from other aggregators
         # TODO, this is not an order split, it is a multi-hop route
-        exchanges_parts = {dex: -1} if dex else {tu: -1 for tu in sd['totleUsed']}
+        exchanges_parts = sd['totleSplits']
         return {
             'source_token': sd['sourceToken'],
             'source_amount': sd['sourceAmount'],

@@ -1,7 +1,6 @@
 import json
 
 import exchange_utils
-import token_utils
 import totle_client
 
 class FoundBugException(Exception):
@@ -25,7 +24,7 @@ def test_basics():
 
 # BUG 1. partial fills not reflected in the summary
 def test_summary_bug_1(token_to_buy='ZRX', endpoint=totle_client.SWAP_ENDPOINT, debug=False):
-    inputs = totle_client.swap_inputs('ETH', token_to_buy, params={'tradeSize': 0.1})
+    inputs = totle_client.swap_inputs('ETH', token_to_buy, params={'fromAmount': 0.1})
     j = totle_client.post_with_retries(endpoint, inputs, debug=debug)
     summary_src_amount, summary_dest_amount, trades0_src_amount, trades0_dest_amount, orders00_src_amount, orders00_dest_amount, totle_fee_amount, totle_used = parse_swap_response1(j)
 
@@ -102,7 +101,7 @@ def test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH', json_response_fi
 def test_summary_bug_3(token_to_buy='MKR', dex='Eth2dai'):
     # buy ~283 MKR for 100 ETH,
     # pq = totle_client.get_quote('ETH', token_to_buy, from_amount=100.0, dex=dex, debug=True, verbose=True)
-    inputs = totle_client.swap_inputs('ETH', token_to_buy, exchange=dex, params={'tradeSize':100.0})
+    inputs = totle_client.swap_inputs('ETH', token_to_buy, exchange=dex, params={'fromAmount':100.0})
     j = totle_client.post_with_retries(totle_client.SWAP_ENDPOINT, inputs, debug=True)
     summary_src_amount, summary_dest_amount, trades0_src_amount, trades0_dest_amount, orders00_src_amount, orders00_dest_amount, totle_fee_amount, totle_used = parse_swap_response1(j)
 
@@ -130,7 +129,7 @@ def test_get_quote(tradable_tokens, trade_size=0.1, dex=None, from_token='ETH', 
     for to_token in tradable_tokens:
         print(f"\nswap {trade_size} {from_token} to {to_token} on {dex if dex else 'all DEXs'}")
         pq = totle_client.get_quote(from_token, to_token, from_amount=trade_size, dex=dex, debug=debug, verbose=verbose)
-        print(pq)
+        print(json.dumps(pq, indent=3))
 
 def test_which_tokens_supported(tradable_tokens, trade_size=0.1, dex='0xMesh', from_token='ETH', debug=False, verbose=False):
     token_map = {}
@@ -158,46 +157,47 @@ def test_summary_bug_4(token_to_buy='AST', token_to_sell='ETH', json_response_fi
         print(json.dumps(sd, indent=3))
 
 def test_swap_data(json_response_file):
-    j = json.load(open(json_response_file))
+    j = json.load(open(json_response_file))['response']
 
     sd = totle_client.swap_data(j, True)
     print(json.dumps(sd, indent=3))
 
-def test_get_snapshot(id):
-    j = totle_client.get_snapshot(id)
-    print(json.dumps(j, indent=3))
-
 #######################################################################################################################
 
-test_get_snapshot('0x998f9d03d108475998aba20c525009fd263a3ece5f724cbaa013b4a2283300a0')
-exit(0)
+# test_dex_name_map()
 
-test_dex_name_map()
+# test_swap_data('test_data/order_destination_asset_summary_asset.json') # destinationAsset=SAI but summary destinationAsset=RDN error
+# test_swap_data('test_data/eth_dai_knc.json') # source/dest flip error
+# test_swap_data('test_data/buy_knc_with_eth_good.json') # source/dest flip error
+# exit(0)
 
-tradable_tokens = token_utils.tradable_tokens()
 
-try:
-    # for token in token_utils.tradable_tokens():
-    #     test_summary_bug_1(token)
+# try:
+#     for token in token_utils.tradable_tokens():
+#         test_summary_bug_1(token)
+#
+#     test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH')
+#     test_summary_bug_2(token_to_buy='CDAI', token_to_sell='BAT', endpoint='https://services.totlenext.com/suggester/fix-amounts')
+#     test_summary_bug_2(token_to_buy='CDAI', token_to_sell='ETH', endpoint='https://services.totlenext.com/suggester/fix-amounts')
+#     test_summary_bug_2(token_to_buy='DAI', token_to_sell='BAT', endpoint='https://services.totlenext.com/suggester/fix-amounts')
+#     test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug2_plus_fee.json')
+#     test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug_2_fee_in_source_asset.json')
+#
+#     test_summary_bug_3(token_to_buy='MKR', dex='Oasis')
+#
+#     test_summary_bug_4(token_to_buy='AST', json_response_file='test_data/summary_bug_4.json')
+# except FoundBugException as e:
+#     print(e)
 
-    # test_summary_bug_2(token_to_buy='SHP', token_to_sell='ETH')
-    # test_summary_bug_2(token_to_buy='CDAI', token_to_sell='BAT', endpoint='https://services.totlenext.com/suggester/fix-amounts')
-    # test_summary_bug_2(token_to_buy='CDAI', token_to_sell='ETH', endpoint='https://services.totlenext.com/suggester/fix-amounts')
-    # test_summary_bug_2(token_to_buy='DAI', token_to_sell='BAT', endpoint='https://services.totlenext.com/suggester/fix-amounts')
-    # test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug2_plus_fee.json')
-    # test_summary_bug_2(token_to_buy='BAT', json_response_file='test_data/bug_2_fee_in_source_asset.json')
 
-    # test_summary_bug_3(token_to_buy='MKR', dex='Oasis')
-
-    test_summary_bug_4(token_to_buy='AST', json_response_file='test_data/summary_bug_4.json')
-except FoundBugException as e:
-    print(e)
-
-# # tradable_tokens = ['BAT', 'CVC', 'ZIL']
-# test_get_quote(tradable_tokens)
+# tradable_tokens = token_utils.tradable_tokens()
+# tradable_tokens = ['SAI', 'MKR', 'WBTC', 'KNC', 'LINK']
+# test_get_quote(tradable_tokens, debug=True)
 # test_what_tokens_supported(tradable_tokens, dex='0xMesh')
-
 # test_what_tokens_supported(tradable_tokens, dex='Stablecoinswap')
 # test_what_tokens_supported(tradable_tokens, dex='Fulcrum')
 
-# test_get_quote(['CETH'], dex='Fulcrum')
+TOP_VOLUME_AT_LEAST_TWO_AGGS_TRADABLE_TOKENS = ['SAI', 'MKR', 'WBTC', 'USDC', 'USDT', 'KNC', 'BNT', 'LINK', 'DAI', 'TUSD', 'BAT', 'RLC', 'ENG', 'REP', 'REN', 'ENJ', 'ZRX', 'XDCE', 'ANT', 'TKN', 'LEND', 'MANA', 'OMG', 'LRC', 'NMR', 'PAX', 'RPL', 'SPANK', 'RCN', 'SNT', 'RDN', 'NEXO']
+LOW_LIQUIDITY_TOKENS = ['KNC', 'BAT', 'RLC', 'ENG', 'ZRX', 'MANA', 'OMG']
+test_get_quote(['NMR'], trade_size=10.0, verbose=True, debug=True)
+test_get_quote(['NMR'], trade_size=10.0, dex='Uniswap', verbose=True, debug=True)

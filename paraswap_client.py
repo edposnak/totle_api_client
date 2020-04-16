@@ -154,6 +154,11 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
         print(f"{name()} {req_url} raised {e}: {r.text[:128] if r else 'no JSON returned'}")
         return {}
 
+
+def get_swap(from_token, to_token, from_amount=None, to_amount=None, dex=None, from_address=None, slippage=50, verbose=False, debug=False):
+    raise NotImplementedError(f"get_swap requires input from the response of get_quote and so can't be implemented with the current standard method signature for get_swap")
+
+
 def int_conv(s):
     """Converts a string, which may have a decimal point, to an integer"""
     if s.find('.') < 0:

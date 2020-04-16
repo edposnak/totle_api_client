@@ -14,7 +14,7 @@ import paraswap_client
 import totle_client
 
 import exchange_utils
-from v2_compare_prices import canonicalize_totle_splits
+from v2_compare_prices import canonicalize_and_sort_splits
 
 CSV_DATA_DIR = f"{os.path.dirname(os.path.abspath(__file__))}/outputs"
 
@@ -25,20 +25,24 @@ def csv_row_gen(file, only_splits=False, only_non_splits=False, only_totle_split
         reader = csv.DictReader(csvfile, fieldnames=None)
 
         for row in reader:
-            splits = exchange_utils.canonical_keys(eval(row.get('splits') or '{}'))
-            totle_splits = canonicalize_totle_splits(eval(row['totle_splits'])) if 'totle_splits' in row else {}
+            splits = canonicalize_and_sort_splits(row.get('splits'))
+            totle_splits = canonicalize_and_sort_splits(row.get('totle_splits'))
 
             if only_splits and len(splits) < 2: continue
             if only_totle_splits and len(totle_splits) < 2: continue
             if only_non_splits and len(splits) > 1: continue
             if only_totle_non_splits and len(totle_splits) > 1: continue
 
-            time, action = row['time'], row['action'] # datetime.fromisoformat(row['time']).isoformat(' ', 'seconds')
+            id, time, action = row['id'], row['time'], row['action']  # datetime.fromisoformat(row['time']).isoformat(' ', 'seconds')
+
             trade_size, token = float(row['trade_size']), row['token']
             exchange, exchange_price = row['exchange'], float(row['exchange_price'])
             totle_used, totle_price, pct_savings = row['totle_used'], float(row['totle_price']), float(row['pct_savings']),
             # Some older CSVs have the non-splittable dexs in the ex_prices column
             ex_prices = exchange_utils.canonical_and_splittable(eval(row.get('ex_prices') or '{}'))
+
+            if pct_savings < -1.0:
+                print(f"{pct_savings} vs {exchange} buying {token} for {trade_size} ETH using {totle_used} {totle_splits} id={id}")
 
             yield time, action, trade_size, token, exchange, exchange_price, totle_used, totle_price, pct_savings, splits, ex_prices
 

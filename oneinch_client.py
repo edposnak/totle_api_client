@@ -38,10 +38,10 @@ def fee_pct():
 #
 
 # map from canonical name to 1-Inch name
-DEX_NAME_MAP = {'0xMesh': '0x Relays', 'Aave': 'Aave', 'AirSwap': 'AirSwap', 'Bancor': 'Bancor', 'Chai': 'Chai',
-                'Compound': 'Compound', 'Curve.fi': 'Curve.fi', 'Fulcrum': 'Fulcrum', 'Kyber': 'Kyber',
-                'MultiUniswap': 'MultiUniswap', 'Oasis': 'Oasis', 'PMM': 'PMM', 'StableCoinSwap': 'StableCoinSwap',
-                'Synth Depot': 'Synth Depot', 'Synthetix': 'Synthetix', 'Uniswap': 'Uniswap', 'WETH': 'WETH', 'dForce': 'dForce'}
+DEX_NAME_MAP = {'0x V3': '0x V3', 'Aave': 'Aave', 'AirSwap': 'AirSwap', 'Balancer': 'Balancer', 'Bancor': 'Bancor', 'BETH':'BETH', 'Chai': 'Chai', 'Compound': 'Compound',
+                'Curve.fi': 'Curve.fi', 'Curve.fi v2': 'Curve.fi v2', 'Curve.fi iearn': 'Curve.fi iearn', 'Curve.fi sUSD': 'Curve.fi sUSD', 'Curve.fi BUSD': 'Curve.fi BUSD',
+                'dForce': 'dForce', 'Fulcrum': 'Fulcrum', 'IEarnFinance': 'iearn', 'Kyber': 'Kyber', 'MakerDAO': 'MakerDAO', 'MultiSplit': 'MultiSplit', 'Multi Uniswap': 'Multi Uniswap',
+                'Oasis': 'Oasis', 'PMM': 'PMM', 'StableCoinSwap': 'StableCoinSwap', 'Synth Depot': 'Synth Depot', 'Synthetix': 'Synthetix', 'Uniswap': 'Uniswap', 'WETH': 'WETH'}
 
 @functools.lru_cache(1)
 def exchanges():
@@ -113,3 +113,31 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
         print(f"{name()} {query} raised {e}: {r.text[:128] if r else 'no JSON returned'}")
         return {}
 
+def get_swap(from_token, to_token, from_amount=None, to_amount=None, dex=None, from_address=None, slippage=50, verbose=False, debug=False):
+    # https://api.1inch.exchange/v1.1/swap?fromTokenSymbol=ETH&toTokenSymbol=DAI&amount=100000000000000000000&fromAddress=0x8d12A197cB00D4747a1fe03395095ce2A5CC6819&slippage=10
+
+    query = {'fromTokenSymbol': from_token, 'toTokenSymbol': to_token, 'amount': token_utils.int_amount(from_amount, from_token)}
+    if debug: print(f"REQUEST to {QUOTE_ENDPOINT}:\n{json.dumps(query, indent=3)}\n\n")
+    r = None
+    try:
+        r = requests.get(QUOTE_ENDPOINT, params=query)
+        j = r.json()
+        if debug: print(f"RESPONSE from {QUOTE_ENDPOINT}:\n{json.dumps(j, indent=3)}\n\n")
+
+        if j.get('message'):
+            print(f"{sys._getframe(  ).f_code.co_name} returned {j['message']} request was {query} response was {j}")
+            return {}
+        else:
+            # Response: {
+            #    "from":"0x8d12A197cB00D4747a1fe03395095ce2A5CC6819",
+            #    "to":"0x11111254369792b2Ca5d084aB5eEA397cA8fa48B",
+            #    "gas":"1862857",
+            #    "gasPrice":"88000000000",
+            #    "value":"100000000000000000000",
+            #    "data":"0xf88309d7000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee0000000000000000000000006b175474e89094c44da98b954eedeac495271d0f0000000000000000000000000000000000000000000000056bc75e2d631000000000000000000000000000000000000000000000000001d2ed255d96ab94a920000000000000000000000000000000000000000000000206ce9b4b8af788bbeb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000380000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000020000000000000000000000002a1530c4c41db0b0b2bb646cb5eb1a67b71586670000000000000000000000001814222fa8c8c1c1bf380e3bbfbd9de8657da47600000000000000000000000000000000000000000000000000000000000001a8f39b5b9b0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000005e6c2b80e2a7515e000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee0000000000000000000000006b175474e89094c44da98b954eedeac495271d0f0000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000b0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004400000000000000000000000000000000000000000000000000000000000001a800000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000055de6a779bbac00000000000000000000000000000000000000000000000000000de0b6b3a7640000"}
+            source_token_addr = j['from']
+            # TODO: implement response parsing
+
+    except (ValueError, requests.exceptions.RequestException) as e:
+        print(f"{name()} {query} raised {e}: {r.text[:128] if r else 'no JSON returned'}")
+        return {}

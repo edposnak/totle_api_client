@@ -1,7 +1,8 @@
 import data_import
 import glob
 
-csv_files = glob.glob(f'../outputs/totle_vs_agg_splits_*')
+csv_files = tuple(glob.glob(f'../outputs/2020-03-22_1[123]*buy.csv'))
+#     per_token_savings, slip_price_splits = data_import.parse_csv_files(csv_files)
 count = 0
 
 print(f"processing {len(csv_files)} CSV files ...")

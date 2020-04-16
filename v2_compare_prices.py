@@ -38,9 +38,17 @@ def compare_dex_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, o
     """Returns a dict of dex: savings_data for Totle and other DEXs"""
 
     kw_params = { k:v for k,v in vars().items() if k in ['params', 'verbose', 'debug'] }
-    trade_size = params['orderType'], params['tradeSize']
     savings = {}
-    from_token, to_token, bidask = ('ETH', token, 'ask') if order_type == 'buy' else (token, 'ETH', 'bid')
+    # TODO: replace token with from_token, to_token
+    if order_type == 'buy':
+        trade_size = params['fromAmount']
+        from_token, to_token, bidask = ('ETH', token, 'ask')
+    elif order_type == 'sell':
+        trade_size = params['toAmount']
+        from_token, to_token, bidask = (token, 'ETH', 'bid')
+    else:
+        raise ValueError(f"order_type must be either 'buy' or 'sell'")
+
     totle_ex = totle_client.name()
     
     # Get the best price using Totle's aggregated order books
@@ -50,8 +58,8 @@ def compare_dex_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, o
         totle_used = totle_sd['totleUsed']
         swap_prices = {totle_ex: totle_sd['price']}
 
-        for dex, pair in totle_sd['dexPairs'].items():
-            supported_pairs[dex].append(pair)
+        # we only need to pre-populate of if len(totle_used) <= 1, otherwise dexs_to_compare will include all dexes
+        if len(totle_used) == 1: supported_pairs[totle_used[0]].append([from_token, to_token])
 
         # Compare to best prices from other DEXs
         # don't compare to the one that Totle used, unless Totle used multiple DEXs
@@ -70,7 +78,8 @@ def compare_dex_prices(token, supported_pairs, non_liquid_tokens, liquid_dexs, o
             for e in other_dexs:
                 # totle_price assumed lower
                 pct_savings = get_pct_savings(totle_price, swap_prices[e])
-                savings[e] = savings_data(order_type, trade_size, token, e, pct_savings, totle_used, totle_price, swap_prices[e])
+                savings[e] = get_savings(e, swap_prices[e], totle_sd, token, trade_size, order_type, quote_token='ETH', print_savings=True)
+
                 print(f"Totle saved {pct_savings:.2f} percent vs {e} {order_type}ing {token} on {totle_used} trade size={trade_size} ETH")
         else:
             print(f"Could not compare {token} prices. Only valid price was {swap_prices}")
@@ -145,12 +154,22 @@ def best_price_with_fees(trade_size, book, buysell, fee_pct):
         # e.g. sell DAI for ETH with 10% fee: price (in DAI) = (1.1 * (1 / .005)) # user has to pay 10% more DAI
         return markup / p
 
-def get_from_to(order_type, base, quote):
+def get_from_to_params(order_type, base, quote, trade_size):
     """returns base, quote ordered as from, to based on order_type"""
     # buy: selling from (from) quote tokens to buy (to) base tokens
     # sell: selling (from) base tokens to buy (to) quote tokens
     from_token, to_token = (quote, base) if order_type == 'buy' else (base, quote)
-    return from_token, to_token
+
+    if order_type == 'buy':
+        from_token, to_token = (quote, base)
+        params = {'fromAmount': trade_size}
+    elif order_type == 'sell':
+        from_token, to_token = (base, quote)
+        params = {'toAmount': trade_size}
+    else:
+        raise ValueError(f"order_type must be 'buy' or 'sell'")
+
+    return from_token, to_token, params
 
 
 def get_cex_savings(cex_client, order_type, pairs, trade_sizes, redirect=True):
@@ -177,20 +196,19 @@ def get_cex_savings(cex_client, order_type, pairs, trade_sizes, redirect=True):
 
 def compare_to_totle(base, quote, order_type, trade_size, exchange, ex_price, splits=None):
     """Returns a savings_data dict comparing price (in *spent* token) to totle's price"""
-    from_token, to_token = get_from_to(order_type, base, quote)
-    totle_sd = totle_client.try_swap(totle_client.name(), from_token, to_token, params={'tradeSize': trade_size}, verbose=False)
+    from_token, to_token, params = get_from_to_params(order_type, base, quote, trade_size)
+    totle_sd = totle_client.try_swap(totle_client.name(), from_token, to_token, params=params, verbose=False)
     if totle_sd:
         return get_savings(exchange, ex_price, totle_sd, base, trade_size, order_type, splits)
     else:
-        print(f"Compare {order_type} {base}/{quote} tradeSize={trade_size} got no result from Totle")
-
+        print(f"Compare {order_type} {base}/{quote} trade size={trade_size} got no result from Totle")
 
 def get_savings(exchange, exchange_price, totle_sd, token, trade_size, order_type, splits=None, ex_prices=None, quote_token=None, print_savings=True):
     response_id = totle_sd['responseId']
     totle_price = totle_sd['price']
     totle_used = totle_sd['totleUsed']
 
-    totle_splits = canonicalize_totle_splits(totle_sd['totleSplits']) if 'totleSplits' in totle_sd else None
+    totle_splits = canonicalize_and_sort_splits(totle_sd.get('totleSplits'))
 
     pct_savings = get_pct_savings(totle_price, exchange_price)
     if print_savings:
@@ -202,25 +220,30 @@ def get_savings(exchange, exchange_price, totle_sd, token, trade_size, order_typ
                         splits=splits, totle_splits=totle_splits, ex_prices=ex_prices, quote_token=quote_token, response_id=response_id)
 
 
-def canonicalize_totle_splits(raw_splits):
+def canonicalize_and_sort_splits(raw_splits):
     """Canonicalizes any DEX named in Totle splits"""
-    # See also swap_data() in totle_client
-    if is_multi_split(raw_splits):
-        return {pair: exchange_utils.canonical_keys(t_splits) for pair, t_splits in raw_splits.items()}
+
+    h = eval(raw_splits or '{}') if isinstance(raw_splits, str) else raw_splits
+
+    if is_multi_split(h):
+        return {pair: sorted_splits(flat_split) for pair, flat_split in h.items()}
     else:
-        return exchange_utils.canonical_keys(raw_splits)
+        return sorted_splits(h)
+
+def sorted_splits(flat_splits):
+    a_splits = exchange_utils.canonical_keys(flat_splits)
+    return { k:round(v) for k, v in sorted(a_splits.items()) }
 
 def is_multi_split(totle_splits):
     """ returns True if there are multiple splits keyed by pair e.g. {'BAT/ETH': {'Kyber':90, 'Uniswap':10}, 'ETH/DAT': {...}}"""
-    first_val = list(totle_splits.values())[0]
-    return type(first_val) == dict
+    return bool(totle_splits) and type(list(totle_splits.values())[0]) == dict
 
 
 
 def print_savings(order_type, savings, trade_sizes, title="Savings"):
     """Prints a savings dict, token => trade_size => savings values"""
     ph = lambda x: f"{x:>8}"
-    pf = lambda x: f"{x:>8.2g}"
+    pf = lambda x: f"{x:>8.2f}"
     print(f"\n{title}\n{order_type.upper():<8}", ''.join(map(ph, trade_sizes)))
     for base, ts_savings in savings.items():
         vals = [ ts_savings.get(ts) for ts in trade_sizes ]
