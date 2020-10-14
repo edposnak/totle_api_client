@@ -1,6 +1,7 @@
 import random
 import sys
 import functools
+import threading
 import time
 
 import requests
@@ -41,10 +42,15 @@ def fee_pct():
 #
 
 # map from canonical name to 1-Inch name
-DEX_NAME_MAP = {'0x V3': '0x V3', 'Aave': 'Aave', 'AirSwap': 'AirSwap', 'Balancer': 'Balancer', 'Bancor': 'Bancor', 'BETH':'BETH', 'Chai': 'Chai', 'Compound': 'Compound',
-                'Curve.fi': 'Curve.fi', 'Curve.fi v2': 'Curve.fi v2', 'Curve.fi iearn': 'Curve.fi iearn', 'Curve.fi sUSD': 'Curve.fi sUSD', 'Curve.fi BUSD': 'Curve.fi BUSD',
-                'dForce': 'dForce', 'Fulcrum': 'Fulcrum', 'IEarnFinance': 'iearn', 'Kyber': 'Kyber', 'MakerDAO': 'MakerDAO', 'MultiSplit': 'MultiSplit', 'Multi Uniswap': 'Multi Uniswap',
-                'Oasis': 'Oasis', 'PMM': 'PMM', 'StableCoinSwap': 'StableCoinSwap', 'Synth Depot': 'Synth Depot', 'Synthetix': 'Synthetix', 'Uniswap': 'Uniswap', 'WETH': 'WETH'}
+DEX_NAME_MAP = {'0x API': '0x API', '0x V3': '0x V3', 'Aave': 'Aave', 'AirSwap': 'AirSwap', 'Balancer': 'Balancer', 'Bancor': 'Bancor', 'BETH':'BETH', 'C.R.E.A.M. Swap': 'C.R.E.A.M. Swap', 'Chai': 'Chai', 'Chi Minter': 'Chi Minter', 'Compound': 'Compound',
+                'Curve.fi': 'Curve.fi', 'Curve.fi v2': 'Curve.fi v2', 'Curve.fi iearn': 'Curve.fi iearn', 'Curve.fi sUSD': 'Curve.fi sUSD', 'Curve.fi BUSD': 'Curve.fi BUSD', 'Curve.fi PAX': 'Curve.fi PAX',
+                'Curve.fi renBTC': 'Curve.fi renBTC', 'Curve.fi tBTC': 'Curve.fi tBTC', 'Curve.fi sBTC': 'Curve.fi sBTC', 'Curve.fi hBTC': 'Curve.fi hBTC', 'Curve.fi 3pool': 'Curve.fi 3pool',
+                'dForce Swap': 'dForce Swap', 'DODO': 'DODO', 'Fulcrum': 'Fulcrum', 'IdleFinance': 'Idle', 'IEarnFinance': 'iearn', 'Kyber': 'Kyber', 'MakerDAO': 'MakerDAO', 'Mooniswap': 'Mooniswap',
+                'MultiSplit': 'MultiSplit', 'Multi Uniswap': 'Multi Uniswap', 'mStable': 'mStable', 'Oasis': 'Oasis', 'Pathfinder': 'Pathfinder', 'PMM': 'PMM', 'PMM2': 'PMM2', 'StableCoinSwap': 'StableCoinSwap',
+                'Sushi Swap': 'Sushi Swap', 'Swerve': 'Swerve', 'Synth Depot': 'Synth Depot', 'Synthetix': 'Synthetix', 'Uniswap': 'Uniswap', 'Uniswap V2':'Uniswap V2', 'WETH': 'WETH'}
+
+
+
 
 @functools.lru_cache(1)
 def exchanges():
@@ -65,9 +71,27 @@ def get_pairs(quote='ETH'):
     canonical_symbols = [ token_utils.canonical_symbol(t) for t in tokens_json ] # may contain None values
     return [ (t, quote) for t in canonical_symbols if t ]
 
+supported_tokens_lock = threading.Lock()
 def supported_tokens():
-    # guess based on empirical data
-    return ['ABT','ABYSS','ANT','APPC','AST','BAT','BLZ','BNT','BTU','CBI','CDT','CND','CVC','DAI','DAT','DENT','DGX','DTA','ELF','ENG','ENJ','EQUAD','ETHOS','FUN','GEN','GNO','KNC','LBA','LEND','LINK','LRC','MANA','MCO','MKR','MLN','MOC','MTL','MYB','NEXO','NPXS','OMG','OST','PAX','PAY','PLR','POE','POLY','POWR','QKC','RCN','RDN','REN','REP','REQ','RLC','RPL','SNT','SNX','SPANK','SPN','STORJ','TAU','TKN','TUSD','UPP','USDC','USDT','WBTC','WETH','XCHF','XDCE','ZRX']
+    supported_tokens_lock.acquire()
+    j =  supported_tokens_critical()
+    supported_tokens_lock.release()
+    return j
+
+
+CACHED_SUPPORTED_TOKENS = ['ABT','ABYSS','AMPL','ANT','APPC','AST','BAL','BAT','BLZ','BNT','BTU','CBI','CDT','CND','COMP','CVC','DAI','DAT','DENT','DGX','DTA','ELF','ENG','ENJ','EQUAD','ETHOS','FUN',
+            'GEN','GNO','KNC','LBA','LEND','LINK','LRC','MANA','MCO','MKR','MLN','MOC','MTL','MYB','NEXO','NPXS','OMG','OST','PAX','PAY','PLR','POE','POLY','POWR',
+            'QKC','RCN','RDN','REN','REP','REQ','RLC','RPL','SNT','SNX','SPANK','SPN','STORJ','TAU','TKN','TUSD','UNI', 'UMA', 'UPP','USDC','USDT','WBTC','WETH','XCHF','XDCE', 'YFI', 'ZRX']
+
+@functools.lru_cache(1)
+def supported_tokens_critical():
+    r = requests.get(TOKENS_ENDPOINT)
+    try: # this often fails to return a good response, so we used cached data when it does
+        supp_tokens_json = r.json()
+        return [t['symbol'] for t in supp_tokens_json.values()]
+    except json.decoder.JSONDecodeError as e:
+        print(f"oneinch_client.supported_tokens() using CACHED_SUPPORTED_TOKENS")
+        return CACHED_SUPPORTED_TOKENS
 
 
 # get quote
@@ -82,6 +106,8 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
     r = None
     try:
         r = requests.get(QUOTE_ENDPOINT, params=query)
+        if debug:
+            print(f"r.status_code={r.status_code}")
         j = r.json()
         if debug:
             print(f"REQUEST to {QUOTE_ENDPOINT}:\n{json.dumps(query, indent=3)}\n\n")
@@ -90,7 +116,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
         if j.get('message'):
             print(f"{sys._getframe(  ).f_code.co_name} returned {j['message']} request was {query} response was {j}")
 
-            time.sleep(2.0 + random.random())  # block each thread for 2-3 seconds to keep from getting rate limited
+            time.sleep(1.0 + random.random())  # block each thread for 1-2 seconds to keep from getting rate limited
             return {}
         else:
             # Response:
@@ -106,7 +132,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
             price = source_amount / destination_amount if destination_amount else 0.0
             exchanges_parts = {ex['name']: ex['part'] for ex in j['exchanges'] if ex['part']}
 
-            time.sleep(2.0 + random.random())  # block each thread for 2-3 seconds to keep from getting rate limited
+            time.sleep(1.0 + random.random())  # block each thread for 1-2 seconds to keep from getting rate limited
             return {
                 'source_token': source_token,
                 'source_amount': source_amount,

@@ -70,7 +70,8 @@ def test_supported_tokens():
 
 
 #######################################################################################################################
-# test_dex_name_map()
+test_dex_name_map()
+exit(0)
 
 # https://api.dex.ag/price?from=ETH&to=DAI&toAmount=1.5&dex=ag -> price: 0.0055    <- buy (OK)
 test_get_swap('DAI', from_token='ETH', to_amount=1.5)

@@ -164,7 +164,8 @@ def test_swap_data(json_response_file):
 
 #######################################################################################################################
 
-# test_dex_name_map()
+test_dex_name_map()
+exit(0)
 
 # test_swap_data('test_data/order_destination_asset_summary_asset.json') # destinationAsset=SAI but summary destinationAsset=RDN error
 # test_swap_data('test_data/eth_dai_knc.json') # source/dest flip error

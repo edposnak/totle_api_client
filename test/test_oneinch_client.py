@@ -1,3 +1,5 @@
+import time
+
 import oneinch_client
 import exchange_utils
 
@@ -27,19 +29,24 @@ def test_get_quote(to_token, from_token='ETH', from_amount=None, to_amount=None,
     try:
         pq = oneinch_client.get_quote(from_token, to_token, **kw_params)
         if not pq:
-            print(f"{dex} did not have {from_token} to {to_token} from_amount={from_amount} to_amount={to_amount}")
+            print(f"{dex or ''} did not have {from_token} to {to_token} from_amount={from_amount} to_amount={to_amount}")
         else:
             print(f"price={pq['price']} from {from_token} to {to_token} from_amount={from_amount} to_amount={to_amount}")
             print(pq)
-    except (oneinch_client.DexAGAPIException, ValueError) as e:
+    except (oneinch_client.OneInchAPIException, ValueError) as e:
         print(e)
 
 #######################################################################################################################
 
+
 # test_dex_name_map()
 
-test_get_quote('OMG', from_amount=1.0, debug=True)
-exit(0)
+test_get_quote('UNI', from_amount=1.0, debug=False)
+test_get_quote('YFI', from_amount=1.0, debug=False)
+test_get_quote('COMP', from_amount=1.0, debug=False)
+test_get_quote('BAL', from_amount=1.0, debug=False)
+test_get_quote('AMPL', from_amount=1.0, debug=False)
+test_get_quote('UMA', from_amount=1.0, debug=False)
 
-test_get_quote('ETH', 'OMG', from_amount=200)
+# test_get_quote('ETH', 'OMG', from_amount=200)
 

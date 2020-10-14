@@ -26,16 +26,16 @@ def test_get_quote(to_token, from_token='ETH', from_amount=None, to_amount=None,
 
     try:
         pq = paraswap_client.get_quote(from_token, to_token, **kw_params)
-        print(f"price={pq['price']} from {from_token} to {to_token} from_amount={from_amount} to_amount={to_amount}")
+        print(f"price={'price' in pq and pq['price']} from {from_token} to {to_token} from_amount={from_amount} to_amount={to_amount}")
     except (paraswap_client.ParaswapAPIException, ValueError) as e:
         print(e)
 
 #######################################################################################################################
 test_dex_name_map()
-exit(0)
 
 # Buying RDN for 156.19586819370878 REN
 test_get_quote('RDN', 'REN', from_amount=156.19586819370878, debug=True)
+exit(0)
 
 # test_get_quote('USDC', 'REQ', from_amount=9.935)
 
