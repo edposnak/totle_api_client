@@ -199,5 +199,5 @@ def test_swap_data(json_response_file):
 
 TOP_VOLUME_AT_LEAST_TWO_AGGS_TRADABLE_TOKENS = ['SAI', 'MKR', 'WBTC', 'USDC', 'USDT', 'KNC', 'BNT', 'LINK', 'DAI', 'TUSD', 'BAT', 'RLC', 'ENG', 'REP', 'REN', 'ENJ', 'ZRX', 'XDCE', 'ANT', 'TKN', 'LEND', 'MANA', 'OMG', 'LRC', 'NMR', 'PAX', 'RPL', 'SPANK', 'RCN', 'SNT', 'RDN', 'NEXO']
 LOW_LIQUIDITY_TOKENS = ['KNC', 'BAT', 'RLC', 'ENG', 'ZRX', 'MANA', 'OMG']
-test_get_quote(['NMR'], trade_size=10.0, verbose=True, debug=True)
-test_get_quote(['NMR'], trade_size=10.0, dex='Uniswap', verbose=True, debug=True)
+test_get_quote(['DAI'], trade_size=10.0, verbose=True, debug=True)
+test_get_quote(['DAI'], trade_size=10.0, dex='Uniswap', verbose=True, debug=True)

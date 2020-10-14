@@ -1,5 +1,7 @@
 import glob
 import os
+import random
+import time
 from collections import defaultdict
 import concurrent.futures
 
@@ -14,15 +16,19 @@ import totle_client
 from v2_compare_prices import get_savings, print_savings, get_filename_base, SavingsCSV
 
 
-AGG_CLIENTS = [dexag_client, oneinch_client, paraswap_client, zrx_client]
-# AGG_CLIENTS = [dexag_client, zrx_client]
+# AGG_CLIENTS = [dexag_client, oneinch_client, paraswap_client, zrx_client]
+AGG_CLIENTS = [oneinch_client, dexag_client, zrx_client]
 CSV_FIELDS = "time id action trade_size token quote exchange exchange_price totle_used totle_price totle_splits pct_savings splits ex_prices".split()
 
 def compare_totle_and_aggs_parallel(from_token, to_token, from_amount, usd_trade_size=None):
+    time.sleep(2.0 + random.random())  # block each thread for 2-3 seconds to keep from getting rate limited
+
     agg_savings = {}
 
     totle_sd = totle_client.try_swap(totle_client.name(), from_token, to_token, params={'fromAmount': from_amount}, verbose=False, debug=False)
     if totle_sd:
+        print(f"SUCCESSFUL getting Totle API Quote")
+
         futures_agg = {}
         with concurrent.futures.ThreadPoolExecutor() as executor:
             for agg_client in AGG_CLIENTS:
@@ -33,6 +39,7 @@ def compare_totle_and_aggs_parallel(from_token, to_token, from_amount, usd_trade
             agg_name = futures_agg[f]
             pq = f.result()
             if pq:
+                print(f"SUCCESSFUL getting {agg_name} quote for buying {to_token} with {from_amount} {from_token}")
                 splits = exchange_utils.canonical_keys(pq['exchanges_parts'])
                 ex_prices = pq.get('exchanges_prices') and exchange_utils.canonical_and_splittable(pq['exchanges_prices'])
                 if pq['price'] == 0:
@@ -42,7 +49,11 @@ def compare_totle_and_aggs_parallel(from_token, to_token, from_amount, usd_trade
                 print(f"Totle saved {savings['pct_savings']:.2f} percent vs {agg_name} buying {to_token} with {from_amount} {from_token} on {savings['totle_used']}")
                 agg_savings[agg_name] = savings
             else:
-                print(f"{agg_name} had no price quote for buying {to_token} with {from_amount} {from_token}")
+                print(f"FAILED getting {agg_name} quote: had no price quote for buying {to_token} with {from_amount} {from_token}")
+
+    else:
+        print(f"FAILED getting Totle API Quote")
+
     return agg_savings
 
 def get_token_prices(tokens):
@@ -140,14 +151,19 @@ def do_overlap_pairs():
 TOTLE_39 = ['ANT','AST','BAT','BNT','CDT','CND','CVC','DAI','ENG','ENJ','ETHOS','GNO','KNC','LINK','MANA','MCO','MKR','OMG','PAX','PAY','POE','POLY','POWR','RCN','RDN','REN','REP','REQ','RLC','RPL','SNT','SNX','STORJ','TKN','TUSD','USDC','USDT','WBTC','ZRX']
 HI_SPLIT_TOKENS = ['BAT', 'ENJ', 'GNO', 'KNC', 'MANA', 'OMG', 'POE', 'POWR', 'RCN', 'RDN', 'REN', 'REP', 'REQ', 'RLC', 'SNT']
 TOTLE_74 = ['DNT','CZRX','ONG','CSAI','CUSDC','BNTY','XDCE','QSP','ANT','MKR','ASTRO','BNT','FLIXX','OMG','DATA','REP','WLK','USDS','REAL','STORM','STORJ','MLN','MTL','DRT','DALC','ZRX','TKN','TRST','PRG','SHP','DRGN','VIB','ABYSS','PAX','LEV','RHOC','ENJ','SCL','WBTC','POLY','LRC','ZIL','RCN','ERC20','USDC','ISAI','KNC','NEXO','STX','REN','ELEC','SUSD','WABI','CBAT','CETH','NPXS','VERI','BAT','TUSD','ENG','RPL','ART','PAY','CND','WINGS','REQ','MCO','CDAI','LINK','KIN','PLR','BNB','DAI','SWT']
-
 TOP_VOLUME_AGG_TRADABLE_TOKENS = ['SAI', 'MKR', 'WBTC', 'USDC', 'USDT', 'KNC', 'BNT', 'LINK', 'DAI', 'TUSD', 'BAT', 'RLC', 'REP', 'REN', 'ENJ', 'ZRX', 'ANT', 'TKN', 'LEND', 'MANA', 'OMG', 'LRC', 'PAX', 'SPANK', 'RCN', 'SNT', 'RDN']
 TOP_VOLUME_AT_LEAST_TWO_AGGS_TRADABLE_TOKENS = ['SAI', 'MKR', 'WBTC', 'USDC', 'USDT', 'KNC', 'BNT', 'LINK', 'DAI', 'TUSD', 'BAT', 'RLC', 'ENG', 'REP', 'REN', 'ENJ', 'ZRX', 'XDCE', 'ANT', 'TKN', 'LEND', 'MANA', 'OMG', 'LRC', 'NMR', 'PAX', 'RPL', 'SPANK', 'RCN', 'SNT', 'RDN', 'NEXO']
-
 STABLECOINS = ['DAI', 'PAX', 'SAI', 'TUSD', 'USDC', 'USDT']
 UNSUPPORTED_STABLECOINS = ['CSAI', 'IDAI']
-# TOKENS = HI_SPLIT_TOKENS
-TOKENS = TOP_VOLUME_AT_LEAST_TWO_AGGS_TRADABLE_TOKENS
+
+#TOP_TEN_TOKENS = ['USDT', 'LINK', 'YFI', 'UNI', 'USDC', 'PAX', 'OMG', 'REN',  'BAT', 'DAI', 'COMP', 'WBTC']
+TOP_TEN_TOKENS = ['UNI', 'YFI', 'LINK', 'WBTC', 'COMP', 'BAL', 'REP', 'AMPL', 'KNC', 'UMA', 'LEND', 'SNX']
+
+NON_ONEINCH_TOKENS = ['UNI', 'YFI', 'COMP', 'BAL', 'AMPL', 'UMA']
+
+
+tokens = NON_ONEINCH_TOKENS
+random.shuffle(tokens)
 TRADE_SIZES  = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0, 1000.0, 5000.0, 10000.0]
 
 def do_eth_pairs():
@@ -157,12 +173,12 @@ def do_eth_pairs():
     with SavingsCSV(filename, fieldnames=CSV_FIELDS) as csv_writer:
         todo = []
 
-        for base in TOKENS:
+        for base in tokens:
             for trade_size in TRADE_SIZES:
                 todo.append((compare_totle_and_aggs_parallel, quote, base, trade_size))
 
-        MAX_THREADS = 16
-        print(f"Queueing up {len(todo)} todos ({len(TOKENS)} tokens x {len(TRADE_SIZES)} trade sizes) for execution on {MAX_THREADS} workers")
+        MAX_THREADS = 1
+        print(f"Queueing up {len(todo)} todos ({len(tokens)} tokens x {len(TRADE_SIZES)} trade sizes) for execution on {MAX_THREADS} workers")
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
             futures_p = {executor.submit(*p): p for p in todo}
 

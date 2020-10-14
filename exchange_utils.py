@@ -20,6 +20,7 @@ SYM_TO_NAME = {
     'beth': 'BETH',
     'chai': 'Chai',
     'compound': 'Compound',
+    'curve': 'Curve',
     'curvefi compound': 'CurveFi Compound',
     'curve.fi': 'Curve.fi',
     'curvefi pool #1': 'CurveFi Pool #1',
@@ -31,6 +32,10 @@ SYM_TO_NAME = {
     'curve.fi susd': 'Curve.fi sUSD',
     'curvefi usdt': 'CurveFi USDT',
     'curvefi y': 'CurveFi Y',
+    'curvefi pax': 'CurveFi Pax',
+    'curvefi susdv2': 'CurveFi sUSDV2',
+    'curvefi ren': 'CurveFi Ren',
+    'curvefi sbtc': 'CurveFi sBTC',
     'deversifi': 'deversifi',
     'ddex': 'DDEX',
     'dforce': 'dForce',
@@ -49,11 +54,16 @@ SYM_TO_NAME = {
     'kyber': 'Kyber',
     'liquidityprovider': 'LiquidityProvider',
     'makerdao': 'MakerDAO',
+    'mooniswap': 'Mooniswap',
+    'mstable': 'mStable',
+    'multihop': 'MultiHop',
     'multisplit': 'MultiSplit',
     'multi uniswap': 'Multi Uniswap',
+    'multibridge': 'MultiBridge',
     'oasis': 'Oasis',
     'oasisdex': 'Oasis',
     'paradex': 'Paradex',
+    'pathfinder': 'Pathfinder',
     'pmm': 'PMM',
     'paraswappool' : 'PMM',
     'radar-relay': 'Radar Relay',
@@ -62,15 +72,21 @@ SYM_TO_NAME = {
     'setprotocol': 'SetProtocol',
     'sharkrelay': 'Shark Relay',
     'shark relay': 'Shark Relay',
+    'shell': 'Shell',
     'stablecoinswap': 'StableCoinSwap',
     'star bit': 'STAR BIT',
+    'sushiswap': 'Sushiswap',
+    'swerve': 'Swerve',
     'synthetix': 'Synthetix',
     'synth depot': 'Synth Depot',
     'thetokenstore': 'Token Store',
     'token store': 'Token Store',
     'uniswap': 'Uniswap',
+    'uniswap_v2': 'UniswapV2',
+    'uniswapv2': 'UniswapV2',
     'weidex': 'weiDex',
-    'weth': 'WETH'
+    'weth': 'WETH',
+    'zero_x_v2': 'zero_x_v2',
 }
 
 # get tokens
@@ -84,7 +100,7 @@ def canonical_name(dex_name):
     if sym in SYM_TO_NAME:
         return SYM_TO_NAME[sym]
     else:
-        raise ValueError(f"'{dex_name}' is an unknown exchange")
+        raise ValueError(f"'{dex_name}' is an unknown exchange (using '{sym}')")
 
 def canonical_names(dex_names):
     """Returns a list of canonical names for the given dex_names"""

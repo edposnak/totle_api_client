@@ -1,5 +1,8 @@
+import random
 import sys
 import functools
+import time
+
 import requests
 import json
 import token_utils
@@ -76,15 +79,18 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
 
     # https://api.1inch.exchange/v1.1/quote?fromTokenSymbol=ETH&toTokenSymbol=DAI&amount=100000000000000000000&disabledExchangesList=Bancor
     query = {'fromTokenSymbol': from_token, 'toTokenSymbol': to_token, 'amount': token_utils.int_amount(from_amount, from_token)}
-    if debug: print(f"REQUEST to {QUOTE_ENDPOINT}:\n{json.dumps(query, indent=3)}\n\n")
     r = None
     try:
         r = requests.get(QUOTE_ENDPOINT, params=query)
         j = r.json()
-        if debug: print(f"RESPONSE from {QUOTE_ENDPOINT}:\n{json.dumps(j, indent=3)}\n\n")
+        if debug:
+            print(f"REQUEST to {QUOTE_ENDPOINT}:\n{json.dumps(query, indent=3)}\n\n")
+            print(f"RESPONSE from {QUOTE_ENDPOINT}:\n{json.dumps(j, indent=3)}\n\n")
 
         if j.get('message'):
             print(f"{sys._getframe(  ).f_code.co_name} returned {j['message']} request was {query} response was {j}")
+
+            time.sleep(2.0 + random.random())  # block each thread for 2-3 seconds to keep from getting rate limited
             return {}
         else:
             # Response:
@@ -100,6 +106,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
             price = source_amount / destination_amount if destination_amount else 0.0
             exchanges_parts = {ex['name']: ex['part'] for ex in j['exchanges'] if ex['part']}
 
+            time.sleep(2.0 + random.random())  # block each thread for 2-3 seconds to keep from getting rate limited
             return {
                 'source_token': source_token,
                 'source_amount': source_amount,
@@ -110,7 +117,13 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
             }
 
     except (ValueError, requests.exceptions.RequestException) as e:
-        print(f"{name()} {query} raised {e}: {r.text[:128] if r else 'no JSON returned'}")
+        if r.status_code == 429:
+            print(f"RATE LIMITED {name()} {query}")
+            time.sleep(300)
+
+        else:
+            print(f"{name()} {query} raised {e}: {r.text[:128] if r else 'no JSON returned'} status_code={r.status_code}")
+            if debug: print(f"FAILED REQUEST to {QUOTE_ENDPOINT}:\n{json.dumps(query, indent=3)}\n\n")
         return {}
 
 def get_swap(from_token, to_token, from_amount=None, to_amount=None, dex=None, from_address=None, slippage=50, verbose=False, debug=False):

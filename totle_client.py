@@ -14,14 +14,15 @@ import token_utils
 #
 # get exchanges
 
-TOTLE_API_KEY = '7d2adad7-13a5-4388-ad4e-6ee05dd5925d'
+# TOTLE_API_KEY = '7d2adad7-13a5-4388-ad4e-6ee05dd5925d'
+TOTLE_API_KEY = '7e7f09b0-ed6d-4d20-b45d-9b61f1c00be9'
 
 API_BASE = 'https://api.totle.com'
 
 EXCHANGES_ENDPOINT = API_BASE + '/exchanges'
 TOKENS_ENDPOINT = API_BASE + '/tokens'
 SWAP_ENDPOINT = API_BASE + '/swap'
-SWAP_ENDPOINT = 'https://services.totlenext.com/suggester/curves/stage/new' # TODO remove test endpoint
+# SWAP_ENDPOINT = 'https://services.totlenext.com/suggester/curves/stage/new' # TODO remove test endpoint
 # SWAP_ENDPOINT = 'https://services.totlenext.com/suggester/v0-6-1' # TODO remove test endpoint
 
 DATA_ENDPOINT = API_BASE + '/data'
@@ -50,10 +51,11 @@ def name():
     return 'Totle' # 'Totle' is used for comparison with other exchanges
 
 
-DEX_NAME_MAP = {'0x V2': '0x V2', '0x V3': '0x V3', '0xMesh': '0xMesh', 'Aave': 'Aave', 'Bancor': 'Bancor', 'Chai': 'Chai', 'Compound': 'Compound',
-                'CurveFi Compound': 'CurveFi Compound', 'CurveFi Pool #1': 'CurveFi Pool #1', 'CurveFi Pool #2': 'CurveFi Pool #2', 'CurveFi Pool #3': 'CurveFi Pool #3', 'CurveFi USDT': 'CurveFi USDT', 'CurveFi Y': 'CurveFi Y',
+DEX_NAME_MAP = {'0x V2': '0x V2', '0x V3': '0x V3', '0xMesh': '0xMesh', 'Aave': 'Aave', 'Bancor': 'Bancor', 'Balancer': 'Balancer', 'Chai': 'Chai', 'Compound': 'Compound',
+                'CurveFi Compound': 'CurveFi Compound', 'CurveFi Pool #1': 'CurveFi Pool #1', 'CurveFi Pool #2': 'CurveFi Pool #2', 'CurveFi Pool #3': 'CurveFi Pool #3',
+                'CurveFi USDT': 'CurveFi USDT', 'CurveFi Y': 'CurveFi Y', 'CurveFi Pax': 'CurveFi Pax', 'CurveFi sUSDV2': 'CurveFi sUSDV2', 'CurveFi Ren': 'CurveFi Ren', 'CurveFi sBTC': 'CurveFi sBTC',
                 'Ether Delta': 'EtherDelta', 'Fulcrum': 'Fulcrum', 'IdleFinance' : 'IdleFinance', 'IEarnFinance': 'IEarnFinance', 'Kyber': 'Kyber',
-                'Oasis': 'Oasis', 'PMM': 'PMM', 'SetProtocol': 'SetProtocol', 'StableCoinSwap': 'Stablecoinswap', 'Uniswap': 'Uniswap'}
+                'Oasis': 'Oasis', 'PMM': 'PMM', 'SetProtocol': 'SetProtocol', 'StableCoinSwap': 'Stablecoinswap', 'Sushiswap': 'Sushiswap', 'Uniswap': 'Uniswap', 'UniswapV2': 'UniswapV2'}
 
 
 def exchanges():
@@ -102,6 +104,9 @@ def get_summary_data(response):
     return summary, base_token, source_token, source_div, destination_token, destination_div
 
 def calc_exchange_fees(trade):
+    # Totle no longer has a 'fee' field associated with orders
+    return None, 0
+
     orders = trade['orders']
     non_zero_fee_orders = [ o for o in orders if int(o['fee']['amount']) != 0 ] # ignore orders with no exchange fees
 
