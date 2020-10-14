@@ -4,7 +4,7 @@ import functools
 import requests
 import token_utils
 
-API_BASE = 'https://paraswap.io/api/v1'
+API_BASE = 'https://api.paraswap.io/v2'
 # the /1 in these endpoints is /{network_id}
 # guessed 1 because tokens endpoint returns the correct ERC-20 addresses
 TOKENS_ENDPOINT = API_BASE + '/tokens/1'
@@ -71,7 +71,7 @@ def paraswap_addr(token):
     return j and j['address']
 
 
-@functools.lru_cache()
+@functools.lru_cache(1)
 def tokens_json():
     return requests.get(TOKENS_ENDPOINT).json()['tokens']
 
