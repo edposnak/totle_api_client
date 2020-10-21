@@ -154,9 +154,8 @@ STABLECOINS = ['DAI', 'PAX', 'SAI', 'TUSD', 'USDC', 'USDT']
 UNSUPPORTED_STABLECOINS = ['CSAI', 'IDAI']
 
 #TOP_TEN_TOKENS = ['USDT', 'LINK', 'YFI', 'UNI', 'USDC', 'PAX', 'OMG', 'REN',  'BAT', 'DAI', 'COMP', 'WBTC']
-TOP_TEN_TOKENS = ['UNI', 'YFI', 'LINK', 'WBTC', 'COMP', 'BAL', 'REP', 'AMPL', 'KNC', 'UMA', 'LEND', 'SNX']
-# NON_ONEINCH_TOKENS = ['UNI', 'YFI', 'COMP', 'BAL', 'AMPL', 'UMA']
-
+TOP_TEN_TOKENS = ['UNI', 'YFI', 'LINK', 'WBTC', 'COMP', 'BAL', 'REP', 'AMPL', 'KNC', 'UMA', 'LEND', 'SNX', 'USDT', 'USDC', 'DAI']
+ADDITIONAL_TOP_DUNE_TOKENS = ['USDT', 'USDC', 'CORE', 'DAI', 'ANATHA', 'POLS', 'XFI', 'BID']
 
 tokens = TOP_TEN_TOKENS
 random.shuffle(tokens)

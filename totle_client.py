@@ -14,16 +14,13 @@ import token_utils
 #
 # get exchanges
 
-# TOTLE_API_KEY = '7d2adad7-13a5-4388-ad4e-6ee05dd5925d'
-TOTLE_API_KEY = '7e7f09b0-ed6d-4d20-b45d-9b61f1c00be9'
+TOTLE_API_KEY = '99306bc3-e304-43ee-b350-111e61548083'
 
 API_BASE = 'https://api.totle.com'
 
 EXCHANGES_ENDPOINT = API_BASE + '/exchanges'
 TOKENS_ENDPOINT = API_BASE + '/tokens'
-SWAP_ENDPOINT = API_BASE + '/swap'
-# SWAP_ENDPOINT = 'https://services.totlenext.com/suggester/curves/stage/new' # TODO remove test endpoint
-# SWAP_ENDPOINT = 'https://services.totlenext.com/suggester/v0-6-1' # TODO remove test endpoint
+SWAP_ENDPOINT = API_BASE + '/swap/coinbase'
 
 DATA_ENDPOINT = API_BASE + '/data'
 PAIRS_ENDPOINT = DATA_ENDPOINT + '/pairs'
@@ -54,8 +51,8 @@ def name():
 DEX_NAME_MAP = {'0x V2': '0x V2', '0x V3': '0x V3', '0xMesh': '0xMesh', 'Aave': 'Aave', 'Bancor': 'Bancor', 'Balancer': 'Balancer', 'Chai': 'Chai', 'Compound': 'Compound',
                 'Curve.fi Compound': 'CurveFi Compound', 'Curve.fi Pool #1': 'CurveFi Pool #1', 'Curve.fi Pool #2': 'CurveFi Pool #2', 'Curve.fi Pool #3': 'CurveFi Pool #3',
                 'Curve.fi USDT': 'CurveFi USDT', 'Curve.fi Y': 'CurveFi Y', 'Curve.fi PAX': 'CurveFi Pax', 'Curve.fi sUSDV2': 'CurveFi sUSDV2', 'Curve.fi renBTC': 'CurveFi Ren', 'Curve.fi sBTC': 'CurveFi sBTC',
-                'Ether Delta': 'EtherDelta', 'Fulcrum': 'Fulcrum', 'IdleFinance' : 'IdleFinance', 'IEarnFinance': 'IEarnFinance', 'Kyber': 'Kyber',
-                'Oasis': 'Oasis', 'PMM': 'PMM', 'SetProtocol': 'SetProtocol', 'StableCoinSwap': 'Stablecoinswap', 'Sushi Swap': 'Sushiswap', 'Uniswap': 'Uniswap', 'Uniswap V2': 'UniswapV2'}
+                'Ether Delta': 'EtherDelta', 'Fulcrum': 'Fulcrum', 'IdleFinance' : 'IdleFinance', 'IEarnFinance': 'IEarnFinance', 'Kyber': 'Kyber', 'Mooniswap': 'Mooniswap',
+                'Oasis': 'Oasis', 'PMM': 'PMM', 'SetProtocol': 'SetProtocol', 'StableCoinSwap': 'Stablecoinswap', 'Sushi Swap': 'Sushiswap', 'Swerve': 'Swerve', 'Uniswap': 'Uniswap', 'Uniswap V2': 'UniswapV2'}
 
 
 def exchanges():
@@ -69,6 +66,7 @@ def enabled_exchanges():
 
 @functools.lru_cache(1)
 def exchanges_json():
+    print(f"EXCHANGES_ENDPOINT={EXCHANGES_ENDPOINT}")
     r = requests.get(EXCHANGES_ENDPOINT).json()
     return r['exchanges']
 
@@ -81,6 +79,7 @@ def data_exchanges():
     return { e['name']: e['id'] for e in r['exchanges'] }
 
 def get_snapshot(response_id):
+    print(f"get_snapshot fetching: https://totle-api-snapshot.s3.amazonaws.com/{response_id}")
     return requests.get(f"https://totle-api-snapshot.s3.amazonaws.com/{response_id}").json()
 
 
@@ -387,6 +386,8 @@ DEFAULT_CONFIG = {
 }
 
 
+DISABLE_SMART_ROUTING = False
+
 def swap_inputs(from_token, to_token, exchange=None, params={}):
     """returns a dict of the swap API endpoint with the given token pair and whitelisting exchange, if given."""
     # the swap_data dict is defined by the return statement in swap_data method above
@@ -399,6 +400,9 @@ def swap_inputs(from_token, to_token, exchange=None, params={}):
 
     if exchange: # whitelist the given exchange
         base_inputs["config"]["exchanges"] = { "list": [ exchanges()[exchange] ], "type": "white" }
+
+    if DISABLE_SMART_ROUTING:
+        base_inputs["config"]["disablePaths"] = True
 
     base_inputs['apiKey'] = params.get('apiKey') or TOTLE_API_KEY
 

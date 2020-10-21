@@ -165,7 +165,6 @@ def test_swap_data(json_response_file):
 #######################################################################################################################
 
 test_dex_name_map()
-exit(0)
 
 # test_swap_data('test_data/order_destination_asset_summary_asset.json') # destinationAsset=SAI but summary destinationAsset=RDN error
 # test_swap_data('test_data/eth_dai_knc.json') # source/dest flip error
@@ -192,8 +191,8 @@ exit(0)
 
 
 # tradable_tokens = token_utils.tradable_tokens()
-# tradable_tokens = ['SAI', 'MKR', 'WBTC', 'KNC', 'LINK']
-# test_get_quote(tradable_tokens, debug=True)
+tradable_tokens = ['SAI', 'MKR', 'WBTC', 'KNC', 'LINK']
+test_get_quote(tradable_tokens, debug=True)
 # test_what_tokens_supported(tradable_tokens, dex='0xMesh')
 # test_what_tokens_supported(tradable_tokens, dex='Stablecoinswap')
 # test_what_tokens_supported(tradable_tokens, dex='Fulcrum')
