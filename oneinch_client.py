@@ -143,10 +143,11 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
             }
 
     except (ValueError, requests.exceptions.RequestException) as e:
-        if r.status_code == 429:
+        if r is None:
+            print(f"Failed to connect: #{e}")
+        elif r.status_code == 429:
             print(f"RATE LIMITED {name()} {query}")
             time.sleep(300)
-
         else:
             print(f"{name()} {query} raised {e}: {r.text[:128] if r else 'no JSON returned'} status_code={r.status_code}")
             if debug: print(f"FAILED REQUEST to {QUOTE_ENDPOINT}:\n{json.dumps(query, indent=3)}\n\n")
