@@ -49,8 +49,10 @@ def name():
 
 
 DEX_NAME_MAP = {'0x V2': '0x V2', '0x V3': '0x V3', '0xMesh': '0xMesh', 'Aave': 'Aave', 'Bancor': 'Bancor', 'Balancer': 'Balancer', 'Chai': 'Chai', 'Compound': 'Compound',
-                'Curve.fi Compound': 'CurveFi Compound', 'Curve.fi Pool #1': 'CurveFi Pool #1', 'Curve.fi Pool #2': 'CurveFi Pool #2', 'Curve.fi Pool #3': 'CurveFi Pool #3',
+                'Curve.fi Compound': 'CurveFi Compound', 'Curve.fi Pool #1': 'CurveFi Pool #1', 'Curve.fi Pool #2': 'CurveFi Pool #2', 'Curve.fi Pool #3': 'CurveFi Pool #3', 'Curve.fi 3pool': 'Curve.fi 3pool',
                 'Curve.fi USDT': 'CurveFi USDT', 'Curve.fi Y': 'CurveFi Y', 'Curve.fi PAX': 'CurveFi Pax', 'Curve.fi sUSDV2': 'CurveFi sUSDV2', 'Curve.fi renBTC': 'CurveFi Ren', 'Curve.fi sBTC': 'CurveFi sBTC',
+                'Curve.fi hBTC': 'CurveFi hBTC', 'Curve.fi tBTC': 'Curve.fi tBTC', 'CurveFi gUSD': 'CurveFi gUSD',  'CurveFi dUSD': 'CurveFi dUSD',  'CurveFi hUSD':  'CurveFi hUSD', 'CurveFi mUSD':  'CurveFi mUSD',
+                'CurveFi USDK': 'CurveFi USDK',  'CurveFi USDN': 'CurveFi USDN', 'CurveFi RSV': 'CurveFi RSV',
                 'Ether Delta': 'EtherDelta', 'Fulcrum': 'Fulcrum', 'IdleFinance' : 'IdleFinance', 'IEarnFinance': 'IEarnFinance', 'Kyber': 'Kyber', 'Mooniswap': 'Mooniswap',
                 'Oasis': 'Oasis', 'PMM': 'PMM', 'SetProtocol': 'SetProtocol', 'StableCoinSwap': 'Stablecoinswap', 'Sushi Swap': 'Sushiswap', 'Swerve': 'Swerve', 'Uniswap': 'Uniswap', 'Uniswap V2': 'UniswapV2'}
 
