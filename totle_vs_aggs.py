@@ -145,19 +145,10 @@ def do_overlap_pairs():
         print_savings(order_type, all_buy_savings[agg_name], USD_TRADE_SIZES, title=f"Savings vs. {agg_name}")
 
 
-TOTLE_39 = ['ANT','AST','BAT','BNT','CDT','CND','CVC','DAI','ENG','ENJ','ETHOS','GNO','KNC','LINK','MANA','MCO','MKR','OMG','PAX','PAY','POE','POLY','POWR','RCN','RDN','REN','REP','REQ','RLC','RPL','SNT','SNX','STORJ','TKN','TUSD','USDC','USDT','WBTC','ZRX']
-HI_SPLIT_TOKENS = ['BAT', 'ENJ', 'GNO', 'KNC', 'MANA', 'OMG', 'POE', 'POWR', 'RCN', 'RDN', 'REN', 'REP', 'REQ', 'RLC', 'SNT']
-TOTLE_74 = ['DNT','CZRX','ONG','CSAI','CUSDC','BNTY','XDCE','QSP','ANT','MKR','ASTRO','BNT','FLIXX','OMG','DATA','REP','WLK','USDS','REAL','STORM','STORJ','MLN','MTL','DRT','DALC','ZRX','TKN','TRST','PRG','SHP','DRGN','VIB','ABYSS','PAX','LEV','RHOC','ENJ','SCL','WBTC','POLY','LRC','ZIL','RCN','ERC20','USDC','ISAI','KNC','NEXO','STX','REN','ELEC','SUSD','WABI','CBAT','CETH','NPXS','VERI','BAT','TUSD','ENG','RPL','ART','PAY','CND','WINGS','REQ','MCO','CDAI','LINK','KIN','PLR','BNB','DAI','SWT']
-TOP_VOLUME_AGG_TRADABLE_TOKENS = ['SAI', 'MKR', 'WBTC', 'USDC', 'USDT', 'KNC', 'BNT', 'LINK', 'DAI', 'TUSD', 'BAT', 'RLC', 'REP', 'REN', 'ENJ', 'ZRX', 'ANT', 'TKN', 'LEND', 'MANA', 'OMG', 'LRC', 'PAX', 'SPANK', 'RCN', 'SNT', 'RDN']
-TOP_VOLUME_AT_LEAST_TWO_AGGS_TRADABLE_TOKENS = ['SAI', 'MKR', 'WBTC', 'USDC', 'USDT', 'KNC', 'BNT', 'LINK', 'DAI', 'TUSD', 'BAT', 'RLC', 'ENG', 'REP', 'REN', 'ENJ', 'ZRX', 'XDCE', 'ANT', 'TKN', 'LEND', 'MANA', 'OMG', 'LRC', 'NMR', 'PAX', 'RPL', 'SPANK', 'RCN', 'SNT', 'RDN', 'NEXO']
-STABLECOINS = ['DAI', 'PAX', 'SAI', 'TUSD', 'USDC', 'USDT']
-UNSUPPORTED_STABLECOINS = ['CSAI', 'IDAI']
-
-#TOP_TEN_TOKENS = ['USDT', 'LINK', 'YFI', 'UNI', 'USDC', 'PAX', 'OMG', 'REN',  'BAT', 'DAI', 'COMP', 'WBTC']
-TOP_TEN_TOKENS = ['UNI', 'YFI', 'LINK', 'WBTC', 'COMP', 'BAL', 'REP', 'AMPL', 'KNC', 'UMA', 'LEND', 'SNX', 'USDT', 'USDC', 'DAI']
+TOKENS = ['UNI', 'YFI', 'LINK', 'WBTC', 'COMP', 'BAL', 'REP', 'AMPL', 'KNC', 'UMA', 'LEND', 'SNX', 'USDT', 'USDC', 'DAI']
 ADDITIONAL_TOP_DUNE_TOKENS = ['USDT', 'USDC', 'CORE', 'DAI', 'ANATHA', 'POLS', 'XFI', 'BID']
 
-tokens = TOP_TEN_TOKENS
+tokens = TOKENS
 random.shuffle(tokens)
 TRADE_SIZES  = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0, 1000.0, 5000.0, 10000.0]
 
