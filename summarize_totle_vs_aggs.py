@@ -532,14 +532,9 @@ def do_summary_eth_pairs(csv_files):
                 else: non_split_count_by_agg[agg][trade_size] += 1
 
                 # ******************* Select Samples (saves all samples) **************************
-                # if totle_splits == agg_splits and totle_price / agg_price > 1.05: # same split diff price
-                # if id == '0xec160079fc2a4e44be472ff04d7b1dbffaef9af2dc5945f9b58a11674c2e893a':  # and agg in ('Paraswap'):
-                # if totle_price / agg_price > 1.05 and trade_size < 1000:
-                # if totle_price / agg_price > 1.09 and  totle_splits != agg_splits and len(agg_splits) == 1 and 'Kyber' in agg_splits.keys() and trade_size < 200: # agg split uses 100% Kyber
-                if totle_price / agg_price > 1.2 and  totle_splits != agg_splits and agg != 'DEX.AG' and trade_size > 99:
-                # if totle_price / agg_price > 1.05 and 'Bancor' not in totle_splits and 'Bancor' in agg_splits.keys() and trade_size < 300: # agg split uses Bancor
-                # if trade_size == 50 and totle_price / agg_price > 1.05 and agg == 'DEX.AG' and not (len(agg_splits) == 1 and 'Kyber' in agg_splits.keys()):
-                # if trade_size == 50 and totle_price / agg_price > 1.05 and agg != 'DEX.AG' and to_token == 'WBTC':
+                # if totle_splits == agg_splits and totle_price / agg_price > 1.05: # same split diff price indicates price data discrepancy
+                if totle_price / agg_price > 1.15 and totle_splits != agg_splits and trade_size > 1000 and to_token == 'UMA':
+                # if id == '0x2f295def5b364d3ea3d547eb2f935e12dc46a29301344b94a8e763d42f9ae57a':
                     key = (to_token, trade_size, agg)
                     select_samples[key].append((id, totle_price, totle_splits, agg_price, agg_splits))
 
@@ -571,25 +566,33 @@ def do_summary_eth_pairs(csv_files):
                     per_pair_savings_without_routing[pair][trade_size][agg].append(pct_savings)
 
     agg_names = sorted(agg_names)
-    trade_sizes = sorted_trade_sizes(*per_pair_savings.values())
+    # trade_sizes = sorted_trade_sizes(*per_pair_savings.values())
 
     print(f"Total of all_samples={len(all_samples)}")
     print(f"data_points={data_points} single_data_points=#{single_data_points} multi_data_points={multi_data_points}")
 
 
-
     # ************ AVERAGE SAVINGS ****************
-    print_savings_summary_table_csv(aggregated_savings(per_pair_savings), agg_names, label="Average Savings (all samples)")
-    print_avg_savings_by_token(per_pair_savings, only_aggs=agg_names)
-    print_avg_savings_by_token(per_pair_savings, only_trade_size=1.0, only_aggs=agg_names)
-    print_avg_savings_by_token(per_pair_savings, only_trade_size=10.0, only_aggs=agg_names)
-    print_avg_savings_by_token(per_pair_savings, only_trade_size=100.0, only_aggs=agg_names)
+    if True:
+        print_savings_summary_table_csv(aggregated_savings(per_pair_savings), agg_names, label="Average Savings (all samples)")
+        print_avg_savings_by_token(per_pair_savings, only_aggs=agg_names)
+        print_avg_savings_by_token(per_pair_savings, only_trade_size=1.0, only_aggs=agg_names)
+        print_avg_savings_by_token(per_pair_savings, only_trade_size=10.0, only_aggs=agg_names)
+        print_avg_savings_by_token(per_pair_savings, only_trade_size=100.0, only_aggs=agg_names)
+
+    if True:
+        print_savings_summary_table_csv(aggregated_savings(per_pair_savings, lambda pair: pair[1] == 'KNC'), agg_names, label="Average Savings (KNC/ETH)")
+        print_savings_summary_table_csv(aggregated_savings(per_pair_savings, lambda pair: pair[1] == 'LEND'), agg_names, label="Average Savings (LEND/ETH)")
+        print_savings_summary_table_csv(aggregated_savings(per_pair_savings, lambda pair: pair[1] == 'REP'), agg_names, label="Average Savings (REP/ETH)")
+        print_savings_summary_table_csv(aggregated_savings(per_pair_savings, lambda pair: pair[1] == 'UMA'), agg_names, label="Average Savings (UMA/ETH)")
 
 
     # **************** BETTER WORSE SAME / SAVINGS SUMMARY TABLE **********************
-    total_samples = do_better_worse_same_price(per_pair_savings, "All Samples", agg_breakdown=True)
+    if True:
+        total_samples = do_better_worse_same_price(per_pair_savings, "All Samples", agg_breakdown=True)
 
 
+    # **************** BETTER WORSE SAME / WITH/WITHOUT ROUTING **********************
     if False:
         do_better_worse_same_price(per_pair_savings_with_routing, "Samples Where Totle Employed Smart Routing")
         print_savings_summary_table_csv(aggregated_savings(per_pair_savings_with_routing), agg_names, label="Average Savings (samples with smart routing)")
@@ -624,15 +627,8 @@ def do_summary_eth_pairs(csv_files):
             for prices_splits in sorted(prices_splits_list, key=id_to_timestamp):
                 print_sample(tok_ts_agg, prices_splits)
                 # print_sample(tok_ts_agg, prices_splits, print_snapshot=True)
-                # if not snapshot_utils.is_zero_allocation_bug(prices_splits[0]):
-                #     print_sample(tok_ts_agg, prices_splits, print_snapshot=True)
-                # if snapshot_utils.is_zero_allocation_bug(prices_splits[0]):
-                #     print(f"{id_to_timestamp(prices_splits)} {prices_splits[0]}")
-                #     zero_alloc_count += 1
 
-        # print(f"{zero_alloc_count} / {n_select_samples} were due to zero allocation bug")
-
-    # ****************************************  Does Totle win more when it splits
+    # ****************************************  Does Totle win more when it splits **********************
     if False:
         do_splits_vs_non_splits(csv_files, agg_names)
         do_totle_splits_vs_non_splits(csv_files, agg_names)
@@ -645,7 +641,7 @@ def do_summary_eth_pairs(csv_files):
         print_avg_savings_by_token(per_token_both_splitting_savings, only_trade_size=100.0, only_aggs=agg_names)
 
 
-    # ***************************** PER PAIR SAVINGS
+    # ***************************** PER PAIR SAVINGS **********************
     if False:
         print_avg_savings_per_pair_by_agg(per_pair_savings, 10.0, print_threshold=4, samples=True, min_stablecoins=0)
         print_savings_summary_by_pair_csv(per_pair_savings, 50.0, agg_names)
@@ -654,6 +650,7 @@ def do_summary_eth_pairs(csv_files):
         print_avg_savings_per_pair_by_trade_size(per_pair_savings, trade_sizes)
 
 
+    # ***************************** SPLIT COUNTS **********************
     if False:
         print("\n\n---\n\n")
         # TODO add totle to agg_names
@@ -668,13 +665,7 @@ all_samples = {} # id => row
 
 ########################################################################################################################
 def main():
-    # do_summary_erc20(glob.glob(f'outputs/totle_vs_agg_overlap_*'))
-    # do_summary_erc20(glob.glob(f'outputs/totle_vs_agg_overlap_pairs_*'))
-    # do_summary_erc20(glob.glob(f'outputs/totle_vs_agg_overlap_reversed_pairs_*'))
-
-    # do_summary_eth_pairs(tuple(glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-01-[01]*')))
-    # csv_files = glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-04-03_14:00*.csv')
-    csv_files = glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-10-1[45]*csv')
+    csv_files = glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-11-2*csv')
     do_summary_eth_pairs(tuple(csv_files))
 
 if __name__ == "__main__":

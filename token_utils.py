@@ -42,7 +42,7 @@ def select_tokens():
 # get tokens
 @functools.lru_cache(1)
 def tokens():
-    return { t['symbol']: t['address'] for t in tokens_json() }
+    return { t['symbol']: t['address'] for t in tokens_json() if t['tradable'] }
 
 @functools.lru_cache(1)
 def tradable_tokens():

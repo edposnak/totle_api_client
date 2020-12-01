@@ -98,12 +98,12 @@ def read_slippage_csvs(csv_files=None):
 
 
 # generator
-def pct_savings_gen(per_token_savings):
-    """Generates a sequence of (token, trade_size, agg/exchange, [pct_savings]) for all leaves in the given dict"""
-    for token, ts_ex_savings in sorted(per_token_savings.items()):
+def pct_savings_gen(per_pair_savings):
+    """Generates a sequence of (pair, trade_size, agg/exchange, [pct_savings]) for all leaves in the given dict"""
+    for pair, ts_ex_savings in sorted(per_pair_savings.items()):
         for trade_size, ex_savings in ts_ex_savings.items():
             for exchange, pct_savings in ex_savings.items():
-                yield token, trade_size, exchange, pct_savings
+                yield pair, trade_size, exchange, pct_savings
 
 
 

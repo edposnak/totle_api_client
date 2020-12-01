@@ -8,11 +8,11 @@ import data_import
 # data derivative functions
 
 # get savings by trade_size
-def aggregated_savings(per_token_savings, filter=None):
+def aggregated_savings(per_pair_savings, filter=None):
     """Aggregates savings over all tokens for each trade_size returns a dict { trade_size: { agg: savings_list, ..."""
     per_trade_size_savings = defaultdict(lambda: defaultdict(list))
 
-    for pair, trade_size, agg, pct_savings in data_import.pct_savings_gen(per_token_savings):
+    for pair, trade_size, agg, pct_savings in data_import.pct_savings_gen(per_pair_savings):
         if not filter or filter(pair):
             per_trade_size_savings[trade_size][agg] += pct_savings
 

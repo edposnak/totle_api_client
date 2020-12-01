@@ -41,7 +41,7 @@ DEX_NAME_MAP = { '0x V3': '0x', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Ful
 @functools.lru_cache()
 def exchanges():
     # there is no exchanges endpoint yet so we are just using the ones from an ETH/DAI price query
-    dex_names = ['0x', 'Bancor', 'Compound', 'Fulcrum', 'Kyber', 'MakerDAO', 'Oasis', 'ParaSwapPool', 'Uniswap']
+    dex_names = ['0x', 'Bancor', 'Compound', 'Fulcrum', 'Kyber', 'MakerDAO', 'Oasis', 'ParaSwapPool', 'ParaSwapPool2', 'Uniswap']
 
     # Paraswap does not have exchange ids, but to keep the same interface we put in 0's for id
     id = 0
