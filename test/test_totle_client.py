@@ -191,13 +191,13 @@ test_dex_name_map()
 
 
 # tradable_tokens = token_utils.tradable_tokens()
-tradable_tokens = ['SAI', 'MKR', 'WBTC', 'KNC', 'LINK']
-test_get_quote(tradable_tokens, debug=True)
+# tradable_tokens = ['SAI', 'MKR', 'WBTC', 'KNC', 'LINK']
+# test_get_quote(tradable_tokens, debug=True)
 # test_what_tokens_supported(tradable_tokens, dex='0xMesh')
 # test_what_tokens_supported(tradable_tokens, dex='Stablecoinswap')
 # test_what_tokens_supported(tradable_tokens, dex='Fulcrum')
 
-TOP_VOLUME_AT_LEAST_TWO_AGGS_TRADABLE_TOKENS = ['SAI', 'MKR', 'WBTC', 'USDC', 'USDT', 'KNC', 'BNT', 'LINK', 'DAI', 'TUSD', 'BAT', 'RLC', 'ENG', 'REP', 'REN', 'ENJ', 'ZRX', 'XDCE', 'ANT', 'TKN', 'LEND', 'MANA', 'OMG', 'LRC', 'NMR', 'PAX', 'RPL', 'SPANK', 'RCN', 'SNT', 'RDN', 'NEXO']
-LOW_LIQUIDITY_TOKENS = ['KNC', 'BAT', 'RLC', 'ENG', 'ZRX', 'MANA', 'OMG']
+# TOP_VOLUME_AT_LEAST_TWO_AGGS_TRADABLE_TOKENS = ['SAI', 'MKR', 'WBTC', 'USDC', 'USDT', 'KNC', 'BNT', 'LINK', 'DAI', 'TUSD', 'BAT', 'RLC', 'ENG', 'REP', 'REN', 'ENJ', 'ZRX', 'XDCE', 'ANT', 'TKN', 'LEND', 'MANA', 'OMG', 'LRC', 'NMR', 'PAX', 'RPL', 'SPANK', 'RCN', 'SNT', 'RDN', 'NEXO']
+# LOW_LIQUIDITY_TOKENS = ['KNC', 'BAT', 'RLC', 'ENG', 'ZRX', 'MANA', 'OMG']
 test_get_quote(['DAI'], trade_size=10.0, verbose=True, debug=True)
-test_get_quote(['DAI'], trade_size=10.0, dex='Uniswap', verbose=True, debug=True)
+# test_get_quote(['DAI'], trade_size=10.0, dex='Uniswap', verbose=True, debug=True)
