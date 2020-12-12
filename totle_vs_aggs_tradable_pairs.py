@@ -172,10 +172,10 @@ def get_token_prices(tokens=None):
         if missing_token == 'CETH':
             usd_prices[missing_token] = 2.83
         else:
-            totle_sd = totle_client.try_swap(totle_client.name(), missing_token, 'ETH', params={'toAmount': 0.1}, verbose=False, debug=False)
+            totle_quote = totle_client.try_swap(totle_client.name(), missing_token, 'ETH', params={'toAmount': 0.1}, verbose=False, debug=False)
 
-            if totle_sd:  # set the from_amount so it's roughly the same across all swaps
-                usd_prices[missing_token] = ETH_PRICE / totle_sd['price']
+            if totle_quote:  # set the from_amount so it's roughly the same across all swaps
+                usd_prices[missing_token] = ETH_PRICE / totle_quote['price']
             else:
                 # If we can't get a price from CMC or Totle, then just discard this token. Other aggs may have the pair, but if you can't
                 # buy it for ETH on Totle, then it is essentially not a "tradable" token as curated by Totle, and thus not in this study.

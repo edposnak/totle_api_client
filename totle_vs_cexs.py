@@ -12,7 +12,7 @@ import totle_client
 import v2_compare_prices
 from v2_compare_prices import best_price_with_fees, get_savings, print_savings, get_filename_base, SavingsCSV
 
-def compare_totle_and_cexs(cex_name_client, base, quote, trade_size, books, order_type, totle_sd=None, fee_override=None):
+def compare_totle_and_cexs(cex_name_client, base, quote, trade_size, books, order_type, totle_quote=None, fee_override=None):
     print(f"compare_totle_and_cexs client_names = {list(cex_name_client.keys())}")
     cex_savings = {}
 
@@ -21,13 +21,13 @@ def compare_totle_and_cexs(cex_name_client, base, quote, trade_size, books, orde
     else:
         from_token, to_token, params = base, quote, {'toAmount': trade_size}
 
-    totle_sd = totle_sd or totle_client.try_swap(totle_client.name(), from_token, to_token, params=params, verbose=False)
-    if totle_sd:
+    totle_quote = totle_quote or totle_client.try_swap(totle_client.name(), from_token, to_token, params=params, verbose=False)
+    if totle_quote:
         for cex_name_c, cex_client in cex_name_client.items():
             if books.get(cex_name_c):
                 try:
                     cex_price = best_price_with_fees(trade_size, books[cex_name_c], order_type, fee_override or cex_client.fee_pct())
-                    cex_savings[cex_name_c] = get_savings(cex_name_c, cex_price, totle_sd, base, trade_size, order_type)
+                    cex_savings[cex_name_c] = get_savings(cex_name_c, cex_price, totle_quote, base, trade_size, order_type)
                 except ValueError as e:
                     print(f"{cex_name_c} raised {e} which resulted in no price quote for {order_type} {base} / {trade_size} {quote}")
             else:
@@ -44,15 +44,15 @@ def compare_totle_and_cexs_same_fee(cex_names, base, quote, trade_size, books, o
     from_token, to_token = (quote, base) if order_type == 'buy' else (base, quote)
 
     from_token, to_token, params = v2_compare_prices.get_from_to_params(order_type, base, quote, trade_size)
-    totle_sd = totle_client.try_swap(totle_client.name(), from_token, to_token, params=params, verbose=False)
-    if totle_sd:
+    totle_quote = totle_client.try_swap(totle_client.name(), from_token, to_token, params=params, verbose=False)
+    if totle_quote:
         for cex_name in cex_names:
             try:
                 cex_price = best_price_with_fees(trade_size, books[cex_name], order_type, FIXED_FEE_PCT)
-                cex_savings[cex_name] = get_savings(cex_name, cex_price, totle_sd, base, trade_size, order_type)
+                cex_savings[cex_name] = get_savings(cex_name, cex_price, totle_quote, base, trade_size, order_type)
             except ValueError as e:
                 print(f"{cex_name} raised {e} which resulted in no price quote for {order_type} {base} / {trade_size} {quote}")
-    return cex_savings, totle_sd
+    return cex_savings, totle_quote
 
 
 def parse_markets(json_response_file, only_tokens, only_cexs, min_cexs=3):
@@ -117,7 +117,7 @@ def main():
                 books = asks if order_type == 'buy' else bids
                 for trade_size in TRADE_SIZES:
                     # compare to the 8 CEXs in cex_list
-                    cex_savings, totle_sd = compare_totle_and_cexs_same_fee(cex_list, token, QUOTE_TOKEN, trade_size, books, order_type)
+                    cex_savings, totle_quote = compare_totle_and_cexs_same_fee(cex_list, token, QUOTE_TOKEN, trade_size, books, order_type)
                     for cex_name, savings in cex_savings.items():
                         # Save the capitalized version of the cex_name, not the lowercase cryptowatch name
                         cap_cex_name = cex_name.capitalize()
@@ -126,7 +126,7 @@ def main():
                         csv_writer.append(savings)
 
                     # Re-do comparisons on 3 CEXs (BinanceC, HuobiC, and KrakenC) using the exchange API clients, but use Totle's fee (FIXED_FEE_PCT)
-                    cex_c_savings = compare_totle_and_cexs(cex_name_client, token, QUOTE_TOKEN, trade_size, books, order_type, totle_sd=totle_sd, fee_override=FIXED_FEE_PCT)
+                    cex_c_savings = compare_totle_and_cexs(cex_name_client, token, QUOTE_TOKEN, trade_size, books, order_type, totle_quote=totle_quote, fee_override=FIXED_FEE_PCT)
                     for cex_name_c, savings in cex_c_savings.items():
                         all_savings[cex_name_c][token][trade_size] = savings
                         csv_writer.append(savings)

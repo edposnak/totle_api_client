@@ -183,7 +183,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
             price = source_amount / destination_amount if destination_amount else 0.0
 
             routes = j['protocols']
-            if len(routes) > 1: print(f"\n\nNUM ROUTES = {len(routes)}\n\n")
+            # if len(routes) > 1: print(f"\n\nNUM ROUTES = {len(routes)}\n\n")
             first_route = routes[0]
             if len(first_route) == 1:
                 segment = first_route[0]
@@ -195,7 +195,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
                     segment_to_token = token_utils.tokens_by_addr().get(segment[0]['toTokenAddress'])
                     pair_label = f"{segment_to_token}/{segment_from_token}"
                     exchanges_parts[pair_label] = {ex['name']: ex['part'] for ex in segment if ex['part']}
-            print(f"exchanges_parts={exchanges_parts}")
+            # print(f"exchanges_parts={exchanges_parts}")
 
             time.sleep(1.0 + random.random())  # block each thread for 1-2 seconds to keep from getting rate limited
             return {

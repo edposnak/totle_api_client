@@ -10,7 +10,7 @@ import snapshot_utils
 from summarize_csvs import aggregated_savings, print_savings_summary_table_csv, print_neg_savings_stats, \
     print_savings_summary_table, compute_mean, sorted_trade_sizes, do_splits_vs_non_splits
 
-from v2_compare_prices import is_multi_split, canonicalize_and_sort_splits
+from split_utils import is_multi_split, canonicalize_and_sort_splits
 
 CSV_FIELDS = "time action trade_size token quote exchange exchange_price totle_used totle_price pct_savings splits ex_prices".split()
 

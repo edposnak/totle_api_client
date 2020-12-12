@@ -12,6 +12,7 @@ import exchange_utils
 import oneinch_client
 import oneinch_v2_client
 import paraswap_client
+import split_utils
 import zrx_client
 import totle_client
 from v2_compare_prices import get_savings, print_savings, get_filename_base, SavingsCSV
@@ -23,8 +24,8 @@ CSV_FIELDS = "time id action trade_size token quote exchange exchange_price totl
 def compare_totle_and_aggs_parallel(from_token, to_token, from_amount, usd_trade_size=None):
     agg_savings = {}
 
-    totle_sd = totle_client.try_swap(totle_client.name(), from_token, to_token, params={'fromAmount': from_amount}, verbose=False, debug=False)
-    if totle_sd:
+    totle_quote = totle_client.try_swap(totle_client.name(), from_token, to_token, params={'fromAmount': from_amount}, verbose=False, debug=False)
+    if totle_quote:
         print(f"SUCCESSFUL getting Totle API Quote buying {to_token} with {from_amount} {from_token}")
 
         futures_agg = {}
@@ -35,15 +36,13 @@ def compare_totle_and_aggs_parallel(from_token, to_token, from_amount, usd_trade
 
         for f in concurrent.futures.as_completed(futures_agg):
             agg_name = futures_agg[f]
-            pq = f.result()
-            if pq:
+            agg_quote = f.result()
+            if agg_quote:
                 print(f"SUCCESSFUL getting {agg_name} quote for buying {to_token} with {from_amount} {from_token}")
-                splits = exchange_utils.canonical_keys(pq['exchanges_parts'])
-                ex_prices = pq.get('exchanges_prices') and exchange_utils.canonical_and_splittable(pq['exchanges_prices'])
-                if pq['price'] == 0:
-                    print(f"DIVISION BY ZERO: {agg_name} buying {to_token} with {from_amount} {from_token} returned a price of {pq['price']}")
+                if agg_quote['price'] == 0:
+                    print(f"DIVISION BY ZERO: {agg_name} buying {to_token} with {from_amount} {from_token} returned a price of {agg_quote['price']}")
                     continue
-                savings = get_savings(agg_name, pq['price'], totle_sd, to_token, usd_trade_size or from_amount, 'buy', splits=splits, ex_prices=ex_prices, quote_token=from_token, print_savings=False)
+                savings = get_savings(agg_name, agg_quote['price'], totle_quote, to_token, usd_trade_size or from_amount, 'buy', agg_quote=agg_quote, quote_token=from_token, print_savings=False)
                 print(f"Totle saved {savings['pct_savings']:.2f} percent vs {agg_name} buying {to_token} with {from_amount} {from_token} on {savings['totle_used']}")
                 agg_savings[agg_name] = savings
             else:
@@ -64,10 +63,10 @@ def get_token_prices(tokens):
         if missing_token == 'CETH':
             usd_prices[missing_token] = 2.83
         else:
-            totle_sd = totle_client.try_swap(totle_client.name(), 'USDC', missing_token, params={'toAmount': 0.1}, verbose=False, debug=False)
+            totle_quote = totle_client.try_swap(totle_client.name(), 'USDC', missing_token, params={'toAmount': 0.1}, verbose=False, debug=False)
 
-            if totle_sd:  # set the from_amount so it's roughly the same across all swaps
-                usd_prices[missing_token] = totle_sd['price']
+            if totle_quote:  # set the from_amount so it's roughly the same across all swaps
+                usd_prices[missing_token] = totle_quote['price']
             else:
                 # If we can't get a price from CMC or Totle, then just discard this token. Other aggs may have the pair, but if you can't
                 # buy it for ETH on Totle, then it is essentially not a "tradable" token as curated by Totle, and thus not in this study.
