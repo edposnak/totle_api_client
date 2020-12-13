@@ -4,11 +4,7 @@
 *.xlsx
 fee_bs
 __pycache__
-autorun.stop
 test/test_data
-experiments
-slippage_doc_csvs
-snap_data
 
 
 

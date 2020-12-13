@@ -299,6 +299,7 @@ def swap_data(response, is_totle, request={}):
                     dexs_used |= split.keys()
                 totle_used = list(dexs_used)
 
+            # totle_used = [exchange_utils.canonical_name(ex) for ex in totle_used]
             totle_fee_token, totle_fee, partner_fee_token, partner_fee = get_totle_fees(summary)
 
             # dex_pairs = {}

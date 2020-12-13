@@ -26,10 +26,9 @@ def compare_totle_and_aggs_parallel(from_token, to_token, from_amount, usd_trade
 
     totle_quote = totle_client.try_swap(totle_client.name(), from_token, to_token, params={'fromAmount': from_amount}, verbose=False, debug=False)
     if totle_quote:
-        print(f"SUCCESSFUL getting Totle API Quote buying {to_token} with {from_amount} {from_token}")
-
+        # print(f"SUCCESSFUL getting Totle API Quote buying {to_token} with {from_amount} {from_token}")
         futures_agg = {}
-        with concurrent.futures.ThreadPoolExecutor() as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(AGG_CLIENTS)) as executor:
             for agg_client in AGG_CLIENTS:
                 future = executor.submit(agg_client.get_quote, from_token, to_token, from_amount=from_amount)
                 futures_agg[future] = agg_client.name()
@@ -38,7 +37,7 @@ def compare_totle_and_aggs_parallel(from_token, to_token, from_amount, usd_trade
             agg_name = futures_agg[f]
             agg_quote = f.result()
             if agg_quote:
-                print(f"SUCCESSFUL getting {agg_name} quote for buying {to_token} with {from_amount} {from_token}")
+                # print(f"SUCCESSFUL getting {agg_name} quote for buying {to_token} with {from_amount} {from_token}")
                 if agg_quote['price'] == 0:
                     print(f"DIVISION BY ZERO: {agg_name} buying {to_token} with {from_amount} {from_token} returned a price of {agg_quote['price']}")
                     continue
