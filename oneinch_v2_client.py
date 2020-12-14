@@ -31,7 +31,7 @@ TAKER_FEE_PCT = 0.0 # unfairly optimistic, but currently too difficult to calcul
 # also not clear whether exchange fees are included in their quotes
 # https://twitter.com/scott_lew_is/status/1178064935210733568?s=20
 
-class OneInchAPIException(Exception):
+class OneInchV2APIException(Exception):
     pass
 
 def name():
@@ -46,12 +46,12 @@ def fee_pct():
 #
 
 # map from canonical name to 1-Inch name
-DEX_NAME_MAP = {'0x API': '0x API', '0x V3': '0x V3', 'Aave': 'Aave', 'AirSwap': 'AirSwap', 'Balancer': 'Balancer', 'Bancor': 'Bancor', 'BETH':'BETH', 'C.R.E.A.M. Swap': 'C.R.E.A.M. Swap', 'Chai': 'Chai', 'Chi Minter': 'Chi Minter', 'Compound': 'Compound',
+DEX_NAME_MAP = {'0x API': '0x API', '0x V3': '0x V3', 'Aave': 'Aave', 'AAVE_LIQUIDATOR': 'AAVE_LIQUIDATOR', 'AirSwap': 'AirSwap', 'Balancer': 'Balancer', 'Bancor': 'Bancor', 'BETH':'BETH', 'C.R.E.A.M. Swap': 'C.R.E.A.M. Swap', 'Chai': 'Chai', 'Chi Minter': 'Chi Minter', 'Compound': 'Compound',
                 'Curve.fi': 'Curve.fi', 'Curve.fi v2': 'Curve.fi v2', 'Curve.fi iearn': 'Curve.fi iearn', 'Curve.fi sUSD': 'Curve.fi sUSD', 'Curve.fi BUSD': 'Curve.fi BUSD', 'Curve.fi PAX': 'Curve.fi PAX',
                 'Curve.fi renBTC': 'Curve.fi renBTC', 'Curve.fi tBTC': 'Curve.fi tBTC', 'Curve.fi sBTC': 'Curve.fi sBTC', 'Curve.fi hBTC': 'Curve.fi hBTC', 'Curve.fi 3pool': 'Curve.fi 3pool',
                 'dForce Swap': 'dForce Swap', 'DODO': 'DODO', 'Fulcrum': 'Fulcrum', 'IdleFinance': 'Idle', 'IEarnFinance': 'iearn', 'Kyber': 'Kyber', 'MakerDAO': 'MakerDAO', 'Mooniswap': 'Mooniswap', 'MultiSplit': 'MultiSplit', 'Multi Uniswap': 'Multi Uniswap', 'mStable': 'mStable', 'Oasis': 'Oasis', 'Pathfinder': 'Pathfinder',
                 'PMM': 'PMM',  'PMM1': 'PMM1', 'PMM2': 'PMM2',  'PMM3': 'PMM3',  'PMM4': 'PMM4',  'PMM5': 'PMM5',
-                'StableCoinSwap': 'StableCoinSwap', 'Sushi Swap': 'Sushi Swap', 'SUSHI': 'Sushi Swap','Swerve': 'Swerve', 'Synth Depot': 'Synth Depot', 'Synthetix': 'Synthetix', 'Uniswap': 'Uniswap', 'Uniswap V2':'Uniswap V2', 'WETH': 'WETH'}
+                'StableCoinSwap': 'StableCoinSwap', 'Sushi Swap': 'Sushi Swap', 'SUSHI': 'Sushi Swap','Swerve': 'Swerve', 'Synth Depot': 'Synth Depot', 'Synthetix': 'Synthetix', 'UNISWAP_V1': 'Uniswap', 'Uniswap': 'Uniswap', 'Uniswap V2':'Uniswap V2', 'WETH': 'WETH'}
 
 
 @functools.lru_cache(1)
@@ -81,20 +81,22 @@ def supported_tokens():
     return j
 
 
-CACHED_SUPPORTED_TOKENS = ['ABT','ABYSS','AMPL','ANT','APPC','AST','BAL','BAT','BLZ','BNT','BTU','CBI','CDT','CND','COMP','CVC','DAI','DAT','DENT','DGX','DTA','ELF','ENG','ENJ','EQUAD','ETHOS','FUN',
-            'GEN','GNO','KNC','LBA','LEND','LINK','LRC','MANA','MCO','MKR','MLN','MOC','MTL','MYB','NEXO','NPXS','OMG','OST','PAX','PAY','PLR','POE','POLY','POWR',
-            'QKC','RCN','RDN','REN','REP','REQ','RLC','RPL','SNT','SNX','SPANK','SPN','STORJ','TAU','TKN','TUSD','UNI', 'UMA', 'UPP','USDC','USDT','WBTC','WETH','XCHF','XDCE', 'YFI', 'ZRX']
+JSON_FILENAME = 'data/cached_oneinch_v2_tokens.json'
 
 @functools.lru_cache(1)
 def supported_tokens_critical():
     r = requests.get(TOKENS_ENDPOINT)
-    try: # this often fails to return a good response, so we used cached data when it does
+    try:  # this often fails to return a good response, so we used cached data when it does
         supp_tokens_json = r.json()['tokens']
-        # print(json.dumps(supp_tokens_json, indent=3))
-        return [t['symbol'] for t in supp_tokens_json.values()]
+        with open(JSON_FILENAME, 'w') as f:
+            json.dump(supp_tokens_json, f)
+
     except json.decoder.JSONDecodeError as e:
-        print(f"oneinch_client.supported_tokens() using CACHED_SUPPORTED_TOKENS")
-        return CACHED_SUPPORTED_TOKENS
+        print(f"oneinch_client.supported_tokens() using {JSON_FILENAME}")
+        with open(JSON_FILENAME) as f:
+            supp_tokens_json = json.load(f)
+
+    return [t['symbol'] for t in supp_tokens_json.values()]
 
 
 # get quote

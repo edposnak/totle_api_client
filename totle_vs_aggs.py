@@ -28,7 +28,7 @@ def compare_totle_and_aggs_parallel(from_token, to_token, from_amount, usd_trade
     if totle_quote:
         # print(f"SUCCESSFUL getting Totle API Quote buying {to_token} with {from_amount} {from_token}")
         futures_agg = {}
-        with concurrent.futures.ThreadPoolExecutor(max_workers=len(AGG_CLIENTS)) as executor:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
             for agg_client in AGG_CLIENTS:
                 future = executor.submit(agg_client.get_quote, from_token, to_token, from_amount=from_amount)
                 futures_agg[future] = agg_client.name()
@@ -162,7 +162,7 @@ def do_eth_pairs():
             for trade_size in TRADE_SIZES:
                 todo.append((compare_totle_and_aggs_parallel, quote, base, trade_size))
 
-        MAX_THREADS = 2
+        MAX_THREADS = 1
         print(f"Queueing up {len(todo)} todos ({len(tokens)} tokens x {len(TRADE_SIZES)} trade sizes) for execution on {MAX_THREADS} workers")
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
             futures_p = {executor.submit(*p): p for p in todo}

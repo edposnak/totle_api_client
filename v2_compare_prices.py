@@ -213,7 +213,6 @@ def get_savings(exchange, exchange_price, totle_quote, token, trade_size, order_
 
     # splits = splits, ex_prices = ex_prices,
     if agg_quote:
-        print(f"canonizing splits for {exchange}")
         splits = canonicalize_and_sort_splits(agg_quote.get('exchanges_parts'))
         ex_prices = agg_quote.get('exchanges_prices') and exchange_utils.canonical_and_splittable(agg_quote['exchanges_prices'])
 

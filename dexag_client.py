@@ -72,11 +72,10 @@ def supported_tokens_critical():
     try: # this often fails to return a good response, so we used cached data when it does
         supp_tokens_json = r.json()
         with open(JSON_FILENAME, 'w') as f:
-            json.dump(r.json(), f)
+            json.dump(supp_tokens_json, f)
 
     except json.decoder.JSONDecodeError as e:
-        print(f"dexag_client.supported_tokens() using JSON_FILENAME")
-
+        print(f"dexag_client.supported_tokens() using {JSON_FILENAME}")
         with open(JSON_FILENAME) as f:
             supp_tokens_json = json.load(f)
 
