@@ -41,6 +41,10 @@ def test_get_quote(to_token, from_token='ETH', from_amount=None, to_amount=None,
 
 # test_dex_name_map()
 
+supp_tokens = oneinch_v2_client.supported_tokens()
+print(f"KNC in supp_tokens? = {'KNC' in supp_tokens}")
+exit(0)
+
 for token in ['UNI', 'YFI', 'LINK', 'WBTC', 'COMP', 'BAL', 'REP', 'AMPL', 'KNC', 'UMA', 'LEND', 'SNX', 'USDT', 'USDC', 'DAI']:
     test_get_quote(token, from_amount=100.0)
 

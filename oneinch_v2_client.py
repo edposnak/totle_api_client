@@ -96,8 +96,11 @@ def supported_tokens_critical():
         with open(JSON_FILENAME) as f:
             supp_tokens_json = json.load(f)
 
-    return [t['symbol'] for t in supp_tokens_json.values()]
+    return { t['symbol']: t['address'] for t in supp_tokens_json.values() }
 
+@functools.lru_cache(1)
+def tokens_by_addr():
+    return { addr: sym for sym, addr in supported_tokens().items() }
 
 # get quote
 def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, verbose=False, debug=False):
@@ -191,8 +194,8 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
             else: # multiple segments
                 exchanges_parts = {}
                 for segment in first_route:
-                    segment_from_token = token_utils.tokens_by_addr().get(segment[0]['fromTokenAddress'])
-                    segment_to_token = token_utils.tokens_by_addr().get(segment[0]['toTokenAddress'])
+                    segment_from_token = tokens_by_addr().get(segment[0]['fromTokenAddress'])
+                    segment_to_token = tokens_by_addr().get(segment[0]['toTokenAddress'])
                     pair_label = f"{segment_to_token}/{segment_from_token}"
                     exchanges_parts[pair_label] = {ex['name']: ex['part'] for ex in segment if ex['part']}
             # print(f"exchanges_parts={exchanges_parts}")

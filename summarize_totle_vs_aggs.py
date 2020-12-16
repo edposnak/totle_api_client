@@ -533,8 +533,9 @@ def do_summary_eth_pairs(csv_files):
 
                 # ******************* Select Samples (saves all samples) **************************
                 # if totle_splits == agg_splits and totle_price / agg_price > 1.05: # same split diff price indicates price data discrepancy
-                if totle_price / agg_price > 1.15 and totle_splits != agg_splits and trade_size > 1000 and to_token == 'UMA':
-                # if id == '0x2f295def5b364d3ea3d547eb2f935e12dc46a29301344b94a8e763d42f9ae57a':
+                # if totle_price / agg_price > 1.05 and totle_splits != agg_splits and trade_size == 100 and to_token == 'REP' and agg not in ['1-Inch', '1-Inch V2']:
+                # if totle_price / agg_price > 1.05 and totle_splits != agg_splits and trade_size == 100 and to_token == 'REP' and agg == '1-Inch V2':
+                if id == '0xda29700714084710ab72d95e0510a044881839807586493c870d4d7a7000a444':
                     key = (to_token, trade_size, agg)
                     select_samples[key].append((id, totle_price, totle_splits, agg_price, agg_splits))
 
@@ -581,10 +582,9 @@ def do_summary_eth_pairs(csv_files):
         print_avg_savings_by_token(per_pair_savings, only_trade_size=100.0, only_aggs=agg_names)
 
     if True:
+        print_savings_summary_table_csv(aggregated_savings(per_pair_savings, lambda pair: pair[1] == 'BAL'), agg_names, label="Average Savings (BAL/ETH)")
         print_savings_summary_table_csv(aggregated_savings(per_pair_savings, lambda pair: pair[1] == 'KNC'), agg_names, label="Average Savings (KNC/ETH)")
-        print_savings_summary_table_csv(aggregated_savings(per_pair_savings, lambda pair: pair[1] == 'LEND'), agg_names, label="Average Savings (LEND/ETH)")
         print_savings_summary_table_csv(aggregated_savings(per_pair_savings, lambda pair: pair[1] == 'REP'), agg_names, label="Average Savings (REP/ETH)")
-        print_savings_summary_table_csv(aggregated_savings(per_pair_savings, lambda pair: pair[1] == 'UMA'), agg_names, label="Average Savings (UMA/ETH)")
 
 
     # **************** BETTER WORSE SAME / SAVINGS SUMMARY TABLE **********************
@@ -665,7 +665,7 @@ all_samples = {} # id => row
 
 ########################################################################################################################
 def main():
-    csv_files = glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-11-2*csv')
+    csv_files = glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-12*csv')
     do_summary_eth_pairs(tuple(csv_files))
 
 if __name__ == "__main__":

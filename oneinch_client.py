@@ -94,7 +94,11 @@ def supported_tokens_critical():
         with open(JSON_FILENAME) as f:
             supp_tokens_json = json.load(f)
 
-    return [t['symbol'] for t in supp_tokens_json.values()]
+    return { t['symbol']: t['address'] for t in supp_tokens_json.values() }
+
+@functools.lru_cache(1)
+def tokens_by_addr():
+    return { addr: sym for sym, addr in supported_tokens().items() }
 
 # get quote
 def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, verbose=False, debug=False):
