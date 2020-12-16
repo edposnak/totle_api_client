@@ -115,16 +115,18 @@ def do_better_worse_same_price(per_pair_savings, label, agg_breakdown=False):
         worse_pct[agg] = 100.0 * worse_price_samples_agg / total_samples_agg
         same_pct[agg] = 100.0 * same_price_samples_agg / total_samples_agg
 
-        if agg_breakdown:
-            print(f"Out of {total_samples_agg} comparisons, Totle's price was better than {agg}'s {better_price_samples_agg} times, resulting in better price {better_pct[agg]:.1f}% of the time.")
-            print(f"Out of {total_samples_agg} comparisons, Totle's price was worse than {agg}'s {worse_price_samples_agg} times, resulting in worse price {worse_pct[agg]:.1f}% of the time.")
-            print(f"Out of {total_samples_agg} comparisons, Totle's price was the same as {agg}'s {same_price_samples_agg} times, resulting in same price {same_pct[agg]:.1f}% of the time.")
-            
     if agg_breakdown:
         header = 'Totle price was         better           worse           same'
         print(f"\n{header}")
         for agg in aggs:
             print(f"{agg:<14} {better_pct[agg]:14.2f}% {worse_pct[agg]:14.2f}% {same_pct[agg]:14.2f}%" )
+
+        # do csv
+        *a, b, c, d = header.split()
+        print(','.join([' '.join(a), b, c, d]))
+        for agg in aggs:
+            print(f"{agg},{better_pct[agg]:.2f}%,{worse_pct[agg]:.2f}%,{same_pct[agg]:.2f}%" )
+
 
     total_samples = better_price_samples + worse_price_samples + same_price_samples
     better_pct = 100.0 * better_price_samples / total_samples
