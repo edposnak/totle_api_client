@@ -168,6 +168,7 @@ def print_split_counts_table(split_count_by_agg, non_split_count_by_agg, agg_nam
             csv_row += f",{100 * splits / (splits + non_splits)}"
         print(csv_row)
 
+
 def print_savings_summary_by_pair_csv(per_pair_savings, only_trade_size, agg_names, only_token=None, min_stablecoins=0, label="Average Savings by ETH pair"):
     print(f"\n{label} trade size = {only_trade_size}")
 
@@ -352,7 +353,7 @@ def print_sample(tok_ts_agg, prices_splits, print_num_times=False, print_snapsho
     if print_num_times:
         add_data = f"({id_or_n_samples} times)"
     else:
-        timestamp = datetime.fromisoformat(all_samples[id_or_n_samples]['time'])
+        timestamp = datetime.fromisoformat(timestamp_by_id[id_or_n_samples])
         # add_data = f"({timestamp})"
         add_data = f"({timestamp})\nid={id_or_n_samples}"
 
@@ -501,9 +502,24 @@ def print_avg_savings_by_token(per_token_savings, only_trade_size=None, only_agg
                 row += f","
         print(row)
 
+def print_best_splits_over_time(best_splits, only_trade_size=50, label='Best Split'):
+    for pair, ts_id_best in sorted(best_splits.items()):
+        print(f"\n\n====================================================================\n{pair}")
+        for trade_size, id_best in ts_id_best.items():
+            if trade_size != only_trade_size: continue
+            print(f"\n{label} for {pair} at {trade_size}")
+
+            ts_best_split = sorted([(timestamp_by_id[id], best['split']) for id, best in id_best.items() ])
+            for timestamp, best_split in ts_best_split:
+                print(f"{timestamp}: #{best_split}")
+
+
 def do_summary_eth_pairs(csv_files):
     """Returns a dict containing pct savings token: { trade_size:  {exchange: [sample, sample, ...], ...}"""
-    global all_samples
+
+    print(f"Processing {len(csv_files)} CSV files")
+
+    global timestamp_by_id
 
     per_pair_savings = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
     per_pair_savings_with_routing = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
@@ -516,9 +532,10 @@ def do_summary_eth_pairs(csv_files):
     select_samples = defaultdict(list)
     large_neg_savings_count, large_neg_savings_with_routing_count = 0, 0
 
-    print(f"Processing {len(csv_files)} CSV files")
-
     data_points, single_data_points, multi_data_points = 0, 0, 0
+
+    best_splits = defaultdict(lambda: defaultdict(lambda: defaultdict()))
+    totle_best_splits = defaultdict(lambda: defaultdict(lambda: defaultdict()))
 
     for filename in csv_files:
         with open(filename, newline='') as csvfile:
@@ -527,7 +544,7 @@ def do_summary_eth_pairs(csv_files):
                 id, time, pair, to_token, trade_size, totle_price, totle_splits, agg, agg_price, agg_splits, pct_savings = parse_row(row)
 
                 agg_names.add(agg)
-                all_samples[id] = row
+                timestamp_by_id[id] = time
                 data_points += 1
 
                 if len(agg_splits) > 1: split_count_by_agg[agg][trade_size] += 1
@@ -536,8 +553,8 @@ def do_summary_eth_pairs(csv_files):
                 # ******************* Select Samples (saves all samples) **************************
                 # if totle_splits == agg_splits and totle_price / agg_price > 1.05: # same split diff price indicates price data discrepancy
                 # if totle_price / agg_price > 1.05 and totle_splits != agg_splits and trade_size == 100 and to_token == 'REP' and agg not in ['1-Inch', '1-Inch V2']:
-                # if totle_price / agg_price > 1.05 and totle_splits != agg_splits and trade_size == 100 and to_token == 'REP' and agg == '1-Inch V2':
-                if id == '0xda29700714084710ab72d95e0510a044881839807586493c870d4d7a7000a444':
+                if totle_price / agg_price > 1.05 and trade_size == 100 and to_token == 'REP' and agg == 'Paraswap':
+                # if id == '0xda29700714084710ab72d95e0510a044881839807586493c870d4d7a7000a444':
                     key = (to_token, trade_size, agg)
                     select_samples[key].append((id, totle_price, totle_splits, agg_price, agg_splits))
 
@@ -568,29 +585,47 @@ def do_summary_eth_pairs(csv_files):
                     single_data_points += 1
                     per_pair_savings_without_routing[pair][trade_size][agg].append(pct_savings)
 
+                totle_current = {'price': totle_price, 'split': totle_splits}
+                totle_best_splits[pair][trade_size][id] = totle_current
+                current = {'price': agg_price, 'split': agg_splits} if totle_price > agg_price else totle_current
+                if (best_splits[pair][trade_size].get(id) is None) or (best_splits[pair][trade_size][id]['price'] > current['price']):
+                    best_splits[pair][trade_size][id] = current
+
+
     agg_names = sorted(agg_names)
     # trade_sizes = sorted_trade_sizes(*per_pair_savings.values())
 
-    print(f"Total of all_samples={len(all_samples)}")
-    print(f"data_points={data_points} single_data_points=#{single_data_points} multi_data_points={multi_data_points}")
+    print(f"Total number of Totle price quotes that were compared to competitor price quotes={len(timestamp_by_id)}")
+    print(f"Total number of comparisons={data_points}")
+    print(f"   comparisons where Totle used a single segment split={single_data_points} ({round(100.0*single_data_points/data_points)}%)")
+    print(f"   comparisons where Totle used a multi-segment smart route={multi_data_points} ({round(100.0*multi_data_points/data_points)}%)")
+
+
+    # ************ BEST SPLITS OVER TIME ****************
+    if True:
+        print_best_splits_over_time(best_splits, only_trade_size=50, label='Best split')
+
+    if True:
+        print_best_splits_over_time(totle_best_splits, only_trade_size=50, label='Totle split')
+
 
 
     # ************ AVERAGE SAVINGS ****************
-    if True:
+    if False:
         print_savings_summary_table_csv(aggregated_savings(per_pair_savings), agg_names, label="Average Savings (all samples)")
         print_avg_savings_by_token(per_pair_savings, only_aggs=agg_names)
         print_avg_savings_by_token(per_pair_savings, only_trade_size=1.0, only_aggs=agg_names)
         print_avg_savings_by_token(per_pair_savings, only_trade_size=10.0, only_aggs=agg_names)
         print_avg_savings_by_token(per_pair_savings, only_trade_size=100.0, only_aggs=agg_names)
 
-    if True:
+    if False:
         print_savings_summary_table_csv(aggregated_savings(per_pair_savings, lambda pair: pair[1] == 'BAL'), agg_names, label="Average Savings (BAL/ETH)")
         print_savings_summary_table_csv(aggregated_savings(per_pair_savings, lambda pair: pair[1] == 'KNC'), agg_names, label="Average Savings (KNC/ETH)")
         print_savings_summary_table_csv(aggregated_savings(per_pair_savings, lambda pair: pair[1] == 'REP'), agg_names, label="Average Savings (REP/ETH)")
 
 
     # **************** BETTER WORSE SAME / SAVINGS SUMMARY TABLE **********************
-    if True:
+    if False:
         total_samples = do_better_worse_same_price(per_pair_savings, "All Samples", agg_breakdown=True)
 
 
@@ -617,11 +652,11 @@ def do_summary_eth_pairs(csv_files):
 
 
     # **************** SELECT SAMPLES **********************
-    if True:
+    if False:
         print(f"\n********************************************* SELECT SAMPLES *********************************************************\n")
         n_select_samples = sum([ len(v) for k,v in select_samples.items() ])
         print(f"\nGot total of {n_select_samples} select samples ({100 * n_select_samples / total_samples}%)")
-        id_to_timestamp = lambda ps: datetime.fromisoformat(all_samples[ps[0]]['time'])
+        id_to_timestamp = lambda ps: datetime.fromisoformat(timestamp_by_id[ps[0]])
 
         # zero_alloc_count = 0
         for tok_ts_agg, prices_splits_list in sorted(select_samples.items()):
@@ -662,7 +697,7 @@ def do_summary_eth_pairs(csv_files):
 
 
 # ************************** GLOBAL VARIABLES ***************************
-all_samples = {} # id => row
+timestamp_by_id = {} # id => timestamp
 
 
 ########################################################################################################################

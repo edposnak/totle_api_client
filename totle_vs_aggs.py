@@ -147,9 +147,13 @@ def do_overlap_pairs():
 TOKENS = ['UNI', 'YFI', 'LINK', 'WBTC', 'COMP', 'BAL', 'REP', 'AMPL', 'KNC', 'UMA', 'LEND', 'SNX', 'USDT', 'USDC', 'DAI']
 ADDITIONAL_TOP_DUNE_TOKENS = ['USDT', 'USDC', 'CORE', 'DAI', 'ANATHA', 'POLS', 'XFI', 'BID']
 
-tokens = TOKENS
+ROWAN_SPLIT_FRIENDLY = ['DAI', 'USDC', 'USDT', 'WBTC', 'UMA', 'renBTC', 'SNX', 'MKR', 'RSR', 'CRV', 'LINK', 'COMP', 'YFI', 'AAVE', 'UNI', 'AMPL', 'ESD',]  # + 'USDC/DAI'
+GANG_OF_FOUR = ['BAL', 'KNC', 'LEND', 'REPV2']
+
+
+tokens = ROWAN_SPLIT_FRIENDLY + GANG_OF_FOUR
 random.shuffle(tokens)
-TRADE_SIZES  = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0, 1000.0, 5000.0, 10000.0]
+TRADE_SIZES  = [20.0, 30,0, 40.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0, 1000.0, 1500.0, 2000.0, 2500.0]
 
 def do_eth_pairs():
     all_buy_savings = defaultdict(lambda: defaultdict(lambda: defaultdict(dict))) # extra lambda prevents KeyError in print_savings
