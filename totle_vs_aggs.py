@@ -153,9 +153,9 @@ GANG_OF_FOUR = ['BAL', 'KNC', 'LEND', 'REPV2']
 
 tokens = ROWAN_SPLIT_FRIENDLY + GANG_OF_FOUR
 random.shuffle(tokens)
-TRADE_SIZES  = [20.0, 30,0, 40.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0, 1000.0, 1500.0, 2000.0, 2500.0]
+TRADE_SIZES  = [20.0, 30.0, 40.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0, 1000.0, 1500.0, 2000.0, 2500.0]
 
-def do_eth_pairs():
+def do_eth_pairs_parallel():
     all_buy_savings = defaultdict(lambda: defaultdict(lambda: defaultdict(dict))) # extra lambda prevents KeyError in print_savings
     order_type, quote = 'buy', 'ETH'
     filename = get_filename_base(prefix='totle_vs_agg_eth_pairs', suffix=order_type)
@@ -176,9 +176,32 @@ def do_eth_pairs():
                 agg_savings = f.result()
                 for agg_name, savings in agg_savings.items():
                     all_buy_savings[agg_name][base][trade_size] = savings
+                    print(f"WRITING savings to CSV ...")
                     csv_writer.append(savings)
 
     # print(json.dumps(all_buy_savings, indent=3))
+
+    # Prints a savings dict, token => trade_size => savings values
+    for agg_name in all_buy_savings:
+        print_savings(order_type, all_buy_savings[agg_name], TRADE_SIZES, title=f"Savings vs. {agg_name}")
+
+    print("\n\n")
+    for agg_name in all_buy_savings:
+        print(f"{agg_name} {list(all_buy_savings[agg_name].keys())}")
+
+
+def do_eth_pairs():
+    all_buy_savings = defaultdict(lambda: defaultdict(lambda: defaultdict(dict))) # extra lambda prevents KeyError in print_savings
+    order_type, quote = 'buy', 'ETH'
+    filename = get_filename_base(prefix='totle_vs_agg_eth_pairs', suffix=order_type)
+    with SavingsCSV(filename, fieldnames=CSV_FIELDS) as csv_writer:
+        for base in tokens:
+            for trade_size in TRADE_SIZES:
+                agg_savings = compare_totle_and_aggs_parallel(quote, base, trade_size)
+                for agg_name, savings in agg_savings.items():
+                    all_buy_savings[agg_name][base][trade_size] = savings
+                    print(f"WRITING savings to CSV ...")
+                    csv_writer.append(savings)
 
     # Prints a savings dict, token => trade_size => savings values
     for agg_name in all_buy_savings:

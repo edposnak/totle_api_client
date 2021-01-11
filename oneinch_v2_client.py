@@ -49,8 +49,9 @@ def fee_pct():
 DEX_NAME_MAP = {'0x API': '0x API', '0x V3': '0x V3', 'Aave': 'Aave', 'AAVE_LIQUIDATOR': 'AAVE_LIQUIDATOR', 'AirSwap': 'AirSwap', 'Balancer': 'Balancer', 'Bancor': 'Bancor', 'BETH':'BETH', 'C.R.E.A.M. Swap': 'C.R.E.A.M. Swap', 'Chai': 'Chai', 'Chi Minter': 'Chi Minter', 'Compound': 'Compound',
                 'Curve.fi': 'Curve.fi', 'Curve.fi v2': 'Curve.fi v2', 'Curve.fi iearn': 'Curve.fi iearn', 'Curve.fi sUSD': 'Curve.fi sUSD', 'Curve.fi BUSD': 'Curve.fi BUSD', 'Curve.fi PAX': 'Curve.fi PAX',
                 'Curve.fi renBTC': 'Curve.fi renBTC', 'Curve.fi tBTC': 'Curve.fi tBTC', 'Curve.fi sBTC': 'Curve.fi sBTC', 'Curve.fi hBTC': 'Curve.fi hBTC', 'Curve.fi 3pool': 'Curve.fi 3pool',
-                'dForce Swap': 'dForce Swap', 'DODO': 'DODO', 'Fulcrum': 'Fulcrum', 'IdleFinance': 'Idle', 'IEarnFinance': 'iearn', 'Kyber': 'Kyber', 'MakerDAO': 'MakerDAO', 'Mooniswap': 'Mooniswap', 'MultiSplit': 'MultiSplit', 'Multi Uniswap': 'Multi Uniswap', 'mStable': 'mStable', 'Oasis': 'Oasis', 'Pathfinder': 'Pathfinder',
-                'PMM': 'PMM',  'PMM1': 'PMM1', 'PMM2': 'PMM2',  'PMM3': 'PMM3',  'PMM4': 'PMM4',  'PMM5': 'PMM5',
+                'dForce Swap': 'dForce Swap', 'DODO': 'DODO', 'Fulcrum': 'Fulcrum', 'IdleFinance': 'Idle', 'IEarnFinance': 'iearn', 'Kyber': 'Kyber', 'MakerDAO': 'MakerDAO', 'Mooniswap': 'Mooniswap',
+                'MultiSplit': 'MultiSplit', 'Multi Uniswap': 'Multi Uniswap', 'mStable': 'mStable', 'Oasis': 'Oasis', 'Pathfinder': 'Pathfinder', 'ONE_INCH_LP': 'ONE_INCH_LP', 'ONE_INCH_LP_1_1': 'ONE_INCH_LP_1_1',
+                'PMM': 'PMM',  'PMM1': 'PMM1', 'PMM2': 'PMM2',  'PMM3': 'PMM3',  'PMM4': 'PMM4',  'PMM5': 'PMM5', 'S_FINANCE': 'S_FINANCE',
                 'StableCoinSwap': 'StableCoinSwap', 'Sushi Swap': 'Sushi Swap', 'SUSHI': 'Sushi Swap','Swerve': 'Swerve', 'Synth Depot': 'Synth Depot', 'Synthetix': 'Synthetix', 'UNISWAP_V1': 'Uniswap', 'Uniswap': 'Uniswap', 'Uniswap V2':'Uniswap V2', 'WETH': 'WETH'}
 
 
@@ -125,10 +126,16 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
             print(f"RESPONSE from {endpoint}:\n{json.dumps(j, indent=3)}\n\n")
 
         if j.get('message'):
-            print(f"{sys._getframe(  ).f_code.co_name} returned {j['message']} request was {query} response was {j}")
-
+            print(f"{sys._getframe(  ).f_code.co_name} returned {j['message']}. Request was {query} response was {j}")
             time.sleep(1.0 + random.random())  # block each thread for 1-2 seconds to keep from getting rate limited
             return {}
+
+        if j.get('errors'):
+            # j = {'errors': [{'msg': 'error'}]}
+            print(f"{sys._getframe(  ).f_code.co_name} returned {j['errors'][0]['msg']}. Request was {query} response was {j}")
+            time.sleep(1.0 + random.random())  # block each thread for 1-2 seconds to keep from getting rate limited
+            return {}
+
         else:
             # Response:
             # {
@@ -179,29 +186,24 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
             #   "estimatedGas": 590385   // do not use gas limit from the quote method
             # }
 
-            source_token = j['fromToken']['symbol']
-            source_amount = token_utils.real_amount(j['fromTokenAmount'], source_token)
-            destination_token = j['toToken']['symbol']
-            destination_amount = token_utils.real_amount(j['toTokenAmount'], destination_token)
+            try:
+                source_token = j['fromToken']['symbol']
+                source_amount = token_utils.real_amount(j['fromTokenAmount'], source_token)
+                destination_token = j['toToken']['symbol']
+                destination_amount = token_utils.real_amount(j['toTokenAmount'], destination_token)
+            except KeyError as e:
+                print(f"\n\nj = {j}\n\n")
+                raise
             price = source_amount / destination_amount if destination_amount else 0.0
 
             routes = j['protocols']
             if len(routes) == 1:
-                first_route = routes[0]
-                if len(first_route) == 1:
-                    segment = first_route[0]
-                    exchanges_parts = {ex['name']: ex['part'] for ex in segment if ex['part']}
-                else: # multiple segments
-                    exchanges_parts = {}
-                    for segment in first_route:
-                        segment_from_token = tokens_by_addr().get(segment[0]['fromTokenAddress'])
-                        segment_to_token = tokens_by_addr().get(segment[0]['toTokenAddress'])
-                        pair_label = f"{segment_to_token}/{segment_from_token}"
-                        exchanges_parts[pair_label] = {ex['name']: ex['part'] for ex in segment if ex['part']}
-                print(f"exchanges_parts={exchanges_parts}")
+                exchanges_parts = parse_split_route(routes[0])
             else: # multiple routes
                 print(f"\n\nNUM ROUTES = {len(routes)}\n\n")
-
+                exchanges_parts = [ parse_split_route(route) for route in routes ]
+                print(json.dumps(exchanges_parts, indent=3))
+                # TODO make the summary able to parse an array route
 
             time.sleep(1.0 + random.random())  # block each thread for 1-2 seconds to keep from getting rate limited
             return {
@@ -223,6 +225,22 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
             print(f"{name()} {query} raised {e}: {r.text[:128] if r else 'no JSON returned'} status_code={r.status_code}")
             if debug: print(f"FAILED REQUEST to {endpoint}:\n{json.dumps(query, indent=3)}\n\n")
         return {}
+
+
+def parse_split_route(first_route):
+    if len(first_route) == 1:
+        segment = first_route[0]
+        exchanges_parts = {ex['name']: ex['part'] for ex in segment if ex['part']}
+    else:  # multiple segments
+        exchanges_parts = {}
+        for segment in first_route:
+            segment_from_token = tokens_by_addr().get(segment[0]['fromTokenAddress'])
+            segment_to_token = tokens_by_addr().get(segment[0]['toTokenAddress'])
+            pair_label = f"{segment_to_token}/{segment_from_token}"
+            exchanges_parts[pair_label] = {ex['name']: ex['part'] for ex in segment if ex['part']}
+    print(f"exchanges_parts={exchanges_parts}")
+    return exchanges_parts
+
 
 def get_swap(from_token, to_token, from_amount=None, to_amount=None, dex=None, from_address=None, slippage=50, verbose=False, debug=False):
     endpoint = SWAP_ENDPOINT

@@ -491,6 +491,8 @@ def try_swap(label, from_token, to_token, exchange=None, params={}, verbose=True
 
 # get quote
 def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, params={}, verbose=False, debug=False):
+    if from_amount == 0: raise ValueError(f"from_amount is {from_amount} {from_token} params={params}")
+
     if from_amount and to_amount:
         raise ValueError(f"{name()} only accepts either from_amount or to_amount, not both")
     elif from_amount:
