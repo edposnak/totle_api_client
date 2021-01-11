@@ -78,6 +78,7 @@ SYM_TO_NAME = {
     'iearnfinance': 'IEarnFinance',
     'iearn': 'IEarnFinance',
     'kyber': 'Kyber',
+    'linkswap': 'LINKSWAP',
     'liquidityprovider': 'LiquidityProvider',
     'makerdao': 'MakerDAO',
     'mooniswap': 'Mooniswap',
