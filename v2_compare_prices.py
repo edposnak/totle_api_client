@@ -211,9 +211,11 @@ def get_savings(exchange, exchange_price, totle_quote, token, trade_size, order_
     totle_used = totle_quote['totleUsed']
     totle_splits = canonicalize_and_sort_splits(totle_quote.get('totleSplits'))
 
-    # splits = splits, ex_prices = ex_prices,
     if agg_quote:
-        splits = canonicalize_and_sort_splits(agg_quote.get('exchanges_parts'))
+        try:
+            splits = canonicalize_and_sort_splits(agg_quote.get('exchanges_parts'))
+        except ValueError as e:
+            raise ValueError(f"got {e} for {exchange}")
         ex_prices = agg_quote.get('exchanges_prices') and exchange_utils.canonical_and_splittable(agg_quote['exchanges_prices'])
 
     pct_savings = get_pct_savings(totle_price, exchange_price)
