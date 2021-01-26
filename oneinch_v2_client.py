@@ -201,10 +201,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
             if len(routes) == 1:
                 exchanges_parts = parse_split_route(routes[0])
             else: # multiple routes
-                print(f"\n\nNUM ROUTES = {len(routes)}\n\n")
                 exchanges_parts = [ parse_split_route(route) for route in routes ]
-                print(json.dumps(exchanges_parts, indent=3))
-                # TODO make the summary able to parse an array route
 
             time.sleep(1.0 + random.random())  # block each thread for 1-2 seconds to keep from getting rate limited
             return {
