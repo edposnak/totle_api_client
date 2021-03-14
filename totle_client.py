@@ -58,6 +58,7 @@ def name():
 #                 'Oasis': 'Oasis', 'PMM': 'PMM', 'SetProtocol': 'SetProtocol', 'StableCoinSwap': 'Stablecoinswap', 'Sushi Swap': 'Sushiswap', 'Swerve': 'Swerve', 'Uniswap': 'Uniswap', 'Uniswap V2': 'UniswapV2'}
 
 
+
 def exchanges():
     return { e['name']: e['id'] for e in exchanges_json() }
 
