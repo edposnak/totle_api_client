@@ -6,14 +6,21 @@ import exchange_utils
 def test_dex_name_map():
     dexs = oneinch_client.exchanges()
 
+    for dex_name in dexs:
+        print(f"Trying #{dex_name} ...")
+        try:
+            can_name = exchange_utils.canonical_name(dex_name)
+        except Exception as e:
+            print(f"{dex_name} not in exchange_utils")
+
     # map = {exchange_utils.canonical_name(dex_name): dex_name for dex_name in sorted(dexs)}
     # print(f"DEX_NAME_MAP = {map}")
     # exit(0)
-    for dex_name in dexs:
-        print(f"\n{dex_name},")
-        can_name = exchange_utils.canonical_name(dex_name)
-        print(f"{can_name}: {dex_name},")
-        print(f"{can_name} => {oneinch_client.DEX_NAME_MAP[can_name]}")
+    # for dex_name in dexs:
+    #     print(f"\n{dex_name},")
+    #     can_name = exchange_utils.canonical_name(dex_name)
+    #     print(f"{can_name}: {dex_name},")
+    #     print(f"{can_name} => {oneinch_client.DEX_NAME_MAP[can_name]}")
 
 
 def test_get_quote(to_token, from_token='ETH', from_amount=None, to_amount=None, dex=None, verbose=True, debug=True):
@@ -39,9 +46,10 @@ def test_get_quote(to_token, from_token='ETH', from_amount=None, to_amount=None,
 #######################################################################################################################
 
 
-# test_dex_name_map()
+test_dex_name_map()
 
 test_get_quote('UNI', from_amount=1.0, debug=False)
+exit(0)
 test_get_quote('YFI', from_amount=1.0, debug=False)
 test_get_quote('COMP', from_amount=1.0, debug=False)
 test_get_quote('BAL', from_amount=1.0, debug=False)

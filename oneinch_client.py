@@ -8,6 +8,8 @@ import requests
 import json
 import token_utils
 
+# https://1inch.exchange/#/api
+# https://docs.1inch.exchange/api/quote-swap
 API_BASE = 'https://api.1inch.exchange/v1.1'
 EXCHANGES_ENDPOINT = API_BASE + '/exchanges'
 TOKENS_ENDPOINT = API_BASE + '/tokens'
@@ -42,12 +44,12 @@ def fee_pct():
 #
 
 # map from canonical name to 1-Inch name
-DEX_NAME_MAP = {'0x API': '0x API', '0x V3': '0x V3', 'Aave': 'Aave', 'AAVE_LIQUIDATOR': 'AAVE_LIQUIDATOR', 'AirSwap': 'AirSwap', 'Balancer': 'Balancer', 'Bancor': 'Bancor', 'BETH':'BETH', 'C.R.E.A.M. Swap': 'C.R.E.A.M. Swap', 'Chai': 'Chai', 'Chi Minter': 'Chi Minter', 'Compound': 'Compound',
-                'Curve.fi': 'Curve.fi', 'Curve.fi v2': 'Curve.fi v2', 'Curve.fi iearn': 'Curve.fi iearn', 'Curve.fi sUSD': 'Curve.fi sUSD', 'Curve.fi BUSD': 'Curve.fi BUSD', 'Curve.fi PAX': 'Curve.fi PAX',
-                'Curve.fi renBTC': 'Curve.fi renBTC', 'Curve.fi tBTC': 'Curve.fi tBTC', 'Curve.fi sBTC': 'Curve.fi sBTC', 'Curve.fi hBTC': 'Curve.fi hBTC', 'Curve.fi 3pool': 'Curve.fi 3pool',
-                'dForce Swap': 'dForce Swap', 'DODO': 'DODO', 'Fulcrum': 'Fulcrum', 'IdleFinance': 'Idle', 'IEarnFinance': 'iearn', 'Kyber': 'Kyber', 'MakerDAO': 'MakerDAO', 'Mooniswap': 'Mooniswap', 'MultiSplit': 'MultiSplit', 'Multi Uniswap': 'Multi Uniswap', 'mStable': 'mStable', 'Oasis': 'Oasis', 'Pathfinder': 'Pathfinder',
-                'PMM': 'PMM',  'PMM1': 'PMM1', 'PMM2': 'PMM2',  'PMM3': 'PMM3',  'PMM4': 'PMM4',  'PMM5': 'PMM5',
-                'StableCoinSwap': 'StableCoinSwap', 'Sushi Swap': 'Sushi Swap', 'SUSHI': 'Sushi Swap','Swerve': 'Swerve', 'Synth Depot': 'Synth Depot', 'Synthetix': 'Synthetix', 'UNISWAP_V1': 'Uniswap', 'Uniswap': 'Uniswap', 'Uniswap V2':'Uniswap V2', 'WETH': 'WETH'}
+# DEX_NAME_MAP = {'0x API': '0x API', '0x V3': '0x V3', 'Aave': 'Aave', 'AAVE_LIQUIDATOR': 'AAVE_LIQUIDATOR', 'AirSwap': 'AirSwap', 'Balancer': 'Balancer', 'Bancor': 'Bancor', 'BETH':'BETH', 'C.R.E.A.M. Swap': 'C.R.E.A.M. Swap', 'Chai': 'Chai', 'Chi Minter': 'Chi Minter', 'Compound': 'Compound',
+#                 'Curve.fi': 'Curve.fi', 'Curve.fi v2': 'Curve.fi v2', 'Curve.fi iearn': 'Curve.fi iearn', 'Curve.fi sUSD': 'Curve.fi sUSD', 'Curve.fi BUSD': 'Curve.fi BUSD', 'Curve.fi PAX': 'Curve.fi PAX',
+#                 'Curve.fi renBTC': 'Curve.fi renBTC', 'Curve.fi tBTC': 'Curve.fi tBTC', 'Curve.fi sBTC': 'Curve.fi sBTC', 'Curve.fi hBTC': 'Curve.fi hBTC', 'Curve.fi 3pool': 'Curve.fi 3pool',
+#                 'dForce Swap': 'dForce Swap', 'DODO': 'DODO', 'Fulcrum': 'Fulcrum', 'IdleFinance': 'Idle', 'IEarnFinance': 'iearn', 'Kyber': 'Kyber', 'MakerDAO': 'MakerDAO', 'Mooniswap': 'Mooniswap', 'MultiSplit': 'MultiSplit', 'Multi Uniswap': 'Multi Uniswap', 'mStable': 'mStable', 'Oasis': 'Oasis', 'Pathfinder': 'Pathfinder',
+#                 'PMM': 'PMM',  'PMM1': 'PMM1', 'PMM2': 'PMM2',  'PMM3': 'PMM3',  'PMM4': 'PMM4',  'PMM5': 'PMM5',
+#                 'StableCoinSwap': 'StableCoinSwap', 'Sushi Swap': 'Sushi Swap', 'SUSHI': 'Sushi Swap','Swerve': 'Swerve', 'Synth Depot': 'Synth Depot', 'Synthetix': 'Synthetix', 'UNISWAP_V1': 'Uniswap', 'Uniswap': 'Uniswap', 'Uniswap V2':'Uniswap V2', 'WETH': 'WETH'}
 
 
 
@@ -120,7 +122,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
             print(f"RESPONSE from {QUOTE_ENDPOINT}:\n{json.dumps(j, indent=3)}\n\n")
 
         if j.get('message'):
-            print(f"{sys._getframe(  ).f_code.co_name} returned {j['message']} request was {query} response was {j}")
+            print(f"{name()}.{sys._getframe(  ).f_code.co_name} returned {j['message']} request was {query} response was {j}")
 
             time.sleep(1.0 + random.random())  # block each thread for 1-2 seconds to keep from getting rate limited
             return {}
@@ -171,7 +173,7 @@ def get_swap(from_token, to_token, from_amount=None, to_amount=None, dex=None, f
         if debug: print(f"RESPONSE from {QUOTE_ENDPOINT}:\n{json.dumps(j, indent=3)}\n\n")
 
         if j.get('message'):
-            print(f"{sys._getframe(  ).f_code.co_name} returned {j['message']} request was {query} response was {j}")
+            print(f"{name()}.{sys._getframe(  ).f_code.co_name} returned {j['message']} request was {query} response was {j}")
             return {}
         else:
             # Response: {

@@ -4,6 +4,7 @@ import functools
 import requests
 import token_utils
 
+# https://paraswapv2.docs.apiary.io/#
 API_BASE = 'https://api.paraswap.io/v2'
 # the /1 in these endpoints is /{network_id}
 # guessed 1 because tokens endpoint returns the correct ERC-20 addresses
@@ -36,7 +37,7 @@ def fee_pct():
 #
 
 # get exchanges
-DEX_NAME_MAP = { '0x V3': '0x', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Fulcrum': 'Fulcrum', 'Kyber': 'Kyber', 'MakerDAO': 'MakerDAO', 'Oasis': 'Oasis', 'PMM': 'ParaSwapPool', 'Uniswap': 'Uniswap' }
+# DEX_NAME_MAP = { '0x V3': '0x', 'Bancor': 'Bancor', 'Compound': 'Compound', 'Fulcrum': 'Fulcrum', 'Kyber': 'Kyber', 'MakerDAO': 'MakerDAO', 'Oasis': 'Oasis', 'PMM': 'ParaSwapPool', 'Uniswap': 'Uniswap' }
 
 @functools.lru_cache()
 def exchanges():
@@ -64,16 +65,17 @@ def supported_tokens():
 
 
 @functools.lru_cache(128)
-def paraswap_addr(token):
-    """Returns Paraswap's case-sensitive address for the given token symbol"""
-    # Fortunately (for now) all of Paraswap's token symbols are canonical so we don't have to worry about mapping them too
-    j = next(filter(lambda t: t['symbol'] == token, tokens_json()), None)
+def paraswap_addr(token_symbol):
+    """Returns Paraswap's case-sensitive address for the given (canonized) token symbol"""
+    j = next(filter(lambda t: token_utils.canonize(t['symbol']) == token_symbol, tokens_json()), None)
     return j and j['address']
 
 
 @functools.lru_cache(1)
 def tokens_json():
-    return requests.get(TOKENS_ENDPOINT).json()['tokens']
+    # "symbol":"DEV","address":"0x5cAf454Ba92e6F2c929DF14667Ee360eD9fD5b26",
+    raw_tokens_json = requests.get(TOKENS_ENDPOINT).json()['tokens']
+    return [ t for t in raw_tokens_json if t['address'] not in token_utils.ADDRESSES_TO_FILTER_OUT ]
 
 
 # get quote

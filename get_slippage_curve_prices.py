@@ -195,9 +195,8 @@ def get_max_trade_sizes_and_dexs(tokens, from_token='ETH'):
     max_trade_sizes = defaultdict(lambda: defaultdict(float))
     for to_token in tokens:
         for dex in TOTLE_DEXS:
-            dex_name = totle_client.DEX_NAME_MAP.get(dex)
             for trade_size in TRADE_SIZES:
-                pq = totle_client.get_quote(from_token, to_token, from_amount=trade_size, dex=dex_name)
+                pq = totle_client.get_quote(from_token, to_token, from_amount=trade_size, dex=dex)
                 if pq:
                     max_trade_sizes[to_token][dex] = max(trade_size, max_trade_sizes[to_token][dex])
 

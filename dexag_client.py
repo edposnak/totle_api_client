@@ -5,6 +5,7 @@ import requests
 import json
 import token_utils
 
+# https://docs.dex.ag/
 API_BASE = 'https://api.dex.ag'
 TOKENS_ENDPOINT = API_BASE + '/tokens'
 TOKENS_NAMES_ENDPOINT = API_BASE + '/token-list-full'
@@ -33,12 +34,12 @@ def fee_pct():
 #
 
 # get exchanges
-DEX_NAME_MAP = {'ag': 'ag', 'all':'all', '0xMesh': 'radar-relay', 'Bancor': 'bancor', 'DDEX': 'ddex', 'Ethfinex': 'ethfinex', 'IDEX': 'idex',
-                'Kyber': 'kyber', 'Oasis': 'oasis', 'Paradex': 'paradex', 'Radar Relay': 'radar-relay', 'Uniswap': 'uniswap' }
+# DEX_NAME_MAP = {'ag': 'ag', 'all':'all', '0xMesh': 'radar-relay', 'Bancor': 'bancor', 'DDEX': 'ddex', 'Ethfinex': 'ethfinex', 'IDEX': 'idex',
+#                 'Kyber': 'kyber', 'Oasis': 'oasis', 'Paradex': 'paradex', 'Radar Relay': 'radar-relay', 'Uniswap': 'uniswap' }
 
 def exchanges():
     # there is no exchanges endpoint yet so we are just using the ones from an ETH/DAI price query where dex == all
-    dex_names = ['ag', 'bancor', 'ddex', 'ethfinex', 'idex', 'kyber', 'oasis', 'paradex', 'radar-relay', 'uniswap']
+    dex_names = ['0x v3', 'ag', 'bancor', 'curvefi', 'ddex', 'ethfinex', 'idex', 'kyber', 'oasis', 'paradex', 'radar-relay', 'synthetix', 'uniswap']
 
     # DEX.AG does not have exchange ids, but to keep the same interface we put in 0's for id
     id = 0

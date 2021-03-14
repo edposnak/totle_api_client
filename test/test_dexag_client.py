@@ -7,13 +7,21 @@ import token_utils
 
 def test_dex_name_map():
     dexs = dexag_client.exchanges()
+
+    for dex_name in dexs:
+        # print(f"Trying #{dex_name} ...")
+        try:
+            can_name = exchange_utils.canonical_name(dex_name)
+        except Exception as e:
+            print(f"{dex_name} not in exchange_utils")
+
     # map = {exchange_utils.canonical_name(dex_name): dex_name for dex_name in sorted(dexs)}
     # print(f"DEX_NAME_MAP = {map}")
     # exit(0)
 
-    for dex_name in dexs:
-        can_name = exchange_utils.canonical_name(dex_name)
-        print(f"{can_name} => {dexag_client.DEX_NAME_MAP[can_name]}")
+    # for dex_name in dexs:
+    #     can_name = exchange_utils.canonical_name(dex_name)
+    #     print(f"{can_name} => {dexag_client.DEX_NAME_MAP[can_name]}")
 
 
 def test_get_quote(to_token, from_token='ETH', from_amount=None, to_amount=None, dex=dexag_client.AG_DEX, verbose=True, debug=True):

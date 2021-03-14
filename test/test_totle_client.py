@@ -9,13 +9,21 @@ class FoundBugException(Exception):
 
 def test_dex_name_map():
     dexs = totle_client.exchanges()
+
+    for dex_name in dexs:
+        print(f"Trying #{dex_name} ...")
+        try:
+            can_name = exchange_utils.canonical_name(dex_name)
+        except Exception as e:
+            print(f"{dex_name} not in exchange_utils")
+
     # map = {exchange_utils.canonical_name(dex_name): dex_name for dex_name in sorted(dexs)}
     # print(f"DEX_NAME_MAP = {map}")
     # exit(0)
 
-    for dex_name in dexs:
-        can_name = exchange_utils.canonical_name(dex_name)
-        print(f"{can_name} => {totle_client.DEX_NAME_MAP[can_name]}")
+    # for dex_name in dexs:
+    #     can_name = exchange_utils.canonical_name(dex_name)
+    #     print(f"{can_name} => {totle_client.DEX_NAME_MAP[can_name]}")
 
 def test_basics():
     print(totle_client.name())
@@ -166,6 +174,7 @@ def test_swap_data(json_response_file):
 #######################################################################################################################
 
 test_dex_name_map()
+exit(0)
 
 # test_swap_data('test_data/order_destination_asset_summary_asset.json') # destinationAsset=SAI but summary destinationAsset=RDN error
 # test_swap_data('test_data/eth_dai_knc.json') # source/dest flip error

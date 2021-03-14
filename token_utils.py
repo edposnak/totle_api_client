@@ -3,6 +3,11 @@ import threading
 import requests
 
 import oneinch_client
+ADDRESSES_TO_FILTER_OUT = [
+    '0xcae516aa57d04ebf9b92813050282333f7587d2f', # Uniswap V3
+    '0x3e370a6c8255b065bd42bc0ac9255b269cfcc172', # Unipot
+    '0x2730d6fdc86c95a74253beffaa8306b40fedecbb'  # Unicorn
+]
 
 
 def addr(token):
@@ -72,6 +77,7 @@ def tokens_json_critical(use_oneinch_tokens=False):
     # get Totle tokens
     totle_tokens = totle_tokens_json()
     for t in totle_tokens: t['address'] = t['address'].lower()
+    totle_tokens = [ t for t in totle_tokens if t['address'] not in ADDRESSES_TO_FILTER_OUT ]
 
     # 1-Inch has severe rate limiting without an API key, causing API calls to return 'Forbidden'
     if not use_oneinch_tokens: return totle_tokens
@@ -79,6 +85,7 @@ def tokens_json_critical(use_oneinch_tokens=False):
     # get 1-inch tokens
     oneinch_tokens = oneinch_tokens_json()
     for t in oneinch_tokens: t['address'] = t['address'].lower()
+    oneinch_tokens = [ t for t in oneinch_tokens if t['address'] not in ADDRESSES_TO_FILTER_OUT ]
 
     # Combine Totle's and 1-Inch's info
     r, syms, addrs = totle_tokens, [ t['symbol'] for t in totle_tokens ], [ t['address'] for t in totle_tokens ]
