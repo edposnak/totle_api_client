@@ -8,8 +8,8 @@ import requests
 import json
 import token_utils
 
-# https://docs.1inch.exchange/api/
-API_BASE = 'https://api.1inch.exchange/v2.1/1'
+# https://api.1inch.exchange/swagger/ethereum/
+API_BASE = 'https://api.1inch.exchange/v3.0/1'
 EXCHANGES_ENDPOINT = API_BASE + '/protocols'
 TOKENS_ENDPOINT = API_BASE + '/tokens'
 QUOTE_ENDPOINT = API_BASE + '/quote'
@@ -32,11 +32,11 @@ TAKER_FEE_PCT = 0.0 # unfairly optimistic, but currently too difficult to calcul
 # also not clear whether exchange fees are included in their quotes
 # https://twitter.com/scott_lew_is/status/1178064935210733568?s=20
 
-class OneInchV2APIException(Exception):
+class OneInchV3APIException(Exception):
     pass
 
 def name():
-    return '1-Inch V2'
+    return '1-Inch V3'
 
 def fee_pct():
     return TAKER_FEE_PCT
@@ -85,7 +85,7 @@ def supported_tokens():
     return j
 
 
-JSON_FILENAME = 'data/cached_oneinch_v2_tokens.json'
+JSON_FILENAME = 'data/cached_oneinch_v3_tokens.json'
 
 @functools.lru_cache(1)
 def supported_tokens_critical():
@@ -108,11 +108,11 @@ def tokens_by_addr():
 
 
 @functools.lru_cache(128)
-def oneinch_v2_addr(token_symbol):
+def oneinch_v3_addr(token_symbol):
     """Returns 1-Inch's address for the given (canonized) token symbol"""
     return ETH_ADDRESS if token_symbol == 'ETH' else token_utils.addr(token_symbol)
 
-    # if 1-Inch V2 requires addresses to be in its own specifc capitalization, then query supported_tokens like this
+    # if 1-Inch V3 requires addresses to be in its own specifc capitalization, then query supported_tokens like this
     # if token_symbol == 'ETH':
     #     ETH_ADDRESS
     # elif token_symbol in supported_tokens(): # only true when the spelling of the key in supported_tokens is canonical
@@ -129,7 +129,7 @@ def get_quote(from_token, to_token, from_amount=None, to_amount=None, dex=None, 
     for t in [from_token, to_token]:
         if t != 'ETH' and t not in supported_tokens(): return {} # temporary speedup
 
-    from_token_addr, to_token_addr = oneinch_v2_addr(from_token), oneinch_v2_addr(to_token)
+    from_token_addr, to_token_addr = oneinch_v3_addr(from_token), oneinch_v3_addr(to_token)
 
     query = {'fromTokenAddress': from_token_addr, 'toTokenAddress': to_token_addr, 'amount': token_utils.int_amount(from_amount, from_token)}
     r = None

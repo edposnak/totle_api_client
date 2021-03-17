@@ -11,6 +11,7 @@ import dexag_client
 import exchange_utils
 import oneinch_client
 import oneinch_v2_client
+import oneinch_v3_client
 import paraswap_client
 import split_utils
 import token_utils
@@ -19,7 +20,7 @@ import totle_client
 from v2_compare_prices import get_savings, print_savings, get_filename_base, SavingsCSV
 
 
-AGG_CLIENTS = [dexag_client, oneinch_client, oneinch_v2_client, paraswap_client, zrx_client]
+AGG_CLIENTS = [dexag_client, oneinch_client, oneinch_v2_client, oneinch_v3_client, paraswap_client, zrx_client]
 CSV_FIELDS = "time id action trade_size token quote exchange exchange_price totle_used totle_price totle_splits pct_savings splits ex_prices".split()
 
 def compare_totle_and_aggs_parallel(from_token, to_token, from_amount, usd_trade_size=None):
