@@ -503,9 +503,11 @@ def print_avg_savings_by_token(per_token_savings, only_trade_size=None, only_agg
         print(row)
 
 def print_best_splits_over_time(best_splits, only_trade_size=50, label='Best Split'):
+    """prints each of the splits contained in best_splits"""
     for pair, ts_id_best in sorted(best_splits.items()):
         print(f"\n\n====================================================================\n{pair}")
         for trade_size, id_best in ts_id_best.items():
+            print(f"{trade_size} != {only_trade_size}")
             if trade_size != only_trade_size: continue
             print(f"\n{label} for {pair} at {trade_size}")
 
@@ -603,10 +605,10 @@ def do_summary_eth_pairs(csv_files):
 
     # ************ BEST SPLITS OVER TIME ****************
     if True:
-        print_best_splits_over_time(best_splits, only_trade_size=50, label='Best split')
+        print_best_splits_over_time(best_splits, only_trade_size=1000, label='Best split')
 
     if True:
-        print_best_splits_over_time(totle_best_splits, only_trade_size=50, label='Totle split')
+        print_best_splits_over_time(totle_best_splits, only_trade_size=1000, label='Totle split')
 
 
 
@@ -702,7 +704,7 @@ timestamp_by_id = {} # id => timestamp
 
 ########################################################################################################################
 def main():
-    csv_files = glob.glob(f'outputs/totle_vs_agg_eth_pairs_2020-12*csv')
+    csv_files = glob.glob(f'outputs/totle_vs_agg_metamask_top_pairs_2021-*csv')
     do_summary_eth_pairs(tuple(csv_files))
 
 if __name__ == "__main__":

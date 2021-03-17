@@ -84,7 +84,7 @@ def get_token_prices(tokens):
 # ['USDT > ETH', 'ETH > USDT', 'WETH > ETH', 'ETH > WETH', 'USDC > ETH', 'USDT > WBTC', 'ETH > USDC', 'USDT > USDC', 'DAI > ETH', 'UNI > ETH', 'USDC > WBTC', 'ETH > DAI', 'WBTC > ETH', 'USDC > USDT']
 METAMASK_TOP_PAIRS = [('ETH', 'USDT'), ('USDT', 'ETH'), ('ETH', 'WETH'), ('WETH', 'ETH'), ('ETH', 'USDC'), ('WBTC', 'USDT'), ('USDC', 'ETH'), ('USDC', 'USDT'), ('ETH', 'DAI'), ('ETH', 'UNI'), ('WBTC', 'USDC'), ('DAI', 'ETH'), ('ETH', 'WBTC'), ('USDT', 'USDC')]
 
-USD_TRADE_SIZES = [1000.0, 5000.0, 10000.0, 50000.0, 100000.0, 500000.0, 1000000.0]
+USD_TRADE_SIZES = [1000.0, 5000.0, 10000.0, 50000.0, 100000.0, 500000.0, 1000000.0, 2000000.0, 3000000.0, 4000000.0, 5000000.0]
 
 def do_metamask_top_pairs():
     all_buy_savings = defaultdict(lambda: defaultdict(lambda: defaultdict(dict))) # extra lambda prevents KeyError in print_savings

@@ -32,12 +32,23 @@ SYM_TO_NAME = {
 
     'curve': 'Curve',
     'curve.fi': 'Curve.fi',
-    'curvefi': 'Curve.fi',
     'curve.fi v2': 'Curve.fi v2',
+    'curve.fi 3pool': 'Curve.fi 3pool',
     'curve.fi aave': 'Curve.fi Aave',
     'curve.fi compound': 'Curve.fi Compound',
+    'curve.fi euro': 'Curve.fi Euro',
     'curve.fi iearn': 'Curve.fi iearn',
     'curve.fi pax': 'Curve.fi PAX',
+    'curve.fi pool #1': 'Curve.fi Pool #1',
+    'curve.fi pool #2': 'Curve.fi Pool #2',
+    'curve.fi pool #3': 'Curve.fi Pool #3',
+    'curve.fi ren': 'Curve.fi renBTC',
+    'curve.fi rsv': 'Curve.fi RSV',
+    'curve.fi usdk': 'Curve.fi USDK',
+    'curve.fi usdn': 'Curve.fi USDN',
+    'curve.fi usdt': 'Curve.fi USDT',
+    'curve.fi ust': 'Curve.fi UST',
+    'curve.fi y': 'Curve.fi Y',
 
     'curve.fi busd': 'Curve.fi bUSD',
     'curve.fi dusd': 'Curve.fi dUSD',
@@ -45,6 +56,8 @@ SYM_TO_NAME = {
     'curve.fi husd': 'Curve.fi hUSD',
     'curve.fi musd': 'Curve.fi mUSD',
     'curve.fi susd': 'Curve.fi sUSD',
+    'curve.fi susdv2': 'Curve.fi sUSDV2',
+    'curve.fi linkusd': 'Curve.fi linkUSD',
 
     'curve.fi renbtc': 'Curve.fi renBTC',
     'curve.fi bbtc': 'Curve.fi bBTC',
@@ -53,18 +66,19 @@ SYM_TO_NAME = {
     'curve.fi pbtc': 'Curve.fi pBTC',
     'curve.fi sbtc': 'Curve.fi sBTC',
     'curve.fi tbtc': 'Curve.fi tBTC',
-    'curve.fi 3pool': 'Curve.fi 3pool',
-    'curve.fi susdv2': 'Curve.fi sUSDV2',
 
+
+    'curvefi': 'Curve.fi',
+    'curvefi v2': 'Curve.fi v2',
+    'curvefi 3pool': 'Curve.fi 3pool',
     'curvefi aave': 'Curve.fi Aave',
     'curvefi compound': 'Curve.fi Compound',
     'curvefi euro': 'Curve.fi Euro',
     'curvefi iearn': 'Curve.fi iearn',
+    'curvefi pax': 'Curve.fi PAX',
     'curvefi pool #1': 'Curve.fi Pool #1',
     'curvefi pool #2': 'Curve.fi Pool #2',
     'curvefi pool #3': 'Curve.fi Pool #3',
-    'curvefi 3pool': 'Curve.fi 3pool',
-    'curvefi pax': 'Curve.fi PAX',
     'curvefi ren': 'Curve.fi renBTC',
     'curvefi rsv': 'Curve.fi RSV',
     'curvefi usdk': 'Curve.fi USDK',
@@ -91,6 +105,42 @@ SYM_TO_NAME = {
     'curvefi tbtc': 'Curve.fi tBTC',
 
 
+    'curve': 'Curve.fi',
+    'curve_v2': 'Curve.fi v2',
+    'curve_3pool': 'Curve.fi 3pool',
+    'curve_aave': 'Curve.fi Aave',
+    'curve_compound': 'Curve.fi Compound',
+    'curve_euro': 'Curve.fi Euro',
+    'curve_iearn': 'Curve.fi iearn',
+    'curve_iearnusdb': 'Curve.fi iearn USDB',
+    'curve_pax': 'Curve.fi PAX',
+    'curve_pool #1': 'Curve.fi Pool #1',
+    'curve_pool #2': 'Curve.fi Pool #2',
+    'curve_pool #3': 'Curve.fi Pool #3',
+    'curve_ren': 'Curve.fi renBTC',
+    'curve_rsv': 'Curve.fi RSV',
+    'curve_usdk': 'Curve.fi USDK',
+    'curve_usdn': 'Curve.fi USDN',
+    'curve_usdt': 'Curve.fi USDT',
+    'curve_ust': 'Curve.fi UST',
+    'curve_y': 'Curve.fi Y',
+
+    'curve_busd': 'Curve.fi bUSD',
+    'curve_dusd': 'Curve.fi dUSD',
+    'curve_gusd': 'Curve.fi gUSD',
+    'curve_husd': 'Curve.fi hUSD',
+    'curve_musd': 'Curve.fi mUSD',
+    'curve_susd': 'Curve.fi sUSD',
+    'curve_susdv2': 'Curve.fi sUSDV2',
+    'curve_linkusd': 'Curve.fi linkUSD',
+
+    'curve_renbtc': 'Curve.fi renBTC',
+    'curve_bbtc': 'Curve.fi bBTC',
+    'curve_hbtc': 'Curve.fi hBTC',
+    'curve_obtc': 'Curve.fi oBTC',
+    'curve_pbtc': 'Curve.fi pBTC',
+    'curve_sbtc': 'Curve.fi sBTC',
+    'curve_tbtc': 'Curve.fi tBTC',
 
     'defiswap': 'DefiSwap',
     'deversifi': 'deversifi',
@@ -160,6 +210,7 @@ SYM_TO_NAME = {
     'sushi': 'Sushi Swap',
     'swerve': 'Swerve',
     'swerve.fi': 'Swerve',
+    'swervefi': 'Swerve',
     'synthetix': 'Synthetix',
     'synth depot': 'Synth Depot',
     'thetokenstore': 'Token Store',
@@ -184,6 +235,8 @@ def exchanges():
 
 def canonical_name(dex_name):
     """Returns the canonical name for the given dex_name if it is one of the known exchanges, else raises ValueError"""
+    if dex_name in SYM_TO_NAME.values(): return dex_name
+
     sym = dex_name.lower()
     if sym in SYM_TO_NAME:
         return SYM_TO_NAME[sym]
