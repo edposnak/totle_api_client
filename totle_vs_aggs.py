@@ -110,9 +110,6 @@ def do_metamask_top_pairs():
                     csv_writer.append(savings)
                     print(f"\n\nBuying {to_token} for {from_amount} {from_token} usd_trade_size=${usd_trade_size:.2f} (which is {from_amount:.4f} {from_token} at a price of ${usd_prices[from_token]:.2f})")
 
-                    for agg_name, savings in agg_savings.items():
-                        all_buy_savings[agg_name][from_token][usd_trade_size] = savings
-                        csv_writer.append(savings)
 
     # print(json.dumps(all_buy_savings, indent=3))
 

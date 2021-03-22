@@ -201,6 +201,7 @@ SYM_TO_NAME = {
     'sharkrelay': 'Shark Relay',
     'shark relay': 'Shark Relay',
     'shell': 'Shell',
+    'smoothy_finance': 'SMOOTHY_FINANCE',
     'stablecoinswap': 'StableCoinSwap',
     'star bit': 'STAR BIT',
     'st_eth': 'ST ETH',

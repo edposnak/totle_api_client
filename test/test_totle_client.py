@@ -174,6 +174,9 @@ def test_swap_data(json_response_file):
 #######################################################################################################################
 
 test_dex_name_map()
+
+test_get_quote(['USDC'], trade_size=100000, from_token='USDT', debug=True, verbose=True)
+
 exit(0)
 
 # test_swap_data('test_data/order_destination_asset_summary_asset.json') # destinationAsset=SAI but summary destinationAsset=RDN error
@@ -209,5 +212,5 @@ exit(0)
 
 # TOP_VOLUME_AT_LEAST_TWO_AGGS_TRADABLE_TOKENS = ['SAI', 'MKR', 'WBTC', 'USDC', 'USDT', 'KNC', 'BNT', 'LINK', 'DAI', 'TUSD', 'BAT', 'RLC', 'ENG', 'REP', 'REN', 'ENJ', 'ZRX', 'XDCE', 'ANT', 'TKN', 'LEND', 'MANA', 'OMG', 'LRC', 'NMR', 'PAX', 'RPL', 'SPANK', 'RCN', 'SNT', 'RDN', 'NEXO']
 # LOW_LIQUIDITY_TOKENS = ['KNC', 'BAT', 'RLC', 'ENG', 'ZRX', 'MANA', 'OMG']
-test_get_quote(['REPV2'], trade_size=10.0, verbose=True, debug=True)
+# test_get_quote(['REPV2'], trade_size=10.0, verbose=True, debug=True)
 # test_get_quote(['DAI'], trade_size=10.0, dex='Uniswap', verbose=True, debug=True)
