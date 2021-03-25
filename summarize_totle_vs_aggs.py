@@ -444,6 +444,7 @@ def do_summary_erc20_pairs(csv_files):
 
     select_samples = defaultdict(list)
     data_points, single_data_points, multi_data_points = 0, 0, 0
+    data_points_by_agg = defaultdict(int)
 
     agg_names = set()
 
@@ -470,12 +471,13 @@ def do_summary_erc20_pairs(csv_files):
                 if len(agg_splits) > 1: split_count_by_agg[agg][trade_size] += 1
                 else: non_split_count_by_agg[agg][trade_size] += 1
                 data_points += 1
+                data_points_by_agg[agg] += 1
 
                 # ******************* Select Samples (saves all samples) **************************
                 # if totle_splits == agg_splits and totle_price / agg_price > 1.05: # same split diff price indicates price data discrepancy
                 # if totle_price / agg_price > 1.05 and totle_splits != agg_splits and trade_size == 100 and to_token == 'REP' and agg not in ['1-Inch', '1-Inch V2']:
-                if id == '0x49a6c1f9578d48f5bb855ebe0b59cb5cff0caec8f7474e2aa0720763b0f55fff':
-                # if from_token == 'USDT' and to_token == 'USDC' and (trade_size > 3999000 and trade_size < 4100999) and totle_price / agg_price > 1.1:
+                # if id == '0x49a6c1f9578d48f5bb855ebe0b59cb5cff0caec8f7474e2aa0720763b0f55fff':
+                if from_token == 'UNI' and to_token == 'ETH' and totle_price / agg_price > 1.1:
                     key = (pair, trade_size, agg)
                     select_samples[key].append((id, totle_price, totle_splits, agg_price, agg_splits))
 
@@ -502,6 +504,7 @@ def do_summary_erc20_pairs(csv_files):
     trade_sizes = sorted_trade_sizes(*per_pair_savings.values())
 
     print_data_points(data_points, single_data_points, multi_data_points, timestamp_by_id)
+    for agg in agg_names: print(f"{agg}: {data_points_by_agg[agg]}")
 
     if True:
         print_savings_summary_table_csv(aggregated_savings(per_pair_savings), agg_names, label="Average Savings (all samples)")
@@ -799,8 +802,10 @@ def main():
 
     pre_pmm_files = glob.glob(f'outputs/mar-20/pre-pmm-uniq/*.csv')
     post_pmm_files = glob.glob(f'outputs/mar-20/post-pmm-uniq/*.csv')
-    do_summary_erc20_pairs(tuple(pre_pmm_files))
+    post_fix_files = glob.glob(f'outputs/totle_vs_agg_metamask_top_pairs_2021-03-24*csv')
+    # do_summary_erc20_pairs(tuple(pre_pmm_files))
     # do_summary_erc20_pairs(tuple(post_pmm_files))
+    do_summary_erc20_pairs(tuple(post_fix_files))
 
 if __name__ == "__main__":
     main()
