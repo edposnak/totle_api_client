@@ -229,14 +229,14 @@ def get_savings(exchange, exchange_price, totle_quote, token, trade_size, order_
 
 
 def print_savings(order_type, savings, trade_sizes, title="Savings"):
-    """Prints a savings dict, token => trade_size => savings values"""
+    """Prints a savings dict, token_or_pair => trade_size => savings values"""
     ph = lambda x: f"{x:>8}"
     pf = lambda x: f"{x:>8.2f}"
     print(f"\n{title}\n{order_type.upper():<8}", ''.join(map(ph, trade_sizes)))
-    for base, ts_savings in savings.items():
+    for token_or_pair, ts_savings in savings.items():
         vals = [ ts_savings.get(ts) for ts in trade_sizes ]
         str_vals = [pf(v['pct_savings']) if v else ph('-') for v in vals]
-        print(f"{base:<8}", ''.join(str_vals))
+        print(f"{str(token_or_pair):<8}", ''.join(str_vals))
 
 def get_pct_savings(base_price, competitor_price):
     return 100 - (100.0 * base_price / competitor_price)
